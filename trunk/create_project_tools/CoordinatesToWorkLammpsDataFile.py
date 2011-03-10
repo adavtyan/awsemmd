@@ -87,14 +87,14 @@ atoms = []
 bonds = []
 groups = []
 
-fix_string = "2 alpha_carbons backbone beta_atoms oxegens fix_backbone_coeff.data " + seq_file
+fix_string = "2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data " + seq_file
 if go:
 	fix_string = "2 alpha_carbons gomodel fix_gomodel_coeff.data"
 
 groups.append(["alpha_carbons", "id"])
 if not go:
 	groups.append(["beta_atoms", "id"])
-	groups.append(["oxegens", "id"])
+	groups.append(["oxygens", "id"])
 
 inp = open(inp_file)
 atom_type = 0

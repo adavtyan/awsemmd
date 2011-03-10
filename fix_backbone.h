@@ -103,7 +103,7 @@ public:
   char se[1000]; // Protein sequance
   
  private:
-  void compute_backbond();
+  void compute_backbone();
   void compute_chain_potential(int i);
   void compute_shake(int i);
   void compute_chi_potential(int i);

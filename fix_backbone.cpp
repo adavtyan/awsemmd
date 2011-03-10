@@ -2017,7 +2017,7 @@ void FixBackbone::compute_amh_go_model()
         jmol = atom->molecule[j];
         
         // atom j is either C-Alpha or C-Bata
-        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jmol-1]!='G') ) && abs(i-j)>2 ) {
+        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jmol-1]!='G') ) && abs(imol-jmol)>2 ) {
           xj[0] = x[j][0];
           xj[1] = x[j][1];
           xj[2] = x[j][2];
@@ -2035,7 +2035,7 @@ void FixBackbone::compute_amh_go_model()
           if (r<amh_go_rc) {            
             amhgo_sigma_sq = pow(abs(imol-jmol), 0.3);
 //            amhgo_gamma = (abs(imol-jmol)<5 ? k_amh_go[0] : k_amh_go[1]);
-            amhgo_gamma = amh_go_gamma->getGamma(imol, jmol);
+            amhgo_gamma = amh_go_gamma->getGamma(se[imol-1], se[jmol-1], imol, jmol);
             if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
             
             if (mask[i]&groupbit) iatom = m_amh_go->FM_CA; else iatom = m_amh_go->FM_CB;
@@ -2077,7 +2077,7 @@ void FixBackbone::compute_amh_go_model()
   }
 }
 
-void FixBackbone::compute_backbond()
+void FixBackbone::compute_backbone()
 {
 	ntimestep = update->ntimestep;
 
@@ -2203,7 +2203,7 @@ void FixBackbone::compute_backbond()
  	  if (burial_flag && res_info[i]==LOCAL)
       compute_burial_potential(i);
     
-    if (helix_flag && i<nn-helix_i_diff-1 && res_info[i]==LOCAL)
+    if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
 			compute_helix_potential(i, i+helix_i_diff);
 	}
 
@@ -2224,7 +2224,7 @@ void FixBackbone::compute_backbond()
 
 void FixBackbone::post_force(int vflag)
 {
-	compute_backbond();
+	compute_backbone();
 }
 
 /* ---------------------------------------------------------------------- */

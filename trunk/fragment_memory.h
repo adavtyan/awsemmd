@@ -37,10 +37,11 @@ public:
   int fpos;  // Position of the fragment in the library protein
   int len;   // Length of the fragment
   double Rf(int ires, int iatom, int jres, int jatom);
+  char ThreeLetterToOne(char *tl_resty);
   int min(int, int);
   int max(int, int);
   int error;
-  enum Errors {ERR_NONE=0, ERR_FILE, ERR_ATOM_COUNT};
+  enum Errors {ERR_NONE=0, ERR_FILE, ERR_ATOM_COUNT, ERR_RES};
   enum FM_AtomTypes { FM_CA=1, FM_CB };
 private:
   // rf[0][i][j] are CA-CA (i<j) and CB-CB (i>j) distances
@@ -64,6 +65,7 @@ public:
   double getGamma(int ires_type, int jres_type, int ires, int jres);
   double getGamma(int ires_type, int jres_type, int ifres_type, int jfres_type, int ires, int jres);
   int error;
+  char *se;
   enum Errors {ERR_NONE=0, ERR_FILE, ERR_CLASS_DEF, ERR_GAMMA, ERR_G_CLASS, ERR_ASSIGN, ERR_CALL};
 private:
   double *gamma;

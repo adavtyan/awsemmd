@@ -73,7 +73,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, char *fname)
       if (strcmp(atomty,"CA")==0) {
         if (ires>=len || nca>=len) { error = ERR_ATOM_COUNT; return; }
         se[ires] = ThreeLetterToOne(resty);
-        if (se_buff[ires]=='-') { error = ERR_RES; return; }
+        if (se[ires]=='-') { error = ERR_RES; return; }
         xca[ires][0] = x;
         xca[ires][1] = y;
         xca[ires][2] = z;

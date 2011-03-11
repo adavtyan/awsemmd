@@ -36,6 +36,7 @@ public:
   int mpos;  // Middle residue position (in target)
   int fpos;  // Position of the fragment in the library protein
   int len;   // Length of the fragment
+  char *se;
   double Rf(int ires, int iatom, int jres, int jatom);
   char ThreeLetterToOne(char *tl_resty);
   int min(int, int);

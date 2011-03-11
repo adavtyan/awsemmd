@@ -29,8 +29,6 @@ Last Update: 03/04/2011
 
 #define delta 0.00001
 
-//ofstream out("forces.dat");
-//ofstream out("forces.dat");
 double max_Edssp = 0.0;
 int iEStep = 0;
 
@@ -324,9 +322,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		if (amh_go_gamma->error==amh_go_gamma->ERR_G_CLASS) error->all("AMH_Go: Wrong sequance separation class tag");
 		if (amh_go_gamma->error==amh_go_gamma->ERR_ASSIGN) error->all("AMH_Go: Cannot build gamma array");
     
-		m_amh_go = new Fragment_Memory(0, 0, n, "amh-go.gro");
+    char amhgo_mem_file[] = "amh-go.gro";
+		m_amh_go = new Fragment_Memory(0, 0, n, amhgo_mem_file);
 		if (m_amh_go->error==m_amh_go->ERR_FILE) error->all("Cannot read file amh-go.gro");
 		if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all("AMH_Go: Wrong atom count in memory file");
+		if (m_amh_go->error==m_amh_go->ERR_RES) error->all("AMH_Go: Unknown residue");
 	}
 	
 	if (frag_mem_flag) {
@@ -1980,7 +1980,7 @@ void FixBackbone::compute_helix_potential(int i, int j)
 
 void FixBackbone::compute_amh_go_model()
 {
-  int i, j, k, ii, jj, inum, jnum, imol, jmol, iatom, jatom;
+  int i, j, k, ii, jj, inum, jnum, imol, jmol, iatom, jatom, ires_type, jres_type;
   int *ilist,*jlist,*numneigh,**firstneigh;
   double xi[3], xj[3], dx[3], r, dr, drsq, rnative, amhgo_sigma_sq, amhgo_gamma;
   double Eij, Ei=0.0, E=0.0, force, factor;
@@ -2000,6 +2000,7 @@ void FixBackbone::compute_amh_go_model()
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
     imol = atom->molecule[i];
+    ires_type = se_map[se[imol-1]-'A'];
     
     // atom i is either C-Alpha or C-Bata and is LOCAL
     if ( (mask[i]&groupbit || (mask[i]&group2bit && se[imol-1]!='G') ) && i<nlocal ) {
@@ -2022,6 +2023,7 @@ void FixBackbone::compute_amh_go_model()
       for (jj = 0; jj < jnum; jj++) {
         j = jlist[jj];
         jmol = atom->molecule[j];
+        jres_type = se_map[se[jmol-1]-'A'];
         
         // atom j is either C-Alpha or C-Bata
         if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jmol-1]!='G') ) && abs(imol-jmol)>2 ) {
@@ -2042,7 +2044,7 @@ void FixBackbone::compute_amh_go_model()
           if (r<amh_go_rc) {            
             amhgo_sigma_sq = pow(abs(imol-jmol), 0.3);
 //            amhgo_gamma = (abs(imol-jmol)<5 ? k_amh_go[0] : k_amh_go[1]);
-            amhgo_gamma = amh_go_gamma->getGamma(se[imol-1], se[jmol-1], imol-1, jmol-1);
+            amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, imol-1, jmol-1);
             if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
             
             if (mask[i]&groupbit) iatom = m_amh_go->FM_CA; else iatom = m_amh_go->FM_CB;

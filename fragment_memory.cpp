@@ -43,6 +43,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, char *fname)
   mpos = p + len/2 + len%2;
   fpos = pf;
   
+  se = new char[len];
   rf[0] = new double*[len];
   rf[1] = new double*[len];
   xca = new double*[len];
@@ -71,6 +72,8 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, char *fname)
       x *= 10; y *= 10; z *= 10;
       if (strcmp(atomty,"CA")==0) {
         if (ires>=len || nca>=len) { error = ERR_ATOM_COUNT; return; }
+        se[ires] = ThreeLetterToOne(resty);
+        if (se_buff[ires]=='-') { error = ERR_RES; return; }
         xca[ires][0] = x;
         xca[ires][1] = y;
         xca[ires][2] = z;
@@ -84,7 +87,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, char *fname)
         ncb++;
       }
     }
-  }  
+  }
   fclose(file);
   
   if (nca!=len) { error = ERR_ATOM_COUNT; return; }
@@ -113,6 +116,7 @@ Fragment_Memory::~Fragment_Memory()
 
   delete [] rf[0];
   delete [] rf[1];
+  delete [] se;
 }
 
 double Fragment_Memory::Rf(int ires, int iatom, int jres, int jatom)
@@ -139,6 +143,34 @@ inline int Fragment_Memory::max(int a, int b)
 inline double Fragment_Memory::R(double *r1, double *r2)
 {
   return sqrt((r1[0]-r2[0])*(r1[0]-r2[0]) + (r1[1]-r2[1])*(r1[1]-r2[1]) + (r1[2]-r2[2])*(r1[2]-r2[2]));
+}
+
+char Fragment_Memory::ThreeLetterToOne(char *tl_resty)
+{
+  if (strlen(tl_resty)==3) {
+    if (strcmp(tl_resty,"ALA")==0) return 'A';
+    else if (strcmp(tl_resty,"ARG")==0) return 'R';
+    else if (strcmp(tl_resty,"ASN")==0) return 'N';
+    else if (strcmp(tl_resty,"ASP")==0) return 'D';
+    else if (strcmp(tl_resty,"CYS")==0) return 'C';
+    else if (strcmp(tl_resty,"GLN")==0) return 'Q';
+    else if (strcmp(tl_resty,"GLU")==0) return 'E';
+    else if (strcmp(tl_resty,"GLY")==0) return 'G';
+    else if (strcmp(tl_resty,"HIS")==0) return 'H';
+    else if (strcmp(tl_resty,"ILE")==0) return 'I';
+    else if (strcmp(tl_resty,"LEU")==0) return 'L';
+    else if (strcmp(tl_resty,"LYS")==0) return 'K';
+    else if (strcmp(tl_resty,"MET")==0) return 'M';
+    else if (strcmp(tl_resty,"PHE")==0) return 'F';
+    else if (strcmp(tl_resty,"PRO")==0) return 'P';
+    else if (strcmp(tl_resty,"SER")==0) return 'S';
+    else if (strcmp(tl_resty,"THR")==0) return 'T';
+    else if (strcmp(tl_resty,"TRP")==0) return 'W';
+    else if (strcmp(tl_resty,"TYR")==0) return 'Y';
+    else if (strcmp(tl_resty,"VAL")==0) return 'V';
+  }
+
+  return '-';
 }
 
 // --------------------------------------------------------------------//

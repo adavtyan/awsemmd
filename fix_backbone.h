@@ -25,6 +25,7 @@ namespace LAMMPS_NS {
 
 class FixBackbone : public Fix {
  public:
+  // Standart lammaps interface
   FixBackbone(class LAMMPS *, int, char **);
   ~FixBackbone();
   int setmask();
@@ -40,7 +41,10 @@ class FixBackbone : public Fix {
 
 // private:
 public:
+  // Global energy scale
   double epsilon;
+  
+  // Backbone parameters
   double k_chain[3], k_shake, k_chi, k_rama;
   double k_excluded_C, k_excluded_O;
   double r_ncb0, r_cpcb0, r_ncp0, chi0;
@@ -51,28 +55,49 @@ public:
   static const int i_rp = 6; // Where Proline rama parametors start
   bool ssweight[12];
   double w[12], sigma[12], phiw[12], phi0[12], psiw[12], psi0[12], *aps[12];
+  
+  // Hydrogen bonding parameters
   double hbscl[4][9], sigma_NO, sigma_HO, NO_zero, HO_zero;
   double dssp_hdrgn_cut, pref[2], d_nu0;
+  
+  // P_AP Liquid Crystal potential parameters
   double k_P_AP[3], P_AP_pref, P_AP_cut;
   int i_diff_P_AP, i_med_max, i_med_min;
+  
+  // Water mediated interactions parameters
   double m_anti_HB[20][20][2], m_anti_NHB[20][20][2], m_para_HB[20][20][2];
   double m_para_one[20], m_anti_one[20];
-  double k_water, k_burial;
+  double k_water;
   double well_r_min[5], well_r_max[5], treshold, water_kappa, water_kappa_sigma, burial_kappa;
-  double water_gamma[5][20][20][2], burial_gamma[20][3];
+  double water_gamma[5][20][20][2];
+  
+  // Burial potential parameters
+  double k_burial;
   double burial_ro_min[3], burial_ro_max[3];
+  double burial_gamma[20][3];
+  
+  // Helical hydrogen bonding parameters
   double k_helix, helix_gamma_p, helix_gamma_w, h4prob[20];
   double helix_kappa, helix_kappa_sigma, helix_treshold, helix_cutoff;
+  double helix_sigma_HO, helix_sigma_NO, helix_HO_zero, helix_NO_zero;
   int well_flag[5], n_wells, contact_cutoff, helix_i_diff;
+  
+  // Non-additive AMH-Go parameters
   double k_amh_go, amh_go_rc;
   int amh_go_p;
+  Fragment_Memory *m_amh_go;
   Gamma_Array *amh_go_gamma;
   double **amh_go_force;
   int *amh_go_force_map;
-  double k_frag_mem[2];
-  Fragment_Memory *m_amh_go;
-  int i_fm_min, i_fm_med_min, i_fm_med_max;
+  
+  // Fragment Memory parameters
+  double k_frag_mem;
+//  Fragment_Memory **fm_mem;
+  Gamma_Array *fm_gamma;
   char fmem_file[100];
+  char fm_gamma_file[100];
+  
+  // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
   double foriginal[4],foriginal_all[4];
@@ -82,7 +107,7 @@ public:
   class NeighList *list;         // standard neighbor list used by most pairs
   
   int ntimestep;
-  int n, nn;
+  int n, nn; // n is the total number of residues, nn is the local number of residues
   double an, bn, cn, ap, bp, cp, ah, bh, ch;
   int *alpha_carbons;
   int *beta_atoms;

@@ -199,6 +199,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> helix_cutoff;
 			for (int j=0;j<20;++j)
 				in >> h4prob[j];
+			in >> helix_sigma_HO >> helix_sigma_NO;
+			in >> helix_HO_zero >> helix_NO_zero;
 		} else if (strcmp(varsection, "[AMH-Go]")==0) {
       amh_go_flag = 1;
       fprintf(screen, "AMH-Go flag on\n");
@@ -208,9 +210,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(varsection, "[Fragment_Memory]")==0) {
       frag_mem_flag = 1;
       fprintf(screen, "Fragment_Memory flag on\n");
-      in >> k_frag_mem[0] >> k_frag_mem[1];
-      in >> i_fm_min >> i_fm_med_min >> i_fm_med_max;
+      in >> k_frag_mem;
       in >> fmem_file;
+      in >> fm_gamma_file;
 		} else if (strcmp(varsection, "[Epsilon]")==0)
 			in >> epsilon;
 		varsection[0]='\0'; // Clear buffer
@@ -314,7 +316,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	}
 	
 	if (amh_go_flag) {
-		amh_go_gamma = new Gamma_Array("amh-go.gamma");
+	  char amhgo_gamma_file[] = "amh-go.gamma";
+		amh_go_gamma = new Gamma_Array(amhgo_gamma_file);
 		if (amh_go_gamma->error==amh_go_gamma->ERR_FILE) error->all("Cannot read file amh-go.gamma");
 		if (amh_go_gamma->error==amh_go_gamma->ERR_CLASS_DEF) error->all("AMH_Go: Wrong definition of sequance separation classes");
 		if (amh_go_gamma->error==amh_go_gamma->ERR_GAMMA) error->all("AMH_Go: Incorrect entery in gamma file");
@@ -324,6 +327,15 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		m_amh_go = new Fragment_Memory(0, 0, n, "amh-go.gro");
 		if (m_amh_go->error==m_amh_go->ERR_FILE) error->all("Cannot read file amh-go.gro");
 		if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all("AMH_Go: Wrong atom count in memory file");
+	}
+	
+	if (frag_mem_flag) {
+    fm_gamma = new Gamma_Array(fm_gamma_file);
+		if (fm_gamma->error==fm_gamma->ERR_FILE) error->all("Fragment_Memory: Cannot read gamma file");
+		if (fm_gamma->error==fm_gamma->ERR_CLASS_DEF) error->all("Fragment_Memory: Wrong definition of sequance separation classes");
+		if (fm_gamma->error==fm_gamma->ERR_GAMMA) error->all("Fragment_Memory: Incorrect entery in gamma file");
+		if (fm_gamma->error==fm_gamma->ERR_G_CLASS) error->all("Fragment_Memory: Wrong sequance separation class tag");
+		if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all("Fragment_Memory: Cannot build gamma array");
 	}
 }
 
@@ -1862,11 +1874,6 @@ void FixBackbone::compute_burial_potential(int i)
 void FixBackbone::compute_helix_potential(int i, int j)
 {
 	if (R->rNO(i, j)>helix_cutoff) return;
-
-	if (!dssp_hdrgn_flag) {
-		sigma_HO = 0.76; sigma_NO = 0.68;
-   	HO_zero = 2.06; NO_zero = 2.98;
-	}
 	
 	double R_NO, R_HO, xNO[3], xHO[3], dx[3];
 	double pair_theta, prd_pair_theta[2], prob_sum;
@@ -1894,10 +1901,10 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	xHO[2] = xo[i][2] - xh[j][2];
 	
 	prob_sum = h4prob[ires_type] + h4prob[jres_type];
-	pair_theta = prob_sum*exp( - pow(R_NO - NO_zero, 2)/(2.0*pow(sigma_NO, 2)) - pow(R_HO - HO_zero, 2)/(2.0*pow(sigma_HO, 2)) );
+	pair_theta = prob_sum*exp( - pow(R_NO - helix_NO_zero, 2)/(2.0*pow(helix_sigma_NO, 2)) - pow(R_HO - helix_HO_zero, 2)/(2.0*pow(helix_sigma_HO, 2)) );
 
-	prd_pair_theta[0] = - (R_NO - NO_zero)/(pow(sigma_NO, 2)*R_NO);
-	prd_pair_theta[1] = - (R_HO - HO_zero)/(pow(sigma_HO, 2)*R_HO);
+	prd_pair_theta[0] = - (R_NO - helix_NO_zero)/(pow(helix_sigma_NO, 2)*R_NO);
+	prd_pair_theta[1] = - (R_HO - helix_HO_zero)/(pow(helix_sigma_HO, 2)*R_HO);
 	
 	if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
 	else { xi = xcb[i]; iatom  = beta_atoms[i]; }
@@ -2035,7 +2042,7 @@ void FixBackbone::compute_amh_go_model()
           if (r<amh_go_rc) {            
             amhgo_sigma_sq = pow(abs(imol-jmol), 0.3);
 //            amhgo_gamma = (abs(imol-jmol)<5 ? k_amh_go[0] : k_amh_go[1]);
-            amhgo_gamma = amh_go_gamma->getGamma(se[imol-1], se[jmol-1], imol, jmol);
+            amhgo_gamma = amh_go_gamma->getGamma(se[imol-1], se[jmol-1], imol-1, jmol-1);
             if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
             
             if (mask[i]&groupbit) iatom = m_amh_go->FM_CA; else iatom = m_amh_go->FM_CB;

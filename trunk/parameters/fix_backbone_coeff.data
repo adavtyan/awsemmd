@@ -105,3 +105,18 @@
 1r69.mem
 1r69.gamma
 
+#[Solvent_Barrier]
+K
+Kappa
+Rmin Rmax
+Min(I-J)
+SWITCH for residue type specifc case
+residue radii
+
+[Solvent_Barrier]
+1.0
+5.0
+3.0 8.0
+13
+1
+0.00 2.04 0.57 0.57 0.36 1.11 1.17 -1.52 0.87 0.67 0.79 1.47 1.03 1.00 -0.10 0.26 0.37 1.21 1.15 0.39

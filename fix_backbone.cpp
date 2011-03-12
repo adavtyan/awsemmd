@@ -68,9 +68,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
 	abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
 	ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = 0;
-	epsilon = 1.0;
-	p = 2;
-	
+	ssb_flag = 0;
+	epsilon = 1.0; // general energy scale
+	p = 2; // for excluded volume
+
+	// backbone geometry coefficients
 	an = 0.4831806; bn = 0.7032820; cn = -0.1864262;
 	ap = 0.4436538; bp = 0.2352006; cp = 0.3211455;
 	ah = 0.8409657; bh = 0.8929599; ch = -0.7338894;
@@ -211,6 +213,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_frag_mem;
       in >> fmem_file;
       in >> fm_gamma_file;
+	} else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
+	  ssb_flag = 1;
+	  fprintf(screen, "Solvent separated barrier flag on\n");
+	  in >> k_solventb;
+	  in >> ssb_kappa;
+	  in >> ssb_rmin0 >> ssb_rmax0;
+	  in >> ssb_ij_sep;
+	  in >> ssb_rad_cor;
+	  for (int j=0;j<20;++j)
+		in >> ssb_rshift[j];
 		} else if (strcmp(varsection, "[Epsilon]")==0)
 			in >> epsilon;
 		varsection[0]='\0'; // Clear buffer
@@ -2086,6 +2098,61 @@ void FixBackbone::compute_amh_go_model()
   }
 }
 
+void FixBackbone::compute_solvent_barrier(int i, int j)
+{
+  if (abs(res_no[j]-res_no[i])<ssb_ij_sep) return;
+
+  double dx[3], force;
+  double *xi, *xj, r, rmin, rmax, rshift;
+  double t_min, t_max, theta;
+  int iatom, jatom;
+  
+  int i_resno = res_no[i]-1;
+  int j_resno = res_no[j]-1;
+  
+  int ires_type = se_map[se[i_resno]-'A'];
+  int jres_type = se_map[se[j_resno]-'A'];
+  
+  if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
+  else { xi = xcb[i]; iatom  = beta_atoms[i]; }
+  if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
+  else { xj = xcb[j]; jatom  = beta_atoms[j]; }
+  
+  dx[0] = xi[0] - xj[0];
+  dx[1] = xi[1] - xj[1];
+  dx[2] = xi[2] - xj[2];
+
+  r=sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+  rmin=ssb_rmin0;
+  rmax=ssb_rmax0;
+  if(ssb_rad_cor){
+	rshift=ssb_rshift[ires_type]+ssb_rshift[jres_type];
+	rmin+=rshift;
+	rmax+=rshift;
+  }
+
+  // apply a distance cutoff criterion, cutoff = rmax + 10/kappa
+  if(r>rmax+10/ssb_kappa) return;
+
+  t_min=tanh(ssb_kappa*(r-rmin));
+  t_max=tanh(ssb_kappa*(rmax-r));
+
+  theta=0.5*(t_min+t_max);
+
+  foriginal[0] += -epsilon*k_solventb*theta;
+
+  force = epsilon*k_solventb*ssb_kappa*theta*(t_max-t_min)/r;
+
+  f[iatom][0] += force*dx[0];
+  f[iatom][1] += force*dx[1];
+  f[iatom][2] += force*dx[2];
+
+  f[iatom][0] += -force*dx[0];
+  f[iatom][1] += -force*dx[1];
+  f[iatom][2] += -force*dx[2];
+}
+
 void FixBackbone::compute_backbone()
 {
 	ntimestep = update->ntimestep;
@@ -2095,8 +2162,8 @@ void FixBackbone::compute_backbone()
 	Construct_Computational_Arrays();
 
 	x = atom->x;
-  f = atom->f;
-  image = atom->image;
+	f = atom->f;
+	image = atom->image;
 
 	int i, j, xbox, ybox, zbox;
 	int i_resno, j_resno;
@@ -2206,7 +2273,10 @@ void FixBackbone::compute_backbone()
 				compute_P_AP_potential(i, j);
 
 			if (water_flag && abs(j_resno-i_resno)>=contact_cutoff && res_info[i]==LOCAL)
-				compute_water_potential(i, j);
+			  compute_water_potential(i, j);
+
+			if (ssb_flag && abs(j_resno-i_resno)>=ssb_ij_sep && res_info[i]==LOCAL)
+			  compute_solvent_barrier(i, j);
 		}
 		
  	  if (burial_flag && res_info[i]==LOCAL)

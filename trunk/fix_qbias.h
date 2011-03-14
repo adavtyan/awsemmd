@@ -76,6 +76,7 @@ private:
   inline double PeriodicityCorrection(double d, int i);
   inline bool isFirst(int index);
   inline bool isLast(int index);
+  inline void print_log(char *line);
 
   int Step;
   int sStep, eStep;

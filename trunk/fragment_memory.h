@@ -30,12 +30,13 @@ int four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4
 
 class Fragment_Memory {
 public:
-  Fragment_Memory(int p, int pf, int l, char *fname);
+  Fragment_Memory(int p, int pf, int l, double w, char *fname);
   ~Fragment_Memory();
-  int pos;   // Position of the first residue in target sequance
-  int mpos;  // Middle residue position (in target)
-  int fpos;  // Position of the fragment in the library protein
-  int len;   // Length of the fragment
+  int pos;    // Position of the first residue in target sequance
+  int mpos;   // Middle residue position (in target)
+  int fpos;   // Position of the fragment in the library protein
+  int len;    // Length of the fragment
+  double weight;  // Weight for the particular fragment
   char *se;
   double Rf(int ires, int iatom, int jres, int jatom);
   char ThreeLetterToOne(char *tl_resty);
@@ -65,6 +66,9 @@ public:
   double getGamma(int ires, int jres);
   double getGamma(int ires_type, int jres_type, int ires, int jres);
   double getGamma(int ires_type, int jres_type, int ifres_type, int jfres_type, int ires, int jres);
+  bool isEmptyString(char *str);
+  int minSep();
+  int maxSep();
   int error;
   char *se;
   enum Errors {ERR_NONE=0, ERR_FILE, ERR_CLASS_DEF, ERR_GAMMA, ERR_G_CLASS, ERR_ASSIGN, ERR_CALL};

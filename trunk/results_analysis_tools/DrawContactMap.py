@@ -1,4 +1,13 @@
-#!/shared/local/bin/python
+#!/usr/bin/python
+
+# ----------------------------------------------------------------------
+# Copyright (2010) Aram Davtyan and Garegin Papoian
+
+# Papoian's Group, University of Maryland at Collage Park
+# http://papoian.chem.umd.edu/
+
+# Last Update: 03/04/2011
+# ----------------------------------------------------------------------
 
 from pylab import *
 

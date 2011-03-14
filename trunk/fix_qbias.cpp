@@ -29,6 +29,12 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
+inline void FixQBias::print_log(char *line)
+{
+  if (screen) fprintf(screen, line);
+  if (logfile) fprintf(logfile, line);
+}
+
 FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
@@ -65,12 +71,14 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 			in >> epsilon;
 		} else if (strcmp(varsection, "[QBias]")==0) {
 			qbias_flag = 1;
+			print_log("QBias flag on\n");
 			in >> k_qbias;
 			in >> q0;
 			in >> l;
 			in >> sigma;
 		}  else if (strcmp(varsection, "[QBias_Exp]")==0) {
 			qbias_exp_flag = 1;
+			print_log("QBias_Exp flag on\n");
 			in >> k_qbias;
 			in >> q0;
 			in >> l;
@@ -78,6 +86,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 		}
 	}
 	in.close();
+	print_log("\n");
 
 	ifstream in_rnative("rnative.dat");
 	for (i=0;i<n;++i)

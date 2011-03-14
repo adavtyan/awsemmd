@@ -1,4 +1,13 @@
-#!/shared/local/bin/python
+#!/usr/bin/python
+
+# ----------------------------------------------------------------------
+# Copyright (2010) Aram Davtyan and Garegin Papoian
+
+# Papoian's Group, University of Maryland at Collage Park
+# http://papoian.chem.umd.edu/
+
+# Last Update: 03/04/2011
+# ----------------------------------------------------------------------
 
 import sys
 from VectorAlgebra import *
@@ -131,10 +140,11 @@ for av in sys.argv:
 
 output_fn = ""
 if len(sys.argv)>2: output_fn = sys.argv[2]
-if output_fn[-4:]==".pdb": output_fn = output_fn[:-4]
+if output_fn[-6:]==".coord": output_fn = output_fn[:-6]
 
 if output_fn!="" and not splite:
-    out = open( (output_fn), 'w' )
+    out = open( (output_fn+".coord"), 'w' )
+    se_out = open( (output_fn+".seq"), 'w' )
 
 s = p.get_structure(struct_id, filename)
 chains = s[0].get_list()
@@ -201,13 +211,16 @@ for ch in chains:
                 file_name = output_fn
             else:
                 file_name = output_fn+"_"+ch.get_id()
-            out = open( file_name, 'w' )
+            out = open( file_name+".coord", 'w' )
+            se_out = open( (file_name+".seq"), 'w' )
+        se_out.write(three2one(sequance))
         for iAtm in atoms:
             iAtm.write_(out)
         if splite:
             out.write('\n')
         if splite:
             out.close()
+            se_out.close()
     else:
         print three2one(sequance)
         for iAtm in atoms:
@@ -215,3 +228,4 @@ for ch in chains:
 
 if output_fn!="" and not splite:
     out.close()
+    se_out.close()

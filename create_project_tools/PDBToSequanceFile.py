@@ -1,4 +1,13 @@
-#!/shared/local/bin/python
+#!/usr/bin/python
+
+# ----------------------------------------------------------------------
+# Copyright (2010) Aram Davtyan and Garegin Papoian
+
+# Papoian's Group, University of Maryland at Collage Park
+# http://papoian.chem.umd.edu/
+
+# Last Update: 03/04/2011
+# ----------------------------------------------------------------------
 
 import sys
 from VectorAlgebra import *
@@ -27,7 +36,6 @@ def three2one(prot):
 if len(sys.argv)==1:
     print "\nReadingPDBFile.py PDB_Id [Output_file [-s]]\n"
     print "-s\tSplit into files for each chain"
-#    sys.argv.append("1BG8")
     exit()
 
 from Bio.PDB.PDBParser import PDBParser

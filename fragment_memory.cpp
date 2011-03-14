@@ -28,7 +28,7 @@ int fm_se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15
 // 4) HPB: Hydrophobic (CYS, ILE, LEU, MET, PHE, TRP, TYR, VAL) or (C, I, L, M, F, W, Y, V)  or {4, 9, 10, 12, 13, 17, 18, 19}
 int four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4, 4};
 
-Fragment_Memory::Fragment_Memory(int p, int pf, int l, char *fname)
+Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
 {
   int i, j, nAtoms, ires, iatom, nca=0, ncb=0;
   double x, y, z, **xca, **xcb;
@@ -42,6 +42,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, char *fname)
   len = l;
   mpos = p + len/2 + len%2;
   fpos = pf;
+  weight = w;
   
   se = new char[len];
   rf[0] = new double*[len];
@@ -170,7 +171,7 @@ char Fragment_Memory::ThreeLetterToOne(char *tl_resty)
     else if (strcmp(tl_resty,"VAL")==0) return 'V';
   }
 
-  return '-';
+  return '?';
 }
 
 // --------------------------------------------------------------------//
@@ -198,6 +199,7 @@ Gamma_Array::Gamma_Array(char *fname)
   iline = 0;
   while ( fgets ( line, sizeof line, file ) != NULL ) {
     if (line[0]=='#') continue;
+    if (isEmptyString(line)) continue;
     
     if (iline==0) {
       ns = 0;
@@ -216,7 +218,7 @@ Gamma_Array::Gamma_Array(char *fname)
       fgetpos (file,&pos);
     } else {
       nbuf=0;
-      st=strtok (line," \t");
+      st=strtok (line," \t\n");
       while ( st!=NULL ) {
         strcpy(buf[nbuf], st);
         nbuf++;
@@ -255,6 +257,7 @@ Gamma_Array::Gamma_Array(char *fname)
   fsetpos (file,&pos);
   while ( fgets ( line, sizeof line, file ) != NULL ) {
     if (line[0]=='#') continue;
+    if (isEmptyString(line)) continue;
     
     if (!frag_resty) {
       iresty = strtok(line," \t\n");
@@ -397,6 +400,29 @@ void Gamma_Array::assign(char* iresty, char* jresty, char* ifresty, char* jfrest
   if (cl>nseq_cl) { error = ERR_ASSIGN; return; }
   
   // Is not complite
+}
+
+bool Gamma_Array::isEmptyString(char *str)
+{
+  int len = strlen(str);
+  
+  if (len==0) return true;
+  
+  for (int i=0;i<len;++i) {
+    if (str[i]!=' ' && str[i]!='\t' && str[i]!='\n') return false;
+  }
+
+  return true;
+}
+
+int Gamma_Array::minSep()
+{
+  return i_sep[0];
+}
+
+int Gamma_Array::maxSep()
+{
+  return i_sep[nseq_cl];
 }
 
 // --------------------------------------------------------------------//

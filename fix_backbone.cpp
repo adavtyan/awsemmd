@@ -20,6 +20,7 @@ Last Update: 03/04/2011
 #include "neigh_request.h"
 #include "group.h"
 #include "domain.h"
+#include "memory.h"
 #include "fstream.h"
 
 #include <iostream.h>
@@ -53,6 +54,12 @@ void itoa(int a, char *buf, int s)
 		i++;
 	}
 	buf[i]='\0';
+}
+
+inline void FixBackbone::print_log(char *line)
+{
+  if (screen) fprintf(screen, line);
+  if (logfile) fprintf(logfile, line);
 }
 
 FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
@@ -97,42 +104,42 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		in >> varsection;
     if (strcmp(varsection, "[ABC]")==0) {
       abc_flag = 1;
-      fprintf(screen, "ABC flag on\n");
+      print_log("ABC flag on\n");
       in >> an >> bn >> cn;
       in >> ap >> bp >> cp;
       in >> ah >> bh >> ch;
 		} else if (strcmp(varsection, "[Chain]")==0) {
 			chain_flag = 1;
-			fprintf(screen, "Chain flag on\n");
+			print_log("Chain flag on\n");
 			in >> k_chain[0] >> k_chain[1] >> k_chain[2]; 
 			in >> r_ncb0 >> r_cpcb0 >> r_ncp0;
 		} else if (strcmp(varsection, "[Shake]")==0) {
 			shake_flag = 1;
-			fprintf(screen, "Shake flag on\n");
+			print_log("Shake flag on\n");
 			in >> k_shake >> r_sh1 >> r_sh2 >> r_sh3;
 		} else if (strcmp(varsection, "[Chi]")==0) {
 			chi_flag = 1;
-			fprintf(screen, "Chi flag on\n");
+			print_log("Chi flag on\n");
 			in >> k_chi >> chi0;
 		} else if (strcmp(varsection, "[Excluded]")==0) {
 			excluded_flag = 1;
-			fprintf(screen, "Excluded flag on\n");
+			print_log("Excluded flag on\n");
 			in >> k_excluded_C >> rC_ex0;
 			in >> k_excluded_O >> rO_ex0;
 		} else if (strcmp(varsection, "[Excluded_P]")==0) {
 			p_excluded_flag = 1;
-			fprintf(screen, "Excluded_P flag on\n");
+			print_log("Excluded_P flag on\n");
 			in >> p;
 			in >> k_excluded_C >> rC_ex0;
 			in >> k_excluded_O >> rO_ex0;
 		} else if (strcmp(varsection, "[Excluded_R6]")==0) {
 			r6_excluded_flag = 1;
-			fprintf(screen, "Excluded_R6 flag on\n");
+			print_log("Excluded_R6 flag on\n");
 			in >> k_excluded_C >> rC_ex0;
 			in >> k_excluded_O >> rO_ex0;
 		} else if (strcmp(varsection, "[Rama]")==0) {
 			rama_flag = 1;
-			fprintf(screen, "Rama flag on\n");
+			print_log("Rama flag on\n");
 			in >> k_rama;
 			in >> n_rama_par;
 			for (int j=0;j<n_rama_par;j++) {
@@ -140,19 +147,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			}
 		} else if (strcmp(varsection, "[Rama_P]")==0) {
 			rama_p_flag = 1;
-			fprintf(screen, "Rama_P flag on\n");
+			print_log("Rama_P flag on\n");
 			in >> n_rama_p_par;
 			for (int j=0;j<n_rama_p_par;j++) {
 				in >> w[j+i_rp] >> sigma[j+i_rp] >> phiw[j+i_rp] >> phi0[j+i_rp] >> psiw[j+i_rp] >> psi0[j+i_rp];
 			}
 		} else if (strcmp(varsection, "[SSWeight]")==0) {
 			ssweight_flag = 1;
-			fprintf(screen, "SSWeight flag on\n");
+			print_log("SSWeight flag on\n");
 			for (int j=0;j<12;++j)
 				in >> ssweight[j];
 		} else if (strcmp(varsection, "[Dssp_Hdrgn]")==0) {
 			dssp_hdrgn_flag = 1;
-			fprintf(screen, "Dssp_Hdrgn flag on\n");
+			print_log("Dssp_Hdrgn flag on\n");
 			in >> hbscl[0][0] >> hbscl[0][1];
 			for (int j=0;j<7;++j) in >> hbscl[1][j];
 			for (int j=0;j<9;++j) in >> hbscl[2][j];
@@ -164,7 +171,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> d_nu0;
 		} else if (strcmp(varsection, "[P_AP]")==0) {
 			p_ap_flag = 1;
-			fprintf(screen, "P_AP flag on\n");
+			print_log("P_AP flag on\n");
 			in >> k_P_AP[0] >> k_P_AP[1] >> k_P_AP[2];
 			in >> P_AP_cut;
 			in >> P_AP_pref;
@@ -172,7 +179,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> i_diff_P_AP;
 		} else if (strcmp(varsection, "[Water]")==0) {
 			water_flag = 1;
-			fprintf(screen, "Water flag on\n");
+			print_log("Water flag on\n");
 			in >> k_water;
 			in >> water_kappa >> water_kappa_sigma;
 			in >> treshold;
@@ -182,7 +189,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 				in >> well_r_min[j] >> well_r_max[j] >> well_flag[j];
 		} else if (strcmp(varsection, "[Burial]")==0) {
 			burial_flag = 1;
-			fprintf(screen, "Burial flag on\n");
+			print_log("Burial flag on\n");
 			in >> k_burial;
 			in >> burial_kappa;
 			in >> burial_ro_min[0] >> burial_ro_max[0];
@@ -190,7 +197,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> burial_ro_min[2] >> burial_ro_max[2];
 		} else if (strcmp(varsection, "[Helix]")==0) {
 			helix_flag = 1;
-			fprintf(screen, "Helix flag on\n");
+			print_log("Helix flag on\n");
 			in >> k_helix;
 			in >> helix_gamma_p >> helix_gamma_w;
 			in >> helix_kappa >> helix_kappa_sigma;
@@ -203,32 +210,32 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> helix_HO_zero >> helix_NO_zero;
 		} else if (strcmp(varsection, "[AMH-Go]")==0) {
       amh_go_flag = 1;
-      fprintf(screen, "AMH-Go flag on\n");
+      print_log("AMH-Go flag on\n");
       in >> k_amh_go;
       in >> amh_go_p;
       in >> amh_go_rc;
     } else if (strcmp(varsection, "[Fragment_Memory]")==0) {
       frag_mem_flag = 1;
-      fprintf(screen, "Fragment_Memory flag on\n");
+      print_log("Fragment_Memory flag on\n");
       in >> k_frag_mem;
-      in >> fmem_file;
+      in >> frag_mems_file;
       in >> fm_gamma_file;
-	} else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
-	  ssb_flag = 1;
-	  fprintf(screen, "Solvent separated barrier flag on\n");
-	  in >> k_solventb;
-	  in >> ssb_kappa;
-	  in >> ssb_rmin0 >> ssb_rmax0;
-	  in >> ssb_ij_sep;
-	  in >> ssb_rad_cor;
-	  for (int j=0;j<20;++j)
-		in >> ssb_rshift[j];
+    } else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
+      ssb_flag = 1;
+      print_log("Solvent separated barrier flag on\n");
+      in >> k_solventb;
+      in >> ssb_kappa;
+      in >> ssb_rmin0 >> ssb_rmax0;
+      in >> ssb_ij_sep;
+      in >> ssb_rad_cor;
+      for (int j=0;j<20;++j)
+        in >> ssb_rshift[j];
 		} else if (strcmp(varsection, "[Epsilon]")==0)
 			in >> epsilon;
 		varsection[0]='\0'; // Clear buffer
 	}
 	in.close();
-	fprintf(screen, "\n");
+	print_log("\n");
 		
 	ifstream ins(arg[6]);
 	if (!ins) error->all("Sequence file was not found");
@@ -335,7 +342,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		if (amh_go_gamma->error==amh_go_gamma->ERR_ASSIGN) error->all("AMH_Go: Cannot build gamma array");
     
     char amhgo_mem_file[] = "amh-go.gro";
-		m_amh_go = new Fragment_Memory(0, 0, n, amhgo_mem_file);
+		m_amh_go = new Fragment_Memory(0, 0, n, 1.0, amhgo_mem_file);
 		if (m_amh_go->error==m_amh_go->ERR_FILE) error->all("Cannot read file amh-go.gro");
 		if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all("AMH_Go: Wrong atom count in memory file");
 		if (m_amh_go->error==m_amh_go->ERR_RES) error->all("AMH_Go: Unknown residue");
@@ -348,6 +355,32 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		if (fm_gamma->error==fm_gamma->ERR_GAMMA) error->all("Fragment_Memory: Incorrect entery in gamma file");
 		if (fm_gamma->error==fm_gamma->ERR_G_CLASS) error->all("Fragment_Memory: Wrong sequance separation class tag");
 		if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all("Fragment_Memory: Cannot build gamma array");
+		
+		// read frag_mems_file and create a list of the fragments
+		n_frag_mems = read_mems(frag_mems, frag_mems_file);
+		
+		fprintf(logfile, "\nn_frag_mems%d\n", n_frag_mems);
+		
+		// allocate fram_mem_map and ilen_fm_map
+		ilen_fm_map = new int[n]; // Number of fragments for residue i
+		fram_mem_map = new int*[n]; // Memory Fragments map
+		for (i=0;i<n;++i)
+      ilen_fm_map[i] = 0;
+		
+		// Fill Fragment Memory map
+		int k, pos, len;
+		for (k=0;k<n_frag_mems;++k) {
+      pos = frag_mems[k]->pos;
+      len = frag_mems[k]->len;
+      
+//      for (i=pos; i<pos+len
+      
+/*      if (pos+len>n) error->all("Fragment_Memory: Incorrectly defined memory fragment");
+      for (i=pos; i<pos+len-fm_gamma->minSep(); ++i) {
+        for (j=0; j<MIN(ilen_fm_map[i], len - fm_gamma); ++j) {
+        }
+      }*/
+		}
 	}
 }
 
@@ -395,6 +428,13 @@ FixBackbone::~FixBackbone()
      delete m_amh_go;
      delete amh_go_gamma;
     }    
+    
+    if (frag_mem_flag) {
+      delete fm_gamma;
+      
+      for (int i=0;i<n_frag_mems;i++) delete frag_mems[i];
+      memory->sfree(frag_mems);
+    }
 	}
 }
 
@@ -413,8 +453,8 @@ void FixBackbone::allocate()
 	xcp = new double*[n];
 	xh = new double*[n];
 	
-	water_par = WPV(water_kappa, water_kappa_sigma, treshold);
-	helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold);
+  water_par = WPV(water_kappa, water_kappa_sigma, treshold);
+  helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold);
 
 	p_ap = new cP_AP<double, FixBackbone>(n, n, &ntimestep, this);
 	R = new cR<double, FixBackbone>(n, n, &ntimestep, this);
@@ -658,6 +698,74 @@ inline double FixBackbone::PeriodicityCorrection(double d, int i)
 {
 	if (!periodicity[i]) return d;
 	else return ( d > half_prd[i] ? d - prd[i] : (d < -half_prd[i] ? d + prd[i] : d) );
+}
+
+bool FixBackbone::isEmptyString(char *str)
+{
+  int len = strlen(str);
+  
+  if (len==0) return true;
+  
+  for (int i=0;i<len;++i) {
+    if (str[i]!=' ' && str[i]!='\t' && str[i]!='\n') return false;
+  }
+
+  return true;
+}
+
+int FixBackbone::read_mems(Fragment_Memory **mems_array, char *mems_file)
+{
+  int file_state, n_mems, nstr;
+  int tpos, fpos, len;
+  double weight;
+  char line[100], *str[10];
+  FILE *file;
+  
+  enum File_States{FS_NONE=0, FS_TARGET, FS_MEMS};
+  
+  file = fopen(mems_file,"r");
+  if (!file) error->all("Fragment_Memory: Error opening mem file");
+  
+  n_mems = 0;
+  file_state = FS_NONE;
+  while ( fgets ( line, sizeof line, file ) != NULL ) {
+    if (line[0]=='#') continue;
+    if (line[0]=='[') file_state = FS_NONE;
+    if (isEmptyString(line)) { file_state = FS_NONE; continue; }
+    
+    switch (file_state) {
+      case FS_MEMS:
+        nstr = 1;
+        str[nstr-1] = strtok(line," \t\n");
+        while ( str[nstr-1]!=NULL ) {
+          nstr++;
+          if (nstr>5) break;
+          str[nstr-1] = strtok(NULL," \t\n");
+        }
+        if (nstr!=5) error->all("Fragment_Memory: Error reading mem file");
+        
+        tpos = atoi(str[1]);
+        fpos = atoi(str[2]);
+        len = atoi(str[3]);
+        weight = atof(str[4]);
+        
+        n_mems++;
+        mems_array = (Fragment_Memory **) memory->srealloc(mems_array,n_mems*sizeof(Fragment_Memory *),"modify:mems_array");
+        mems_array[n_mems-1] = new Fragment_Memory(tpos, fpos, len, weight, str[0]);
+        
+        break;
+      case FS_NONE:
+        if (strcmp(line, "[Target]")==0)
+          file_state = FS_TARGET;
+        else if (strcmp(line, "[Memories]")==0)
+          file_state = FS_MEMS;
+        break;
+    }
+  }
+  
+  fclose(file);
+  
+  return n_mems;
 }
 
 void FixBackbone::compute_chain_potential(int i)
@@ -2038,7 +2146,7 @@ void FixBackbone::compute_amh_go_model()
         jres_type = se_map[se[jmol-1]-'A'];
         
         // atom j is either C-Alpha or C-Bata
-        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jmol-1]!='G') ) && abs(imol-jmol)>2 ) {
+        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jmol-1]!='G') ) && abs(imol-jmol)>=amh_go_gamma->minSep() ) {
           xj[0] = x[j][0];
           xj[1] = x[j][1];
           xj[2] = x[j][2];
@@ -2055,7 +2163,6 @@ void FixBackbone::compute_amh_go_model()
           
           if (r<amh_go_rc) {            
             amhgo_sigma_sq = pow(abs(imol-jmol), 0.3);
-//            amhgo_gamma = (abs(imol-jmol)<5 ? k_amh_go[0] : k_amh_go[1]);
             amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, imol-1, jmol-1);
             if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
             
@@ -2096,6 +2203,94 @@ void FixBackbone::compute_amh_go_model()
       E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p);
     }
   }
+  
+  foriginal[0] += E;
+}
+
+void FixBackbone::compute_fragment_memory_potential(int i)
+{
+  int ii, jj, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
+  int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
+  double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, energy, force;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight_gamma;
+  Fragment_Memory *frag;
+  
+  i_first_res = i - (frag->len - 1)/2;
+  i_last_res = i_first_res + frag->len -1; 
+  
+  if ( i_first_res<0 || res_no[i_first_res]-1!=frag->pos ) error->all("Missing residues in memory potential");
+  if ( i_last_res>=nn || res_no[i_last_res]-1!=frag->pos+frag->pos-1 ) error->all("Missing residues in memory potential");
+  
+  for (ii=i_first_res;ii<=i_last_res;++ii) {
+    i_resno = res_no[ii]-1;
+    ires_type = se_map[se[i_resno]-'A'];
+    
+    for (jj=i_first_res;jj<=i_last_res;++jj) {
+      j_resno = res_no[jj]-1;
+      jres_type = se_map[se[j_resno]-'A'];
+      
+      fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);      
+      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
+      if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Fragment_Memory: Wrong call of getGamma() function");
+      
+      epsilon_k_weight_gamma = epsilon*k_frag_mem*frag->weight*frag_mem_gamma;
+      
+      xi[0] = xca[ii];
+      xi[1] = xca[ii];
+      xi[2] = xcb[ii];
+      xi[3] = xcb[ii];
+      
+      xj[0] = xca[jj];
+      xj[1] = xcb[jj];
+      xj[2] = xca[jj];
+      xj[3] = xcb[jj];
+      
+      iatom[0] = alpha_carbons[ii];
+      iatom[1] = alpha_carbons[ii];
+      iatom[2] = beta_atoms[ii];
+      iatom[3] = beta_atoms[ii];
+      
+      jatom[0] = alpha_carbons[jj];
+      jatom[1] = beta_atoms[jj];
+      jatom[2] = alpha_carbons[jj];
+      jatom[3] = beta_atoms[jj];
+      
+      iatom_type[0] = frag->FM_CA;
+      iatom_type[1] = frag->FM_CA;
+      iatom_type[2] = frag->FM_CB;
+      iatom_type[3] = frag->FM_CB;
+      
+      jatom_type[0] = frag->FM_CA; 
+      jatom_type[1] = frag->FM_CB; 
+      jatom_type[2] = frag->FM_CA; 
+      jatom_type[3] = frag->FM_CB;
+      
+      for (k=0;k<4;++k) {      
+        dx[0] = xi[k][0] - xj[k][0];
+        dx[1] = xi[k][1] - xj[k][1];
+        dx[2] = xi[k][2] - xj[k][2];
+
+        r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+        rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+        dr = r - rf;
+        drsq = dr*dr;
+        
+        energy = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+        
+        foriginal[0] += energy;
+        
+        force = energy*dr/(fm_sigma_sq*r);
+        
+        f[iatom[k]][0] += force*dx[0];
+        f[iatom[k]][1] += force*dx[1];
+        f[iatom[k]][2] += force*dx[2];
+        
+        f[jatom[k]][0] += -force*dx[0];
+        f[jatom[k]][1] += -force*dx[1];
+        f[jatom[k]][2] += -force*dx[2];
+      }
+    }
+  }
 }
 
 void FixBackbone::compute_solvent_barrier(int i, int j)
@@ -2122,23 +2317,23 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
   dx[1] = xi[1] - xj[1];
   dx[2] = xi[2] - xj[2];
 
-  r=sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+  r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
-  rmin=ssb_rmin0;
-  rmax=ssb_rmax0;
+  rmin = ssb_rmin0;
+  rmax = ssb_rmax0;
   if(ssb_rad_cor){
-	rshift=ssb_rshift[ires_type]+ssb_rshift[jres_type];
-	rmin+=rshift;
-	rmax+=rshift;
+    rshift = ssb_rshift[ires_type]+ssb_rshift[jres_type];
+    rmin += rshift;
+    rmax += rshift;
   }
 
   // apply a distance cutoff criterion, cutoff = rmax + 10/kappa
   if(r>rmax+10/ssb_kappa) return;
 
-  t_min=tanh(ssb_kappa*(r-rmin));
-  t_max=tanh(ssb_kappa*(rmax-r));
+  t_min = tanh(ssb_kappa*(r-rmin));
+  t_max = tanh(ssb_kappa*(rmax-r));
 
-  theta=0.5*(t_min+t_max);
+  theta = 0.5*(t_min+t_max);
 
   foriginal[0] += -epsilon*k_solventb*theta;
 

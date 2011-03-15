@@ -357,30 +357,43 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all("Fragment_Memory: Cannot build gamma array");
 		
 		// read frag_mems_file and create a list of the fragments
-		n_frag_mems = read_mems(frag_mems, frag_mems_file);
-		
-		fprintf(logfile, "\nn_frag_mems%d\n", n_frag_mems);
+		 frag_mems = read_mems(frag_mems_file, n_frag_mems);
 		
 		// allocate fram_mem_map and ilen_fm_map
 		ilen_fm_map = new int[n]; // Number of fragments for residue i
 		fram_mem_map = new int*[n]; // Memory Fragments map
-		for (i=0;i<n;++i)
+		for (i=0;i<n;++i) {
       ilen_fm_map[i] = 0;
+      fram_mem_map[i] = NULL;
+    }
 		
 		// Fill Fragment Memory map
-		int k, pos, len;
+		int k, pos, len, min_sep;
+		min_sep = fm_gamma->minSep();
 		for (k=0;k<n_frag_mems;++k) {
       pos = frag_mems[k]->pos;
       len = frag_mems[k]->len;
       
-//      for (i=pos; i<pos+len
+      if (pos+len>n) error->all("Fragment_Memory: Incorrectly defined memory fragment");
       
-/*      if (pos+len>n) error->all("Fragment_Memory: Incorrectly defined memory fragment");
-      for (i=pos; i<pos+len-fm_gamma->minSep(); ++i) {
-        for (j=0; j<MIN(ilen_fm_map[i], len - fm_gamma); ++j) {
-        }
-      }*/
+      for (i=pos; i<pos+len-min_sep; ++i) {
+        ilen_fm_map[i]++;
+        fram_mem_map[i] = (int *) memory->srealloc(fram_mem_map[i],ilen_fm_map[i]*sizeof(int),"modify:frag_mem_map");
+        fram_mem_map[i][ilen_fm_map[i]-1] = k;
+      }
 		}
+		
+		fprintf(screen, "\n");
+		for (i=0;i<n;i++) {
+      if (ilen_fm_map[i]>0) {
+        fprintf(screen, "%d: ", i);
+        for (j=0;j<ilen_fm_map[i];j++) {
+          fprintf(screen, "%d ", fram_mem_map[i][j]);
+        }
+        fprintf(screen, "\n");
+      }
+		}
+		fprintf(screen, "\n");
 	}
 }
 
@@ -433,7 +446,11 @@ FixBackbone::~FixBackbone()
       delete fm_gamma;
       
       for (int i=0;i<n_frag_mems;i++) delete frag_mems[i];
-      memory->sfree(frag_mems);
+      if (n_frag_mems>0) memory->sfree(frag_mems);
+      
+      for (int i=0;i<n;++i) memory->sfree(fram_mem_map[i]);
+      delete [] fram_mem_map;
+      delete [] ilen_fm_map;
     }
 	}
 }
@@ -713,13 +730,39 @@ bool FixBackbone::isEmptyString(char *str)
   return true;
 }
 
-int FixBackbone::read_mems(Fragment_Memory **mems_array, char *mems_file)
+char *ltrim(char *s) 
+{     
+    while(isspace(*s)) s++;     
+    return s; 
+}  
+
+char *rtrim(char *s) 
 {
-  int file_state, n_mems, nstr;
+    char* back;
+    int len = strlen(s);
+
+    if(len == 0)
+        return(s); 
+
+    back = s + len;     
+    while(isspace(*--back));     
+    *(back+1) = '\0';     
+    return s; 
+}  
+
+char *trim(char *s) 
+{     
+    return rtrim(ltrim(s));  
+} 
+
+Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
+{
+  int file_state, nstr;
   int tpos, fpos, len;
   double weight;
-  char line[100], *str[10];
+  char ln[100], *line, *str[10];
   FILE *file;
+  Fragment_Memory **mems_array = NULL;
   
   enum File_States{FS_NONE=0, FS_TARGET, FS_MEMS};
   
@@ -728,19 +771,21 @@ int FixBackbone::read_mems(Fragment_Memory **mems_array, char *mems_file)
   
   n_mems = 0;
   file_state = FS_NONE;
-  while ( fgets ( line, sizeof line, file ) != NULL ) {
+  while ( fgets ( ln, sizeof ln, file ) != NULL ) {
+    line = trim(ln);
+    
     if (line[0]=='#') continue;
     if (line[0]=='[') file_state = FS_NONE;
     if (isEmptyString(line)) { file_state = FS_NONE; continue; }
-    
+        
     switch (file_state) {
       case FS_MEMS:
-        nstr = 1;
-        str[nstr-1] = strtok(line," \t\n");
-        while ( str[nstr-1]!=NULL ) {
+        nstr = 0;
+        str[nstr] = strtok(line," \t\n");
+        while ( str[nstr]!=NULL ) {
           nstr++;
           if (nstr>5) break;
-          str[nstr-1] = strtok(NULL," \t\n");
+          str[nstr] = strtok(NULL," \t\n");
         }
         if (nstr!=5) error->all("Fragment_Memory: Error reading mem file");
         
@@ -765,7 +810,7 @@ int FixBackbone::read_mems(Fragment_Memory **mems_array, char *mems_file)
   
   fclose(file);
   
-  return n_mems;
+  return mems_array;
 }
 
 void FixBackbone::compute_chain_potential(int i)

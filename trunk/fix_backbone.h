@@ -92,11 +92,11 @@ public:
   
   // Fragment Memory parameters
   double k_frag_mem;
+  int n_frag_mems, **fram_mem_map, *ilen_fm_map;
   Fragment_Memory **frag_mems;
   Gamma_Array *fm_gamma;
   char frag_mems_file[100];
   char fm_gamma_file[100];
-  int n_frag_mems;
 
   // Solvent separated barrier
   double k_solventb;
@@ -168,7 +168,7 @@ public:
   inline double para_one(int res);
   inline double anti_one(int res);
   inline void print_log(char *line);
-  int read_mems(Fragment_Memory **mems_array, char *mems_file);
+  Fragment_Memory **read_mems(char *mems_file, int &n_mems);
   bool isEmptyString(char *str);
 
   cP_AP<double, FixBackbone> *p_ap;

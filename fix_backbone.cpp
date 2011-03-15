@@ -2264,7 +2264,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
   ires_type = se_map[se[i_resno]-'A'];
   
   for (i_fm=0; i_fm<ilen_fm_map[i_resno]; ++i_fm) {
-    frag = frag_mems[ frag_mem_map[i_fm] ];
+    frag = frag_mems[ frag_mem_map[i_resno][i_fm] ];
     
     epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
     
@@ -2282,25 +2282,25 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       
       epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
       
-      xi[0] = xca[ii];
-      xi[1] = xca[ii];
-      xi[2] = xcb[ii];
-      xi[3] = xcb[ii];
+      xi[0] = xca[i];
+      xi[1] = xca[i];
+      xi[2] = xcb[i];
+      xi[3] = xcb[i];
       
-      xj[0] = xca[jj];
-      xj[1] = xcb[jj];
-      xj[2] = xca[jj];
-      xj[3] = xcb[jj];
+      xj[0] = xca[j];
+      xj[1] = xcb[j];
+      xj[2] = xca[j];
+      xj[3] = xcb[j];
       
-      iatom[0] = alpha_carbons[ii];
-      iatom[1] = alpha_carbons[ii];
-      iatom[2] = beta_atoms[ii];
-      iatom[3] = beta_atoms[ii];
+      iatom[0] = alpha_carbons[i];
+      iatom[1] = alpha_carbons[i];
+      iatom[2] = beta_atoms[i];
+      iatom[3] = beta_atoms[i];
       
-      jatom[0] = alpha_carbons[jj];
-      jatom[1] = beta_atoms[jj];
-      jatom[2] = alpha_carbons[jj];
-      jatom[3] = beta_atoms[jj];
+      jatom[0] = alpha_carbons[j];
+      jatom[1] = beta_atoms[j];
+      jatom[2] = alpha_carbons[j];
+      jatom[3] = beta_atoms[j];
       
       iatom_type[0] = frag->FM_CA;
       iatom_type[1] = frag->FM_CA;

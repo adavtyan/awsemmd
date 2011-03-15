@@ -122,6 +122,8 @@ Fragment_Memory::~Fragment_Memory()
 
 double Fragment_Memory::Rf(int ires, int iatom, int jres, int jatom)
 {
+  ires -= pos;
+  jres -= pos;
   if (iatom==FM_CA && jatom==FM_CA ) {
     return rf[0][min(ires,jres)][max(ires,jres)];
   } else if (iatom==FM_CB && jatom==FM_CB) {

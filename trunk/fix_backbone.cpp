@@ -359,12 +359,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		// read frag_mems_file and create a list of the fragments
 		 frag_mems = read_mems(frag_mems_file, n_frag_mems);
 		
-		// allocate fram_mem_map and ilen_fm_map
+		// allocate frag_mem_map and ilen_fm_map
 		ilen_fm_map = new int[n]; // Number of fragments for residue i
-		fram_mem_map = new int*[n]; // Memory Fragments map
+		frag_mem_map = new int*[n]; // Memory Fragments map
 		for (i=0;i<n;++i) {
       ilen_fm_map[i] = 0;
-      fram_mem_map[i] = NULL;
+      frag_mem_map[i] = NULL;
     }
 		
 		// Fill Fragment Memory map
@@ -378,8 +378,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       
       for (i=pos; i<pos+len-min_sep; ++i) {
         ilen_fm_map[i]++;
-        fram_mem_map[i] = (int *) memory->srealloc(fram_mem_map[i],ilen_fm_map[i]*sizeof(int),"modify:frag_mem_map");
-        fram_mem_map[i][ilen_fm_map[i]-1] = k;
+        frag_mem_map[i] = (int *) memory->srealloc(frag_mem_map[i],ilen_fm_map[i]*sizeof(int),"modify:frag_mem_map");
+        frag_mem_map[i][ilen_fm_map[i]-1] = k;
       }
 		}
 		
@@ -388,7 +388,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       if (ilen_fm_map[i]>0) {
         fprintf(screen, "%d: ", i);
         for (j=0;j<ilen_fm_map[i];j++) {
-          fprintf(screen, "%d ", fram_mem_map[i][j]);
+          fprintf(screen, "%d ", frag_mem_map[i][j]);
         }
         fprintf(screen, "\n");
       }
@@ -448,8 +448,8 @@ FixBackbone::~FixBackbone()
       for (int i=0;i<n_frag_mems;i++) delete frag_mems[i];
       if (n_frag_mems>0) memory->sfree(frag_mems);
       
-      for (int i=0;i<n;++i) memory->sfree(fram_mem_map[i]);
-      delete [] fram_mem_map;
+      for (int i=0;i<n;++i) memory->sfree(frag_mem_map[i]);
+      delete [] frag_mem_map;
       delete [] ilen_fm_map;
     }
 	}
@@ -2254,31 +2254,33 @@ void FixBackbone::compute_amh_go_model()
 
 void FixBackbone::compute_fragment_memory_potential(int i)
 {
-  int ii, jj, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
+  int j, js, je, i_fm, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
   int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
   double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, energy, force;
-  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight_gamma;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
   Fragment_Memory *frag;
   
-  i_first_res = i - (frag->len - 1)/2;
-  i_last_res = i_first_res + frag->len -1; 
+  i_resno = res_no[i]-1;
+  ires_type = se_map[se[i_resno]-'A'];
   
-  if ( i_first_res<0 || res_no[i_first_res]-1!=frag->pos ) error->all("Missing residues in memory potential");
-  if ( i_last_res>=nn || res_no[i_last_res]-1!=frag->pos+frag->pos-1 ) error->all("Missing residues in memory potential");
-  
-  for (ii=i_first_res;ii<=i_last_res;++ii) {
-    i_resno = res_no[ii]-1;
-    ires_type = se_map[se[i_resno]-'A'];
+  for (i_fm=0; i_fm<ilen_fm_map[i_resno]; ++i_fm) {
+    frag = frag_mems[ frag_mem_map[i_fm] ];
     
-    for (jj=i_first_res;jj<=i_last_res;++jj) {
-      j_resno = res_no[jj]-1;
+    epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
+    
+    js = i+fm_gamma->minSep();
+    je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
+    if (res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
+    
+    for (j=js;j<=je;++j) {
+      j_resno = res_no[i]-1;
       jres_type = se_map[se[j_resno]-'A'];
       
-      fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);      
+      fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
       frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
       if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Fragment_Memory: Wrong call of getGamma() function");
       
-      epsilon_k_weight_gamma = epsilon*k_frag_mem*frag->weight*frag_mem_gamma;
+      epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
       
       xi[0] = xca[ii];
       xi[1] = xca[ii];
@@ -2524,6 +2526,9 @@ void FixBackbone::compute_backbone()
     
     if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
 			compute_helix_potential(i, i+helix_i_diff);
+			
+    if (frag_mem_flag && res_info[i]==LOCAL)
+      compute_fragment_memory_potential(i);
 	}
 
 	if (amh_go_flag)

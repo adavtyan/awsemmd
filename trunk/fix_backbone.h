@@ -92,7 +92,7 @@ public:
   
   // Fragment Memory parameters
   double k_frag_mem;
-  int n_frag_mems, **fram_mem_map, *ilen_fm_map;
+  int n_frag_mems, **frag_mem_map, *ilen_fm_map;
   Fragment_Memory **frag_mems;
   Gamma_Array *fm_gamma;
   char frag_mems_file[100];

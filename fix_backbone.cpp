@@ -382,18 +382,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
         frag_mem_map[i][ilen_fm_map[i]-1] = k;
       }
 		}
-		
-		fprintf(screen, "\n");
-		for (i=0;i<n;i++) {
-      if (ilen_fm_map[i]>0) {
-        fprintf(screen, "%d: ", i);
-        for (j=0;j<ilen_fm_map[i];j++) {
-          fprintf(screen, "%d ", frag_mem_map[i][j]);
-        }
-        fprintf(screen, "\n");
-      }
-		}
-		fprintf(screen, "\n");
 	}
 }
 
@@ -2211,8 +2199,8 @@ void FixBackbone::compute_amh_go_model()
             amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, imol-1, jmol-1);
             if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
             
-            if (mask[i]&groupbit) iatom = m_amh_go->FM_CA; else iatom = m_amh_go->FM_CB;
-            if (mask[j]&groupbit) jatom = m_amh_go->FM_CA; else jatom = m_amh_go->FM_CB;
+            if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
+            if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
             
             rnative = m_amh_go->Rf(imol-1, iatom, jmol-1, jatom);
             dr = r - rnative;
@@ -2260,6 +2248,26 @@ void FixBackbone::compute_fragment_memory_potential(int i)
   double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
   Fragment_Memory *frag;
   
+  iatom_type[0] = Fragment_Memory::FM_CA;
+  iatom_type[1] = Fragment_Memory::FM_CA;
+  iatom_type[2] = Fragment_Memory::FM_CB;
+  iatom_type[3] = Fragment_Memory::FM_CB;
+  
+  jatom_type[0] = Fragment_Memory::FM_CA; 
+  jatom_type[1] = Fragment_Memory::FM_CB; 
+  jatom_type[2] = Fragment_Memory::FM_CA; 
+  jatom_type[3] = Fragment_Memory::FM_CB;
+  
+  xi[0] = xca[i];
+  xi[1] = xca[i];
+  xi[2] = xcb[i];
+  xi[3] = xcb[i];
+  
+  iatom[0] = alpha_carbons[i];
+  iatom[1] = alpha_carbons[i];
+  iatom[2] = beta_atoms[i];
+  iatom[3] = beta_atoms[i];
+  
   i_resno = res_no[i]-1;
   ires_type = se_map[se[i_resno]-'A'];
   
@@ -2270,10 +2278,10 @@ void FixBackbone::compute_fragment_memory_potential(int i)
     
     js = i+fm_gamma->minSep();
     je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
-    if (res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
+    if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
     
     for (j=js;j<=je;++j) {
-      j_resno = res_no[i]-1;
+      j_resno = res_no[j]-1;
       jres_type = se_map[se[j_resno]-'A'];
       
       fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
@@ -2282,37 +2290,20 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       
       epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
       
-      xi[0] = xca[i];
-      xi[1] = xca[i];
-      xi[2] = xcb[i];
-      xi[3] = xcb[i];
-      
       xj[0] = xca[j];
       xj[1] = xcb[j];
       xj[2] = xca[j];
       xj[3] = xcb[j];
-      
-      iatom[0] = alpha_carbons[i];
-      iatom[1] = alpha_carbons[i];
-      iatom[2] = beta_atoms[i];
-      iatom[3] = beta_atoms[i];
       
       jatom[0] = alpha_carbons[j];
       jatom[1] = beta_atoms[j];
       jatom[2] = alpha_carbons[j];
       jatom[3] = beta_atoms[j];
       
-      iatom_type[0] = frag->FM_CA;
-      iatom_type[1] = frag->FM_CA;
-      iatom_type[2] = frag->FM_CB;
-      iatom_type[3] = frag->FM_CB;
-      
-      jatom_type[0] = frag->FM_CA; 
-      jatom_type[1] = frag->FM_CB; 
-      jatom_type[2] = frag->FM_CA; 
-      jatom_type[3] = frag->FM_CB;
-      
-      for (k=0;k<4;++k) {      
+      for (k=0;k<4;++k) {
+        if (se[i_resno]=='G' && iatom_type[k]==frag->FM_CB) continue;
+        if (se[j_resno]=='G' && jatom_type[k]==frag->FM_CB) continue;
+        
         dx[0] = xi[k][0] - xj[k][0];
         dx[1] = xi[k][1] - xj[k][1];
         dx[2] = xi[k][2] - xj[k][2];

@@ -13,6 +13,7 @@ Last Update: 03/04/2011
 #include "fix_backbone.h"
 #include "atom.h"
 #include "update.h"
+#include "output.h"
 #include "respa.h"
 #include "error.h"
 #include "neighbor.h"
@@ -66,6 +67,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
 	if (narg != 7) error->all("Illegal fix backbone command");
+	
+	efile = fopen("energy.log", "w");
+	
+	char eheader[] = "\tStep\tChain\tShake\tChi\tRama\tExcluded\tDSSP\tP_AP\tWater\tBurial\tHelix\tAMH-Go\tFrag_Mem\tSSB\tVTotal\n";
+	fprintf(efile, "%s", eheader);
 
 	scalar_flag = 1;
 	vector_flag = 1;
@@ -236,6 +242,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	}
 	in.close();
 	print_log("\n");
+	
+	int i, j;	
 		
 	ifstream ins(arg[6]);
 	if (!ins) error->all("Sequence file was not found");
@@ -245,6 +253,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	force_flag = 0;
 	n = (int)(group->count(igroup)+1e-12);
 	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
+	for (int i=0;i<nEnergyTerm;++i) energy[i] = 0.0;
 	x = atom->x;
 	f = atom->f;
 	image = atom->image;
@@ -258,8 +267,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	allocated = false;
 	
 	allocate();
-	
-	int i, j;	
 	
 	if (dssp_hdrgn_flag) {
     ifstream in_anti_HB("anti_HB");
@@ -441,6 +448,8 @@ FixBackbone::~FixBackbone()
       delete [] ilen_fm_map;
     }
 	}
+	
+	fclose(efile);
 }
 
 void FixBackbone::allocate()
@@ -801,6 +810,8 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
   return mems_array;
 }
 
+/* ---------------------------------------------------------------------- */
+
 void FixBackbone::compute_chain_potential(int i)
 {	
 	double dx[3], r, dr, force;
@@ -816,7 +827,7 @@ void FixBackbone::compute_chain_potential(int i)
 		dr = r - r_ncb0;
 		force = 2*epsilon*k_chain[0]*dr/r;
 	
-		foriginal[0] += epsilon*k_chain[0]*dr*dr;
+		energy[ET_CHAIN] += epsilon*k_chain[0]*dr*dr;
 	
 		f[alpha_carbons[i-1]][0] -= an*dx[0]*force;
 		f[alpha_carbons[i-1]][1] -= an*dx[1]*force;
@@ -845,7 +856,7 @@ void FixBackbone::compute_chain_potential(int i)
 		dr = r - r_cpcb0;
 		force = 2*epsilon*k_chain[1]*dr/r;
 	
-		foriginal[0] += epsilon*k_chain[1]*dr*dr;
+		energy[ET_CHAIN] += epsilon*k_chain[1]*dr*dr;
 	
 		f[alpha_carbons[i+1]][0] -= bp*dx[0]*force;
 		f[alpha_carbons[i+1]][1] -= bp*dx[1]*force;
@@ -874,7 +885,7 @@ void FixBackbone::compute_chain_potential(int i)
 		dr = r - r_ncp0;
 		force = 2*epsilon*k_chain[2]*dr/r;
 	
-		foriginal[0] += epsilon*k_chain[2]*dr*dr;
+		energy[ET_CHAIN] += epsilon*k_chain[2]*dr*dr;
 	
 		f[alpha_carbons[i-1]][0] -= an*dx[0]*force;
 		f[alpha_carbons[i-1]][1] -= an*dx[1]*force;
@@ -915,7 +926,7 @@ void FixBackbone::compute_shake(int i)
 		dr = r - r_sh1;
 		force = 2*epsilon*k_shake*dr/r;
 		
-		foriginal[0] += epsilon*k_shake*dr*dr;
+		energy[ET_SHAKE] += epsilon*k_shake*dr*dr;
 		
 		f[alpha_carbons[i]][0] -= dx[0]*force;
 		f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -934,7 +945,7 @@ void FixBackbone::compute_shake(int i)
 	dr = r - r_sh2;
 	force = 2*epsilon*k_shake*dr/r;
 	
-	foriginal[0] += epsilon*k_shake*dr*dr;
+	energy[ET_SHAKE] += epsilon*k_shake*dr*dr;
 	
 	f[alpha_carbons[i]][0] -= dx[0]*force;
 	f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -953,7 +964,7 @@ void FixBackbone::compute_shake(int i)
 		dr = r - r_sh3;
 		force = 2*epsilon*k_shake*dr/r;
 		
-		foriginal[0] += epsilon*k_shake*dr*dr;
+		energy[ET_SHAKE] += epsilon*k_shake*dr*dr;
 		
 		f[oxygens[i]][0] -= dx[0]*force;
 		f[oxygens[i]][1] -= dx[1]*force;
@@ -1020,7 +1031,7 @@ void FixBackbone::compute_chi_potential(int i)
 	dchi = chi - chi0;
 	force = 2*epsilon*k_chi*dchi;
 	
-	foriginal[0] += epsilon*k_chi*dchi*dchi;
+	energy[ET_CHI] += epsilon*k_chi*dchi*dchi;
 
 	if (!isFirst(i)) {
 		f[alpha_carbons[i-1]][0] -= -an*bprl[0]*force;
@@ -1183,7 +1194,7 @@ void FixBackbone::compute_rama_potential(int i)
 		force1[PHI] = force*phiw[j]*(cos(phi + phi0[j]) - 1)*sin(phi + phi0[j]);
 		force1[PSI] = force*psiw[j]*(cos(psi + psi0[j]) - 1)*sin(psi + psi0[j]);
 			
-		foriginal[0] += -V;
+		energy[ET_RAMA] += -V;
 		
 		for (ia=0; ia<nAngles; ia++) {
 			for (l=0; l<3; l++) {
@@ -1213,7 +1224,7 @@ void FixBackbone::compute_excluded_volume()
 				dr = r - rC_ex0;
 				force = 2*epsilon*k_excluded_C*dr/r;
 			
-				foriginal[0] += epsilon*k_excluded_C*dr*dr;
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_C*dr*dr;
 				
 				f[alpha_carbons[i]][0] -= dx[0]*force;
 				f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -1235,7 +1246,7 @@ void FixBackbone::compute_excluded_volume()
 				dr = r - rC_ex0;
 				force = 2*epsilon*k_excluded_C*dr/r;
 			
-				foriginal[0] += epsilon*k_excluded_C*dr*dr;
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_C*dr*dr;
 				
 				f[alpha_carbons[i]][0] -= dx[0]*force;
 				f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -1255,7 +1266,7 @@ void FixBackbone::compute_excluded_volume()
 				dr = r - rC_ex0;
 				force = 2*epsilon*k_excluded_C*dr/r;
 			
-				foriginal[0] += epsilon*k_excluded_C*dr*dr;
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_C*dr*dr;
 				
 				f[beta_atoms[i]][0] -= dx[0]*force;
 				f[beta_atoms[i]][1] -= dx[1]*force;
@@ -1275,7 +1286,7 @@ void FixBackbone::compute_excluded_volume()
 				dr = r - rO_ex0;
 				force = 2*epsilon*k_excluded_O*dr/r;
 			
-				foriginal[0] += epsilon*k_excluded_O*dr*dr;
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_O*dr*dr;
 				
 				f[oxygens[i]][0] -= dx[0]*force;
 				f[oxygens[i]][1] -= dx[1]*force;
@@ -1308,7 +1319,7 @@ void FixBackbone::compute_p_degree_excluded_volume()
 				dr = r - rC_ex0;
 				force = factorC*p*epsilon*k_excluded_C*pow(dr, p-1)/r;
 			
-				foriginal[0] += factorC*epsilon*k_excluded_C*pow(dr, p);
+				energy[ET_VEXCLUDED] += factorC*epsilon*k_excluded_C*pow(dr, p);
 				
 				f[alpha_carbons[i]][0] -= dx[0]*force;
 				f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -1330,7 +1341,7 @@ void FixBackbone::compute_p_degree_excluded_volume()
 				dr = r - rC_ex0;
 				force = factorC*p*epsilon*k_excluded_C*pow(dr, p-1)/r;
 			
-				foriginal[0] += factorC*epsilon*k_excluded_C*pow(dr, p);
+				energy[ET_VEXCLUDED] += factorC*epsilon*k_excluded_C*pow(dr, p);
 				
 				f[alpha_carbons[i]][0] -= dx[0]*force;
 				f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -1350,7 +1361,7 @@ void FixBackbone::compute_p_degree_excluded_volume()
 				dr = r - rC_ex0;
 				force = factorC*p*epsilon*k_excluded_C*pow(dr, p-1)/r;
 			
-				foriginal[0] += factorC*epsilon*k_excluded_C*pow(dr, p);
+				energy[ET_VEXCLUDED] += factorC*epsilon*k_excluded_C*pow(dr, p);
 				
 				f[beta_atoms[i]][0] -= dx[0]*force;
 				f[beta_atoms[i]][1] -= dx[1]*force;
@@ -1370,7 +1381,7 @@ void FixBackbone::compute_p_degree_excluded_volume()
 				dr = r - rO_ex0;
 				force = factorO*p*epsilon*k_excluded_O*pow(dr, p-1)/r;
 			
-				foriginal[0] += factorO*epsilon*k_excluded_O*pow(dr, p);
+				energy[ET_VEXCLUDED] += factorO*epsilon*k_excluded_O*pow(dr, p);
 				
 				f[oxygens[i]][0] -= dx[0]*force;
 				f[oxygens[i]][1] -= dx[1]*force;
@@ -1399,7 +1410,7 @@ void FixBackbone::compute_r6_excluded_volume()
 			if (r<rC_ex0) {
 				force = -6*epsilon*k_excluded_C/pow(rsq, 4);
 			
-				foriginal[0] += epsilon*k_excluded_C/pow(rsq, 3);
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_C/pow(rsq, 3);
 				
 				f[alpha_carbons[i]][0] -= dx[0]*force;
 				f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -1421,7 +1432,7 @@ void FixBackbone::compute_r6_excluded_volume()
 			if (r<rC_ex0) {
 				force = -6*epsilon*k_excluded_C/pow(rsq, 4);
 			
-				foriginal[0] += epsilon*k_excluded_C/pow(rsq, 3);
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_C/pow(rsq, 3);
 				
 				f[alpha_carbons[i]][0] -= dx[0]*force;
 				f[alpha_carbons[i]][1] -= dx[1]*force;
@@ -1441,7 +1452,7 @@ void FixBackbone::compute_r6_excluded_volume()
 			if (r<rC_ex0) {
 				force = -6*epsilon*k_excluded_C/pow(rsq, 4);
 			
-				foriginal[0] += epsilon*k_excluded_C/pow(rsq, 3);
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_C/pow(rsq, 3);
 				
 				f[beta_atoms[i]][0] -= dx[0]*force;
 				f[beta_atoms[i]][1] -= dx[1]*force;
@@ -1461,7 +1472,7 @@ void FixBackbone::compute_r6_excluded_volume()
 			if (r<rO_ex0) {
 				force = -6*epsilon*k_excluded_O/pow(rsq, 4);
 			
-				foriginal[0] += epsilon*k_excluded_O/pow(rsq, 3);
+				energy[ET_VEXCLUDED] += epsilon*k_excluded_O/pow(rsq, 3);
 				
 				f[oxygens[i]][0] -= dx[0]*force;
 				f[oxygens[i]][1] -= dx[1]*force;
@@ -1709,7 +1720,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 
 	VTotal = V[0] + V[1] + V[2] + V[3];
 
-	foriginal[0] +=  epsilon*VTotal;
+	energy[ET_DSSP] +=  epsilon*VTotal;
 
 	if (i-2 > 0 && !isFirst(i-1) && !isFirst(i-2) && i+2 < nn && !isLast(i+1) && hb_class!=2) {
 		force = epsilon*theta_sum*prdnu[0]*nu[1];
@@ -1822,8 +1833,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 	if (i_AP_med || i_AP_long) {
 		K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1] : 0.0);
 	
-//		foriginal[0] += -K*nu_P_AP[i][j]*nu_P_AP[i+i_diff_P_AP][j-i_diff_P_AP];
-		foriginal[0] += -epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
+		energy[ET_PAP] += -epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
 	
 		dx[0][0] = xca[i][0] - xca[j][0];
 		dx[0][1] = xca[i][1] - xca[j][1];
@@ -1833,8 +1843,6 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 		dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j-i_diff_P_AP][1];
 		dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j-i_diff_P_AP][2];
 	
-//		force[0] = K*prd_nu_P_AP[i][j]*nu_P_AP[i+i_diff_P_AP][j-i_diff_P_AP];
-//		force[1] = K*nu_P_AP[i][j]*prd_nu_P_AP[i+i_diff_P_AP][j-i_diff_P_AP];
 		force[0] = epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
 		force[1] = epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j-i_diff_P_AP);
 	
@@ -1858,7 +1866,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 	if (i_P) {
 		K = k_P_AP[2];
 
-		foriginal[0] += -epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
+		energy[ET_PAP] += -epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
 	
 		dx[0][0] = xca[i][0] - xca[j][0];
 		dx[0][1] = xca[i][1] - xca[j][1];
@@ -1893,7 +1901,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 {
 	if (abs(res_no[j]-res_no[i])<contact_cutoff) return;
 	
-	double dx[3], energy, sigma_gamma, theta_gamma, force;
+	double dx[3], sigma_gamma, theta_gamma, force;
 	double *xi, *xj, *xk;
 	int iatom, jatom, katom, i_well, k;
 	int k_resno;
@@ -1921,7 +1929,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 		sigma_gamma = (1.0 - well->sigma(i, j))*water_gamma[i_well][ires_type][jres_type][0] + well->sigma(i, j)*water_gamma[i_well][ires_type][jres_type][1];
 		theta_gamma = (water_gamma[i_well][ires_type][jres_type][1] - water_gamma[i_well][ires_type][jres_type][0])*well->theta(i, j, i_well);
 				
-		foriginal[0] += -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well);
+		energy[ET_WATER] += -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well);
 		
 		force = epsilon*k_water*sigma_gamma*well->prd_theta(i, j, i_well);
 		
@@ -1992,9 +2000,9 @@ void FixBackbone::compute_burial_potential(int i)
   t[2][0] = tanh( burial_kappa*(well->ro(i) - burial_ro_min[2]) );
   t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - well->ro(i)) );
   
-  foriginal[0] += -0.5*epsilon*k_burial*burial_gamma[ires_type][0]*(t[0][0] + t[0][1]);
-  foriginal[0] += -0.5*epsilon*k_burial*burial_gamma[ires_type][1]*(t[1][0] + t[1][1]);
-  foriginal[0] += -0.5*epsilon*k_burial*burial_gamma[ires_type][2]*(t[2][0] + t[2][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma[ires_type][0]*(t[0][0] + t[0][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma[ires_type][1]*(t[1][0] + t[1][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma[ires_type][2]*(t[2][0] + t[2][1]);
   
   force[0] = 0.5*epsilon*k_burial*burial_gamma[ires_type][0]*burial_kappa*( t[0][1]*t[0][1] - t[0][0]*t[0][0] );
   force[1] = 0.5*epsilon*k_burial*burial_gamma[ires_type][1]*burial_kappa*( t[1][1]*t[1][1] - t[1][0]*t[1][0] );
@@ -2074,7 +2082,7 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	
 	V = -epsilon*k_helix*sigmma_gamma*pair_theta;
 
-	foriginal[0] += V;
+	energy[ET_HELIX] += V;
 
 	f[alpha_carbons[j-1]][0] -= -V*(an*prd_pair_theta[0]*xNO[0] + ah*prd_pair_theta[1]*xHO[0]);
 	f[alpha_carbons[j-1]][1] -= -V*(an*prd_pair_theta[0]*xNO[1] + ah*prd_pair_theta[1]*xHO[1]);
@@ -2237,14 +2245,14 @@ void FixBackbone::compute_amh_go_model()
     }
   }
   
-  foriginal[0] += E;
+  energy[ET_AMHGO] += E;
 }
 
 void FixBackbone::compute_fragment_memory_potential(int i)
 {
   int j, js, je, i_fm, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
   int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
-  double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, energy, force;
+  double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, V, force;
   double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
   Fragment_Memory *frag;
   
@@ -2313,11 +2321,11 @@ void FixBackbone::compute_fragment_memory_potential(int i)
         dr = r - rf;
         drsq = dr*dr;
         
-        energy = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+        V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
         
-        foriginal[0] += energy;
+        energy[ET_FRAGMEM] += V;
         
-        force = energy*dr/(fm_sigma_sq*r);
+        force = V*dr/(fm_sigma_sq*r);
         
         f[iatom[k]][0] += force*dx[0];
         f[iatom[k]][1] += force*dx[1];
@@ -2373,7 +2381,7 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
 
   theta = 0.5*(t_min+t_max);
 
-  foriginal[0] += -epsilon*k_solventb*theta;
+  energy[ET_SSB] += -epsilon*k_solventb*theta;
 
   force = epsilon*k_solventb*ssb_kappa*theta*(t_max-t_min)/r;
 
@@ -2402,6 +2410,7 @@ void FixBackbone::compute_backbone()
 	int i_resno, j_resno;
 	
 	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
+	for (int i=0;i<nEnergyTerm;++i) energy[i] = 0.0;
 	force_flag = 0;
 	
 	for (i=0;i<nn;++i) {
@@ -2533,6 +2542,15 @@ void FixBackbone::compute_backbone()
 
 	if (r6_excluded_flag)
 		compute_r6_excluded_volume();
+	
+	for (int i=1;i<nEnergyTerm;++i) energy[0] += energy[i];
+	foriginal[0] = energy[0];
+	
+	if (ntimestep%output->thermo_every==0) {
+    fprintf(efile, "\t%d", ntimestep);
+    for (int i=1;i<nEnergyTerm;++i) fprintf(efile, "\t%.6f", energy[i]);
+    fprintf(efile, "\t%.6f\n", energy[0]);
+	}
 }
 
 /* ---------------------------------------------------------------------- */

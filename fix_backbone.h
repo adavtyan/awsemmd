@@ -135,6 +135,10 @@ public:
   
   char se[1000]; // Protein sequance
   
+  double energy[15];
+  enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
+                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_SSB, nEnergyTerm};
+  
  private:
   void compute_backbone();
   void compute_chain_potential(int i);
@@ -178,6 +182,8 @@ public:
   
   WPV water_par;
   WPV helix_par;
+  
+  FILE *efile;
 };
 
 }

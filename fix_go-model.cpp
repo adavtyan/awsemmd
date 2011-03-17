@@ -722,7 +722,6 @@ void FixGoModel::compute_dihedral(int i)
 */
 void FixGoModel::compute_contact_deviation()
 {
-	fprintf(fout,"compute_contact_deviation on step %d\n",Step);
 	rand = random->gaussian();
 	dev += (devA*rand - devB*dev)*devC;
 }

@@ -19,13 +19,17 @@ Last Update: 12/01/2010
 #include "error.h"
 #include "group.h"
 #include "domain.h"
-#include "fstream.h"
+#include <fstream>
 #include "random_park.h"
 
-#include <iostream.h>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
+using std::cout;
+using std::cin;
+using std::ifstream;
 
 using namespace LAMMPS_NS;
 
@@ -35,11 +39,19 @@ using namespace LAMMPS_NS;
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
 //int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 16, 0, 19, 17, 0, 18, 0};
 
-inline void FixGoModel::print_log(char *line)
+/*void itoa(int a, char *buf, int s)
 {
-  if (screen) fprintf(screen, line);
-  if (logfile) fprintf(logfile, line);
-}
+	int b = abs(a);
+	int c, i;
+	i=0;
+	while (b>0) {
+		c = b - int(b/10)*10;
+		b = b/10;
+		buf[i] = c + '0';
+		i++;
+	}
+	buf[i]='\0';
+}*/
 
 FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
@@ -50,11 +62,12 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 
 	char force_file_name[] = "forcesGO.dat";
 	fout = fopen(force_file_name,"w");
+	efout = fopen("epsilon.dat","w");
 	
 	scalar_flag = 1;
 	vector_flag = 1;
 	size_vector = 3;
-//	scalar_vector_freq = 1;
+	//scalar_vector_freq = 1;
 	extscalar = 1;
 	extvector = 1;
 
@@ -69,41 +82,88 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	
 //	fprintf(fout,"seed=%d rand->state=%d\n",seed, random->state());
 
-	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = 0;
+	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = lj_contacts_flag = gaussian_contacts_flag = 0;
 	epsilon = epsilon2 = 1.0;
+	n_basins = 1;
+	rmin_cutoff = 4.0 ;
+	int i, j, k;
+	double r0_tmp, theta0_tmp, phi0_tmp;
 
-	int i, j;
-	char varsection[30];
+	char varsection[100];
 	ifstream in(arg[3]);
-	if (!in) error->all("Coefficient file was not found!");
 	while (!in.eof()) {
 		in >> varsection;
-		if (strcmp(varsection, "[Epsilon]")==0) {
-			in >> epsilon;
-		} else if (strcmp(varsection, "[Epsilon2]")==0) {
-			in >> epsilon2;
+		if (strcmp(varsection, "[Go-Model_LJ]")==0) {
+			if(gaussian_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
+			lj_contacts_flag = 1;
+			allocate_contact();
+			in >> epsilon >> epsilon2 ;
+		} else if (strcmp(varsection, "[Go-Model_Gaussian]")==0) {
+			if(lj_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
+			gaussian_contacts_flag = 1;
+			in >> epsilon >> epsilon2 ;
+			in >> n_basins;
+			allocate_contact();
+			for(i=0; i<n_basins; ++i){
+				in >> A[i];
+			}
+			in >> rmin_cutoff ;
+			fprintf(screen, "Number of basins %d, non-native cutoff %f Angstrom\n", n_basins, rmin_cutoff);
 		} else if (strcmp(varsection, "[Bonds]")==0) {
 			bonds_flag = 1;
 			in >> k_bonds;
-			for (i=0;i<n-1;++i) in >> r0[i];
+			for(i=0;i<n_basins; ++i)	{
+				for (j=0;j<n-1;++j) {
+					if(i==0) r0[j]=0.0;
+					in >> r0_tmp;
+					r0[j] += r0_tmp;
+					if(i==n_basins -1) r0[j] /= n_basins;
+				}
+			}
 		} else if (strcmp(varsection, "[Angles]")==0) {
 			angles_flag = 1;
 			in >> k_angles;
-			for (i=0;i<n-2;++i) in >> theta0[i];
+			for(i=0;i<n_basins; ++i)	{
+				for (j=0;j<n-2;++j) {
+					if(i==0) theta0[j]=0.0;
+					in >> theta0_tmp;
+					theta0[j] += theta0_tmp;
+					if(i==n_basins -1) theta0[j] /= n_basins;
+				}
+			}
 		} else if (strcmp(varsection, "[Dihedrals]")==0) {
 			dihedrals_flag = 1;
 			in >> k_dihedrals[0] >> k_dihedrals[1];
-			for (i=0;i<n-3;++i) in >> phi0[i];
+			for(i=0;i<n_basins; ++i)	{
+				for (j=0;j<n-3;++j) {
+					if(i==0) phi0[j]=0.0;
+					in >> phi0_tmp;
+					phi0[j] += phi0_tmp;
+					if(i==n_basins -1) phi0[j] /= n_basins;
+				}
+			}
 		} else if (strcmp(varsection, "[Contacts]")==0) {
+			//allocate_contact();
 			contacts_flag = 1;
-			for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative[i][j];
-			for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma[i][j];
+			if(lj_contacts_flag){
+				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative[i][j];
+				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma[i][j];
+			} else { //gaussian_contacts_flag
+				for(k=0;k<n_basins;++k){
+					for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative_mb[k][i][j];
+					for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma_mb[k][i][j];
+				}
+			}
+			fprintf(screen, "contacts reading finished!\n");
 		} else if (strcmp(varsection, "[Contacts_Deviation]")==0) {
 			contacts_dev_flag = 1;
 			in >> sdivf; // Standart deviation in epsilon fractions
 			in >> tcorr; // Correlation time in femtoseconds
 			in >> dev0;  // Deviation on t=0
-		}
+		} //else if (varsection[0]=='[') {
+				//error->all("Illegal fix go-model command");
+		//}
+		varsection[0]='\0';
 	}
 	in.close();
 
@@ -148,6 +208,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	ifstream in_rs("record_steps");
 	in_rs >> sStep >> eStep;
 	in_rs.close();
+	fprintf(screen, "finish reading data file!\n");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -159,16 +220,16 @@ FixGoModel::~FixGoModel()
 			delete [] xca[i];
 		}
 
-		for (int i=0;i<n-4;i++) {
-			delete [] sigma[i];
-			delete [] isNative[i];
-		}
+		//for (int i=0;i<n-4;i++) {
+		//	delete [] sigma[i];
+		//	delete [] isNative[i];
+		//}
 
 		delete [] r0;
 		delete [] theta0;
 		delete [] phi0;
-		delete [] sigma;
-		delete [] isNative;
+		//delete [] sigma;
+		//delete [] isNative;
 
 		delete [] alpha_carbons;
 		delete [] xca;
@@ -176,6 +237,30 @@ FixGoModel::~FixGoModel()
 		delete [] res_info;
 
 		delete random;
+	}
+	
+	if (contacts_allocated) {
+		if(lj_contacts_flag){
+			for (int i=0;i<n-4;i++) {
+				delete [] sigma[i];
+				delete [] isNative[i];
+			}
+			delete [] sigma;
+			delete [] isNative;
+		} else { //gaussian_contacts_flag
+			delete [] G;
+			delete [] A;
+			for(int k=0; k<n_basins; ++k){
+				for(int i=0; i<n-4; ++i){
+					delete [] sigma_mb[k][i];
+					delete [] isNative_mb[k][i];
+				}
+				delete [] sigma_mb[k];
+				delete [] isNative_mb[k];
+			}
+			delete [] sigma_mb;
+			delete [] isNative_mb;
+		}
 	}
 }
 
@@ -330,21 +415,48 @@ void FixGoModel::allocate()
 	r0 = new double[n-1];
 	theta0 = new double[n-2];
 	phi0 = new double[n-3];
-	sigma = new double*[n-4];
-	isNative = new bool*[n-4];
+	//sigma = new double*[n-4];
+	//isNative = new bool*[n-4];
 
 	for (int i = 0; i < n; ++i) {
 		xca[i] = new double [3];
 	}
 
-	for (int i = 0; i < n-4; ++i) {
-		sigma[i] = new double[n-4];
-		isNative[i] = new bool[n-4];
-	}
+	//for (int i = 0; i < n-4; ++i) {
+	//	sigma[i] = new double[n-4];
+	//	isNative[i] = new bool[n-4];
+	//}
 
 	random = new RanPark(lmp,seed);
 	
 	allocated = true;
+}
+
+void FixGoModel::allocate_contact()
+{
+	if(lj_contacts_flag){	
+		sigma = new double*[n-4];
+		isNative = new bool*[n-4];
+		for (int i = 0; i < n-4; ++i) {
+			sigma[i]    = new double[n-4];
+			isNative[i] = new bool[n-4];
+		}
+	} else { //gaussian_contacts_flag
+		//fprintf(screen,"start to allocate!\n");
+		G          = new double[n_basins];
+		A          = new double[n_basins];
+		sigma_mb   = new double**[n_basins];
+		isNative_mb= new bool**[n_basins];
+		for (int k=0; k<n_basins; ++k){
+			sigma_mb[k]    = new double*[n-4];
+			isNative_mb[k] = new bool*[n-4];
+			for(int i=0; i< n-4; ++i){
+				sigma_mb[k][i]    = new double[n-4];
+				isNative_mb[k][i] = new bool[n-4];
+			}
+		}
+	}
+	contacts_allocated = true;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -436,11 +548,12 @@ void FixGoModel::compute_bond(int i)
 	dx[0] = xca[i+1][0] - xca[i][0];
 	dx[1] = xca[i+1][1] - xca[i][1];
 	dx[2] = xca[i+1][2] - xca[i][2];
-
+	//fprintf(screen, "dx0 %f\n");
 	r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 	dr = r - r0[i_resno];
 	force = 2*epsilon*k_bonds*dr/r;
 	
+	//fprintf(screen, "r %f r0 %f dr %f force %f\n", r, r0[i_resno], dr, dx[0]*force);
 	foriginal[0] += epsilon*k_bonds*dr*dr;
 
 	f[alpha_carbons[i+1]][0] -= dx[0]*force;
@@ -609,7 +722,7 @@ void FixGoModel::compute_dihedral(int i)
 */
 void FixGoModel::compute_contact_deviation()
 {
-//	fprintf(fout,"compute_contact_deviation on step %d\n",Step);
+	fprintf(fout,"compute_contact_deviation on step %d\n",Step);
 	rand = random->gaussian();
 	dev += (devA*rand - devB*dev)*devC;
 }
@@ -659,6 +772,78 @@ void FixGoModel::compute_contact(int i, int j)
 	f[alpha_carbons[i]][2] -= -force*dx[2];
 }
 
+void FixGoModel::compute_contact_gaussian(int i, int j)
+{
+	int i_resno = res_no[i]-1;
+	int j_resno = res_no[j]-1;
+	int k, l;
+
+	if (i_resno>=n-4 || j_resno<=i_resno+3) error->all("Wrong use of compute_contact_gaussian() in fix go-model");
+
+	double dx[3], r, dr, rsq, sgrinv, sgrinv12;
+	double V, force, contact_epsilon;
+	double w_sq_inv, VTotal ;
+	double force_tmp, force_tmp_sum;
+
+	dx[0] = xca[j][0] - xca[i][0];
+	dx[1] = xca[j][1] - xca[i][1];
+	dx[2] = xca[j][2] - xca[i][2];
+	rsq = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+	r = sqrt(rsq);
+	w_sq_inv = 1.0/pow( abs(i_resno - j_resno), 0.3 );
+
+	//V == epsilon * {Product_k(1+V_k[k]) - 1}
+	R = pow( (rmin_cutoff/r) , 12); //rmin_cutoff = 4.0 A
+	
+	V = 1.0;
+	for(k=0; k<n_basins; ++k){
+		if(isNative_mb[k][i_resno][j_resno-4]){
+			dr = r - sigma_mb[k][i_resno][j_resno-4] ;
+			G[k]= A[k] * exp(-dr*dr*w_sq_inv/2.0);
+			V *= 1.0 + G[k];
+			//fprintf(screen, "%f %f %f\n", xca[i][0],xca[i][1], xca[i][2]);
+			//fprintf(screen, "%f %f %f\n", xca[j][0],xca[j][1], xca[j][2]);
+			//fprintf(screen, "i %d j %d sigma %f\n", i_resno, j_resno, sigma_mb[k][i_resno][j_resno-4]);
+			//fprintf(screen, "r %f dr %f G %f\n", r, dr, G[k]);
+		} else {
+			G[k] = 0.0;
+		}
+	}
+	VTotal = epsilon*((1.0 + R)*V - 1.0);
+
+	foriginal[0] += VTotal;
+
+	force = 12.0 * R * V / r;
+	fprintf(screen, "R %f V %f f %f\n", R, V, force);
+	force_tmp_sum = 0.0 ;
+	for(k=0; k<n_basins; ++k){
+		if(isNative_mb[k][i_resno][j_resno-4]){
+			dr = r - sigma_mb[k][i_resno][j_resno-4] ;
+			force_tmp = G[k] * dr;
+			for(l=0; l<n_basins; ++l){
+				if(l != k ) {
+					force_tmp *= 1.0 + G[l];
+				}
+			}
+			force_tmp_sum += force_tmp ;
+		}
+	}
+	force_tmp_sum *= 1.0 + R ;
+	force += force_tmp_sum ;
+	//fprintf(screen, "f_tmp_sum %f force %f eps %f r %f\n", force_tmp_sum, force, epsilon, r);	
+	force *= - epsilon / r ;
+	//fprintf(screen, "f_tmp_sum %f force %f\n", force_tmp_sum, force);	
+	
+	f[alpha_carbons[j]][0] -= force*dx[0];
+	//fprintf(screen, "f_tmp_sum %f force_final %f\n", force_tmp_sum, force*dx[0]);	
+	f[alpha_carbons[j]][1] -= force*dx[1];
+	f[alpha_carbons[j]][2] -= force*dx[2];
+
+	f[alpha_carbons[i]][0] -= -force*dx[0];
+	f[alpha_carbons[i]][1] -= -force*dx[1];
+	f[alpha_carbons[i]][2] -= -force*dx[2];
+}
+
 void FixGoModel::out_xyz_and_force(int coord)
 {
 //	out.precision(12);
@@ -666,7 +851,7 @@ void FixGoModel::out_xyz_and_force(int coord)
 	fprintf(fout, "%d\n", Step);
 	fprintf(fout, "%d%d%d%d\n", bonds_flag, angles_flag, dihedrals_flag, contacts_flag);
 	fprintf(fout, "Number of atoms %d\n", n);
-	fprintf(fout, "Energy: %d\n\n", foriginal[0]);
+	fprintf(fout, "Energy: %f\n\n", foriginal[0]);
 
 	int index;	
 
@@ -859,8 +1044,14 @@ void FixGoModel::compute_goModel()
 	for (i=0;i<nn;i++) {
 		for (j=0;j<nn;j++) {
 			tmp2=foriginal[0];
-			if (contacts_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && res_no[i]<res_no[j]-3)
-				compute_contact(i, j);
+			
+			if (res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && res_no[i]<res_no[j]-3){
+				if (lj_contacts_flag)
+					compute_contact(i, j);
+				
+				if (gaussian_contacts_flag)
+					compute_contact_gaussian(i, j);
+			}
 //			if (Step>=sStep && Step<=eStep) {
 //				fprintf(fout, "%.12f, ", foriginal[0]-tmp2);
 //			}

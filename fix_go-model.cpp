@@ -39,20 +39,6 @@ using namespace LAMMPS_NS;
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
 //int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 16, 0, 19, 17, 0, 18, 0};
 
-/*void itoa(int a, char *buf, int s)
-{
-	int b = abs(a);
-	int c, i;
-	i=0;
-	while (b>0) {
-		c = b - int(b/10)*10;
-		b = b/10;
-		buf[i] = c + '0';
-		i++;
-	}
-	buf[i]='\0';
-}*/
-
 inline void FixGoModel::print_log(char *line)
 {
   if (screen) fprintf(screen, line);
@@ -102,11 +88,13 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		if (strcmp(varsection, "[Go-Model_LJ]")==0) {
 			if(gaussian_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
 			lj_contacts_flag = 1;
+			print_log("LJ Go-Model flag on");
 			allocate_contact();
 			in >> epsilon >> epsilon2 ;
 		} else if (strcmp(varsection, "[Go-Model_Gaussian]")==0) {
 			if(lj_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
 			gaussian_contacts_flag = 1;
+			print_log("Gaussian Go-Model flag on");
 			in >> epsilon >> epsilon2 ;
 			in >> n_basins;
 			allocate_contact();
@@ -117,6 +105,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			fprintf(screen, "Number of basins %d, non-native cutoff %f Angstrom\n", n_basins, rmin_cutoff);
 		} else if (strcmp(varsection, "[Bonds]")==0) {
 			bonds_flag = 1;
+			print_log("Bonds flag on");
 			in >> k_bonds;
 			for(i=0;i<n_basins; ++i)	{
 				for (j=0;j<n-1;++j) {
@@ -128,6 +117,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			}
 		} else if (strcmp(varsection, "[Angles]")==0) {
 			angles_flag = 1;
+			print_log("Angles flag on");
 			in >> k_angles;
 			for(i=0;i<n_basins; ++i)	{
 				for (j=0;j<n-2;++j) {
@@ -139,6 +129,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			}
 		} else if (strcmp(varsection, "[Dihedrals]")==0) {
 			dihedrals_flag = 1;
+			print_log("Dihedrals flag on");
 			in >> k_dihedrals[0] >> k_dihedrals[1];
 			for(i=0;i<n_basins; ++i)	{
 				for (j=0;j<n-3;++j) {
@@ -151,6 +142,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		} else if (strcmp(varsection, "[Contacts]")==0) {
 			//allocate_contact();
 			contacts_flag = 1;
+			print_log("Contacts flag on");
 			if(lj_contacts_flag){
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative[i][j];
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma[i][j];
@@ -163,6 +155,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			fprintf(screen, "contacts reading finished!\n");
 		} else if (strcmp(varsection, "[Contacts_Deviation]")==0) {
 			contacts_dev_flag = 1;
+			print_log("Contacts_Deviation flag on");
 			in >> sdivf; // Standart deviation in epsilon fractions
 			in >> tcorr; // Correlation time in femtoseconds
 			in >> dev0;  // Deviation on t=0
@@ -172,6 +165,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		varsection[0]='\0';
 	}
 	in.close();
+	print_log("\n");
 
 	if (contacts_dev_flag) {
 		xi = 1/tcorr;

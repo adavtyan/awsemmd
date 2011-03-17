@@ -50,4 +50,4 @@ dump_modify	1 sort id
 thermo_style custom step temp epair emol ke pe etotal press vol
 
 reset_timestep	0
-run		10000000
+run		100000

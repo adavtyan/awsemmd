@@ -6,15 +6,12 @@ http://papoian.chem.umd.edu/
 
 Last Update: 12/01/2010
 ------------------------------------------------------------------------- */
-
 #ifdef FIX_CLASS
-
-FixStyle(gomodel,FixGoModel)
-
+FixStyle(gomodel, FixGoModel)
 #else
 
-#ifndef LMP_FIX_GOMODEL_H
-#define LMP_FIX_GOMODEL_H
+#ifndef FIX_GOMODEL_H
+#define FIX_GOMODEL_H
 
 #include "fix.h"
 #include "random_park.h"
@@ -36,41 +33,47 @@ class FixGoModel : public Fix {
   void post_force(int);
   void post_force_respa(int, int, int);
   void min_post_force(int);
-  double compute_scalar();
-  double compute_vector(int);
   void write_restart(FILE *);
   void restart(char *);
+  double compute_scalar();
+  double compute_vector(int);
 
 private:
-  double epsilon, epsilon2;
-  double k_bonds, k_angles, k_dihedrals[2];
-
-  double foriginal[4], foriginal_all[4];
   int force_flag;
   int nlevels_respa;
-  bool allocated;
-
   int ntimestep;
   int n, nn;
   int *alpha_carbons;
-  bool bonds_flag, angles_flag, dihedrals_flag, contacts_flag, contacts_dev_flag;
+  int *res_no, *res_info;
+  int *image;
+  int *periodicity;
+  int seed;
+
+  double epsilon, epsilon2;
+  double k_bonds, k_angles, k_dihedrals[2];
+  double foriginal[4], foriginal_all[4];
   double *r0, *theta0, *phi0, **sigma;
   double dev, devA, devB, devC;
   double sdivf, tcorr, dev0;
   double w, xi;
-  bool **isNative;
-  int *res_no, *res_info;
   double **x, **f;
   double **xca;
-  int *image;
   double prd[3], half_prd[3];
-  int *periodicity;
-
-  RanPark *random;
-  int seed;
   double rand;
 
+  bool allocated;
+  bool bonds_flag, angles_flag, dihedrals_flag, contacts_flag, contacts_dev_flag, lj_contacts_flag;
+  bool **isNative; 
+
+  RanPark *random;
+
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
+
+  //Gaussian contacts, for multi-basin
+  int n_basins;
+  double R, *G, *A, ***sigma_mb;
+  double rmin_cutoff;
+  bool contacts_allocated, gaussian_contacts_flag, ***isNative_mb;
 
 private:
   void compute_goModel();
@@ -79,8 +82,11 @@ private:
   void compute_dihedral(int i);
   void compute_contact(int i, int j);
   void compute_contact_deviation();
+  void compute_contact_gaussian(int i, int j);
 
   void allocate();
+  void allocate_contact();
+
   int Tag(int index);
   inline void Construct_Computational_Arrays();
   inline double PeriodicityCorrection(double d, int i);
@@ -91,6 +97,7 @@ private:
   int Step;
   int sStep, eStep;
   FILE *fout;
+  FILE *efout;
   void out_xyz_and_force(int coord=0);
 };
 

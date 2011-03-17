@@ -53,6 +53,12 @@ using namespace LAMMPS_NS;
 	buf[i]='\0';
 }*/
 
+inline void FixGoModel::print_log(char *line)
+{
+  if (screen) fprintf(screen, line);
+  if (logfile) fprintf(logfile, line);
+}
+
 FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {

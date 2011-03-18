@@ -12,6 +12,8 @@ boundary p p p
 neighbor	5 bin
 neigh_modify	delay 5
 
+atom_modify sort 0 0.0
+
 special_bonds fene
 
 atom_style	bond
@@ -42,6 +44,8 @@ fix		  3 alpha_carbons qbias fix_qbias_coeff.data
 thermo		100
 dump		1 all atom 100 dump.lammpstrj
 restart         1000 restart.1srl
+
+dump_modify     1 sort id
 
 reset_timestep	0
 run		10000

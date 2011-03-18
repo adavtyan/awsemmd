@@ -19,16 +19,13 @@ Last Update: 12/01/2010
 #include "error.h"
 #include "group.h"
 #include "domain.h"
-#include <fstream>
 #include "random_park.h"
 
-#include <iostream>
+#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
-using std::cout;
-using std::cin;
 using std::ifstream;
 
 using namespace LAMMPS_NS;
@@ -71,10 +68,8 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 
 	allocated = false;
 	allocate();
-	
-//	fprintf(fout,"seed=%d rand->state=%d\n",seed, random->state());
 
-	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = lj_contacts_flag = gaussian_contacts_flag = 0;
+	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = contacts_dev_flag = lj_contacts_flag = gaussian_contacts_flag = 0;
 	epsilon = epsilon2 = 1.0;
 	n_basins = 1;
 	rmin_cutoff = 4.0 ;
@@ -88,13 +83,13 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		if (strcmp(varsection, "[Go-Model_LJ]")==0) {
 			if(gaussian_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
 			lj_contacts_flag = 1;
-			print_log("LJ Go-Model flag on");
+			print_log("LJ Go-Model flag on\n");
 			allocate_contact();
 			in >> epsilon >> epsilon2 ;
 		} else if (strcmp(varsection, "[Go-Model_Gaussian]")==0) {
 			if(lj_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
 			gaussian_contacts_flag = 1;
-			print_log("Gaussian Go-Model flag on");
+			print_log("Gaussian Go-Model flag on\n");
 			in >> epsilon >> epsilon2 ;
 			in >> n_basins;
 			allocate_contact();
@@ -102,10 +97,9 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 				in >> A[i];
 			}
 			in >> rmin_cutoff ;
-			fprintf(screen, "Number of basins %d, non-native cutoff %f Angstrom\n", n_basins, rmin_cutoff);
 		} else if (strcmp(varsection, "[Bonds]")==0) {
 			bonds_flag = 1;
-			print_log("Bonds flag on");
+			print_log("Bonds flag on\n");
 			in >> k_bonds;
 			for(i=0;i<n_basins; ++i)	{
 				for (j=0;j<n-1;++j) {
@@ -117,7 +111,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			}
 		} else if (strcmp(varsection, "[Angles]")==0) {
 			angles_flag = 1;
-			print_log("Angles flag on");
+			print_log("Angles flag on\n");
 			in >> k_angles;
 			for(i=0;i<n_basins; ++i)	{
 				for (j=0;j<n-2;++j) {
@@ -129,7 +123,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			}
 		} else if (strcmp(varsection, "[Dihedrals]")==0) {
 			dihedrals_flag = 1;
-			print_log("Dihedrals flag on");
+			print_log("Dihedrals flag on\n");
 			in >> k_dihedrals[0] >> k_dihedrals[1];
 			for(i=0;i<n_basins; ++i)	{
 				for (j=0;j<n-3;++j) {
@@ -142,7 +136,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		} else if (strcmp(varsection, "[Contacts]")==0) {
 			//allocate_contact();
 			contacts_flag = 1;
-			print_log("Contacts flag on");
+			print_log("Contacts flag on\n");
 			if(lj_contacts_flag){
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative[i][j];
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma[i][j];
@@ -152,16 +146,19 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 					for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma_mb[k][i][j];
 				}
 			}
-			fprintf(screen, "contacts reading finished!\n");
 		} else if (strcmp(varsection, "[Contacts_Deviation]")==0) {
 			contacts_dev_flag = 1;
-			print_log("Contacts_Deviation flag on");
+			print_log("Contacts_Deviation flag on\n");
 			in >> sdivf; // Standart deviation in epsilon fractions
 			in >> tcorr; // Correlation time in femtoseconds
 			in >> dev0;  // Deviation on t=0
-		} //else if (varsection[0]=='[') {
-				//error->all("Illegal fix go-model command");
-		//}
+		} else if (strcmp(varsection, "[Harmonic_Contacts_Deviation]")==0) {
+			contacts_sin_dev_flag = 1;
+			print_log("Harmonic_Contacts_Deviation flag on\n");
+			in >> sdivf; // Amplitud
+			in >> tcorr; // Period
+			in >> dev0;  // Phase on t=0 in half periods
+		}
 		varsection[0]='\0';
 	}
 	in.close();
@@ -175,23 +172,14 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		devA = w*sqrt(2*update->dt);
 		devB = xi*update->dt;
 		devC = (1 - xi*update->dt/2);
+	} else if (contacts_sin_dev_flag) {	
+    devA = epsilon*sdivf/sqrt(0.5);
+    devB = 2*M_PI*update->dt/tcorr;
+    devC = M_PI*dev0;
+    
+    dev = devA*sin(devC);
 	}
 	
-/*	fprintf(fout, "In constractor\n");
-	fprintf(fout, "seed=%d\n", seed);
-	fprintf(fout, "random->state=%d\n",random->state());
-	fprintf(fout, "sdivf=%f\n", sdivf);
-	fprintf(fout, "tcorr=%f\n", tcorr);
-	fprintf(fout, "dev0=%f\n", dev0);
-	fprintf(fout, "w=%f\n", w);
-	fprintf(fout, "xi=%f\n", xi);
-	fprintf(fout, "dt=%f\n", update->dt);
-	fprintf(fout, "rand=%f\n", rand);
-	fprintf(fout, "devA=%f\n", devA);
-	fprintf(fout, "devB=%f\n", devB);
-	fprintf(fout, "devC=%f\n", devC);
-	fprintf(fout, "dev=%f\n\n", dev);*/
-
 	x = atom->x;
 	f = atom->f;
 	image = atom->image;
@@ -220,16 +208,9 @@ FixGoModel::~FixGoModel()
 			delete [] xca[i];
 		}
 
-		//for (int i=0;i<n-4;i++) {
-		//	delete [] sigma[i];
-		//	delete [] isNative[i];
-		//}
-
 		delete [] r0;
 		delete [] theta0;
 		delete [] phi0;
-		//delete [] sigma;
-		//delete [] isNative;
 
 		delete [] alpha_carbons;
 		delete [] xca;
@@ -296,113 +277,83 @@ int FixGoModel::Tag(int index) {
 
 inline void FixGoModel::Construct_Computational_Arrays()
 {
-	int *mask = atom->mask;
-	int nlocal = atom->nlocal;
-	int nall = atom->nlocal + atom->nghost;
-	int *mol_tag = atom->molecule;
+        int *mask = atom->mask;
+        int nlocal = atom->nlocal;
+        int nall = atom->nlocal + atom->nghost;
+        int *mol_tag = atom->molecule;
 
-	int i, j, js;
+        int i, j, js;
 
-	// Creating index arrays for Alpha_Carbons
-	nn = 0;
-	int last = 0;
-	for (i = 0; i < n; ++i) {
-		int min = -1, jm = -1;
-		for (int j = 0; j < nall; ++j) {
-			if (i==0 && mol_tag[j]<=0)
-				error->all("Molecular tag must be positive in fix go-model");
-			
-			if ( (mask[j] & groupbit) && mol_tag[j]>last ) {
-				if (mol_tag[j]<min || min==-1) {
-					min = mol_tag[j];
-					jm = j;
-				}
-			}
-		}
-		
-		if (min==-1) break;
+        // Creating index arrays for Alpha_Carbons
+        nn = 0;
+        int last = 0;
+        for (i = 0; i < n; ++i) {
+                int min = -1, jm = -1;
+                for (int j = 0; j < nall; ++j) {
+                        if (i==0 && mol_tag[j]<=0)
+                                error->all("Molecular tag must be positive in fix go-model");
+                        
+                        if ( (mask[j] & groupbit) && mol_tag[j]>last ) {
+                                if (mol_tag[j]<min || min==-1) {
+                                        min = mol_tag[j];
+                                        jm = j;
+                                }
+                        }
+                }
+                
+                if (min==-1) break;
 
-		alpha_carbons[nn] = jm;
-		res_no[nn] = min;
-		last = min;
-		nn++;	
-	}
+                alpha_carbons[nn] = jm;
+                res_no[nn] = min;
+                last = min;
+                nn++;   
+        }
 
-	/*if (Step>=sStep && Step<=eStep) {
-		fprintf(fout, "\n\n");
-		for (i = 0; i < nn; ++i) {
-			fprintf(fout, "%d ", res_no[i]);
-		}
-		fprintf(fout, "\n\n");
-	}*/
+        int nMinNeighbours = 3;
+        int iLastLocal = -1;
+        int lastResNo = -1;
+        int lastResType = NONE;
+        int nlastType = 0;
 
-	int nMinNeighbours = 3;
-	int iLastLocal = -1;
-	int lastResNo = -1;
-	int lastResType = NONE;
-	int nlastType = 0;
+        // Checking sequance and marking residues
+        for (i = 0; i < nn; ++i) {
+                if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
+                        if (lastResType==LOCAL && res_no[i]!=n)
+                                error->all("Missing neighbor atoms in fix go-model (code: 001)");
+                        if (lastResType==GHOST) {
+                                if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
+                                        error->all("Missing neighbor atoms in fix go-model (code: 002)");
+                        }
+                        
+                        iLastLocal = -1;
+                        lastResNo = -1;
+                        lastResType = NONE;
+                        nlastType = 0;
+                }
 
-	// Checking sequance and marking residues
-	for (i = 0; i < nn; ++i) {
-		if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
-			if (lastResType==LOCAL && res_no[i]!=n)
-				error->all("Missing neighbor atoms in fix go-model (code: 001)");
-			if (lastResType==GHOST) {
-				if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
-					error->all("Missing neighbor atoms in fix go-model (code: 002)");
-//				else {
-//					js = i - nlastType;
-//					if (iLastLocal!=-1) js = MAX(js, iLastLocal + nMinNeighbours + 1);
-//					for (j=js;j<i;++j) res_info[j] = OFF;
-//				}
-			}
-			
-			iLastLocal = -1;
-			lastResNo = -1;
-			lastResType = NONE;
-			nlastType = 0;
-		}
+                if (alpha_carbons[i]!=-1) {
+                        if (alpha_carbons[i]<nlocal) {
+                                if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
+                                        error->all("Missing neighbor atoms in fix go-model  (code: 003)");
+                                }
+                                iLastLocal = i;
+                                res_info[i] = LOCAL;
+                        } else {
+                                res_info[i] = GHOST;
+                        }
+                } else res_info[i] = OFF;
 
-		if (alpha_carbons[i]!=-1) {
-			if (alpha_carbons[i]<nlocal) {
-				if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
-					error->all("Missing neighbor atoms in fix go-model  (code: 003)");
-				}
-				iLastLocal = i;
-				res_info[i] = LOCAL;
-			} else {
-//				if ( lastResType==GHOST && nlastType>=nMinNeighbours && (iLastLocal==-1 || i-2*nMinNeighbours-iLastLocal>=0) ) {
-//					res_info[i-nMinNeighbours] = OFF;
-//					nlastType = nMinNeighbours-1;
-//				}
+                if (lastResNo == res_no[i]) nlastType++; else nlastType = 0;
 
-				res_info[i] = GHOST;
-			}
-		} else res_info[i] = OFF;
-
-		if (lastResNo == res_no[i]) nlastType++; else nlastType = 0;
-
-		lastResNo = res_no[i];
-		lastResType = res_info[i];
-	}
-	if (lastResType==LOCAL && res_no[nn-1]!=n)
-		error->all("Missing neighbor atoms in fix go-model  (code: 004)");
-	if (lastResType==GHOST) {
-		if (iLastLocal!=-1 && nn-nMinNeighbours<=iLastLocal)
-			error->all("Missing neighbor atoms in fix go-model  (code: 005)");
-//		else {
-//			js = nn - nlastType;
-//			if (iLastLocal!=-1) js = MAX(js, iLastLocal + nMinNeighbours + 1);
-//			for (j=js;j<nn;++j) res_info[j] = OFF;
-//		}
-	}
-
-/*	if (Step>=sStep && Step<=eStep) {
-		for (i = 0; i < nn; ++i) {
-			fprintf(fout, "%d ", res_info[i]);
-		}
-		fprintf(fout, "\n");
-	}*/
+                lastResNo = res_no[i];
+                lastResType = res_info[i];
+        }
+        if (lastResType==LOCAL && res_no[nn-1]!=n)
+                error->all("Missing neighbor atoms in fix go-model  (code: 004)");
+        if (lastResType==GHOST) {
+                if (iLastLocal!=-1 && nn-nMinNeighbours<=iLastLocal)
+                        error->all("Missing neighbor atoms in fix go-model  (code: 005)");
+        }
 }
 
 void FixGoModel::allocate()
@@ -415,17 +366,10 @@ void FixGoModel::allocate()
 	r0 = new double[n-1];
 	theta0 = new double[n-2];
 	phi0 = new double[n-3];
-	//sigma = new double*[n-4];
-	//isNative = new bool*[n-4];
 
 	for (int i = 0; i < n; ++i) {
 		xca[i] = new double [3];
 	}
-
-	//for (int i = 0; i < n-4; ++i) {
-	//	sigma[i] = new double[n-4];
-	//	isNative[i] = new bool[n-4];
-	//}
 
 	random = new RanPark(lmp,seed);
 	
@@ -438,15 +382,14 @@ void FixGoModel::allocate_contact()
 		sigma = new double*[n-4];
 		isNative = new bool*[n-4];
 		for (int i = 0; i < n-4; ++i) {
-			sigma[i]    = new double[n-4];
+			sigma[i] = new double[n-4];
 			isNative[i] = new bool[n-4];
 		}
 	} else { //gaussian_contacts_flag
-		//fprintf(screen,"start to allocate!\n");
-		G          = new double[n_basins];
-		A          = new double[n_basins];
-		sigma_mb   = new double**[n_basins];
-		isNative_mb= new bool**[n_basins];
+		G = new double[n_basins];
+		A = new double[n_basins];
+		sigma_mb = new double**[n_basins];
+		isNative_mb = new bool**[n_basins];
 		for (int k=0; k<n_basins; ++k){
 			sigma_mb[k]    = new double*[n-4];
 			isNative_mb[k] = new bool*[n-4];
@@ -548,12 +491,10 @@ void FixGoModel::compute_bond(int i)
 	dx[0] = xca[i+1][0] - xca[i][0];
 	dx[1] = xca[i+1][1] - xca[i][1];
 	dx[2] = xca[i+1][2] - xca[i][2];
-	//fprintf(screen, "dx0 %f\n");
 	r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 	dr = r - r0[i_resno];
 	force = 2*epsilon*k_bonds*dr/r;
 	
-	//fprintf(screen, "r %f r0 %f dr %f force %f\n", r, r0[i_resno], dr, dx[0]*force);
 	foriginal[0] += epsilon*k_bonds*dr*dr;
 
 	f[alpha_carbons[i+1]][0] -= dx[0]*force;
@@ -722,8 +663,12 @@ void FixGoModel::compute_dihedral(int i)
 */
 void FixGoModel::compute_contact_deviation()
 {
-	rand = random->gaussian();
-	dev += (devA*rand - devB*dev)*devC;
+  if (contacts_dev_flag) {
+    rand = random->gaussian();
+    dev += (devA*rand - devB*dev)*devC;
+  } else if (contacts_sin_dev_flag) {
+    dev = devA*sin(devB*ntimestep + devC);
+  }
 }
 
 void FixGoModel::compute_contact(int i, int j)
@@ -953,42 +898,8 @@ void FixGoModel::compute_goModel()
 		out_xyz_and_force(1);
 	}
 	
-/*	if (Step>=sStep && Step<=eStep) {
-		fprintf(fout, "Before compute_contact_deviation\n");
-		fprintf(fout, "seed=%d\n", seed);
-		fprintf(fout, "random->state=%d\n",random->state());
-		fprintf(fout, "sdivf=%f\n", sdivf);
-		fprintf(fout, "tcorr=%f\n", tcorr);
-		fprintf(fout, "dev0=%f\n", dev0);
-		fprintf(fout, "w=%f\n", w);
-		fprintf(fout, "xi=%f\n", xi);
-		fprintf(fout, "dt=%f\n", update->dt);
-		fprintf(fout, "rand=%f\n", rand);
-		fprintf(fout, "devA=%f\n", devA);
-		fprintf(fout, "devB=%f\n", devB);
-		fprintf(fout, "devC=%f\n", devC);
-		fprintf(fout, "dev=%f\n\n", dev);
-	}*/
-
-	if (contacts_dev_flag)
+	if (contacts_dev_flag || contacts_sin_dev_flag)
 		compute_contact_deviation();
-
-/*	if (Step>=sStep && Step<=eStep) {
-		fprintf(fout, "After compute_contact_deviation\n");
-		fprintf(fout, "seed=%d\n", seed);
-		fprintf(fout, "random->state=%d\n",random->state());
-		fprintf(fout, "sdivf=%f\n", sdivf);
-		fprintf(fout, "tcorr=%f\n", tcorr);
-		fprintf(fout, "dev0=%f\n", dev0);
-		fprintf(fout, "w=%f\n", w);
-		fprintf(fout, "xi=%f\n", xi);
-		fprintf(fout, "dt=%f\n", update->dt);
-		fprintf(fout, "rand=%f\n", rand);
-		fprintf(fout, "devA=%f\n", devA);
-		fprintf(fout, "devB=%f\n", devB);
-		fprintf(fout, "devC=%f\n", devC);
-		fprintf(fout, "dev=%f\n\n", dev);
-	}*/
 
 	tmp = foriginal[0];
 	for (i=0;i<nn;i++) {
@@ -1003,16 +914,10 @@ void FixGoModel::compute_goModel()
 	}
 
 	tmp = foriginal[0];
-//	fprintf(fout, "\n{");
 	for (i=0;i<nn;i++) {
-//		tmp2=foriginal[0];
 		if (angles_flag && res_info[i]==LOCAL && res_no[i]<=n-2)
 			compute_angle(i);
-//		if (Step>=sStep && Step<=eStep) {
-//			fprintf(fout, "%.12f, ", foriginal[0]-tmp2);
-//		}
 	}
-//	fprintf(fout, "}\n\n");
 
 	if (angles_flag && Step>=sStep && Step<=eStep) {
 		fprintf(fout, "Angles %d:\n", nn);
@@ -1021,25 +926,20 @@ void FixGoModel::compute_goModel()
 	}
 
 	tmp = foriginal[0];
-//	if (Step>=sStep && Step<=eStep) fprintf(fout, "\n{");
 	for (i=0;i<nn;i++) {
-//		tmp2=foriginal[0];
 		if (dihedrals_flag && res_info[i]==LOCAL && res_no[i]<=n-3)
 			compute_dihedral(i);
-//		if (Step>=sStep && Step<=eStep) {
-//			fprintf(fout, "%.12f, ", foriginal[0]-tmp2);
-//		}
 	}
-//	if (Step>=sStep && Step<=eStep) fprintf(fout, "}\n\n");
 
 	if (dihedrals_flag && Step>=sStep && Step<=eStep) {
 		fprintf(fout, "Dihedrals %d:\n", nn);
 		fprintf(fout, "Dihedrals_Energy: %.12f\n", foriginal[0]-tmp);
 		out_xyz_and_force();
 	}
+	
+	fprintf(efout, "%f\n", dev);
 
 	tmp = foriginal[0];
-//	if (Step>=sStep && Step<=eStep) fprintf(fout, "\n{");
 	for (i=0;i<nn;i++) {
 		for (j=0;j<nn;j++) {
 			tmp2=foriginal[0];
@@ -1051,12 +951,8 @@ void FixGoModel::compute_goModel()
 				if (gaussian_contacts_flag)
 					compute_contact_gaussian(i, j);
 			}
-//			if (Step>=sStep && Step<=eStep) {
-//				fprintf(fout, "%.12f, ", foriginal[0]-tmp2);
-//			}
 		}
 	}
-//	if (Step>=sStep && Step<=eStep) fprintf(fout, "}\n\n");
 
 	if (contacts_flag && Step>=sStep && Step<=eStep) {
 		fprintf(fout, "Contacts %d:\n", nn);
@@ -1128,29 +1024,21 @@ double FixGoModel::compute_vector(int n)
 
 void FixGoModel::write_restart(FILE *fp)
 {
-/*	fprintf(fout, "In write_restart\n");
-	fprintf(fout, "seed=%d\n", seed);
-	fprintf(fout, "sdivf=%f\n", sdivf);
-	fprintf(fout, "tcorr=%f\n", tcorr);
-	fprintf(fout, "dev0=%f\n", dev0);
-	fprintf(fout, "w=%f\n", w);
-	fprintf(fout, "xi=%f\n", xi);
-	fprintf(fout, "dt=%f\n", update->dt);
-	fprintf(fout, "rand=%f\n", rand);
-	fprintf(fout, "devA=%f\n", devA);
-	fprintf(fout, "devB=%f\n", devB);
-	fprintf(fout, "devC=%f\n", devC);
-	fprintf(fout, "dev=%f\n", dev);
-	fprintf(fout, "random->state=%d\n\n",random->state());*/ 
-	
   int n = 0;
   double list[6];
   list[n++] = contacts_dev_flag;
+  list[n++] = contacts_sin_dev_flag;
   list[n++] = random->state();
   if (contacts_dev_flag) {
     list[n++] = sdivf;
     list[n++] = tcorr;
     list[n++] = dev0;
+    list[n++] = dev;
+  }
+  if (contacts_sin_dev_flag) {
+    list[n++] = sdivf;
+    list[n++] = tcorr;
+    list[n++] = devB*ntimestep + devC;
     list[n++] = dev;
   }
 
@@ -1171,35 +1059,34 @@ void FixGoModel::restart(char *buf)
   double *list = (double *) buf;
 
   contacts_dev_flag = static_cast<bool> (list[n++]);
+  contacts_sin_dev_flag = static_cast<bool> (list[n++]);
   seed = static_cast<int> (list[n++]);
   if (contacts_dev_flag) {
-	sdivf = list[n++];
-	tcorr = list[n++];
-	dev0 = list[n++];
-	dev = list[n++];
-	
-	xi = 1/tcorr;
-	w = sqrt(xi)*epsilon*sdivf;
+    sdivf = list[n++];
+    tcorr = list[n++];
+    dev0 = list[n++];
+    dev = list[n++];
+    
+    xi = 1/tcorr;
+    w = sqrt(xi)*epsilon*sdivf;
 
-	devA = w*sqrt(2*update->dt);
-	devB = xi*update->dt;
-	devC = (1 - xi*update->dt/2);
+    devA = w*sqrt(2*update->dt);
+    devB = xi*update->dt;
+    devC = (1 - xi*update->dt/2);
+  }
+  
+  if (contacts_sin_dev_flag) {
+    sdivf = list[n++];
+    tcorr = list[n++];
+    dev0 = list[n++];
+    dev = list[n++];
+    
+    devA = epsilon*sdivf/sqrt(0.5);
+    devB = 2*M_PI*update->dt/tcorr;
+    devC = dev0;
+    
+    dev = devA*sin(devC);
   }
 
   random->reset(seed);
-
-/*	fprintf(fout, "In restart\n");
-	fprintf(fout, "seed=%d\n", seed);
-	fprintf(fout, "random->state=%d\n",random->state());
-	fprintf(fout, "sdivf=%f\n", sdivf);
-	fprintf(fout, "tcorr=%f\n", tcorr);
-	fprintf(fout, "dev0=%f\n", dev0);
-	fprintf(fout, "w=%f\n", w);
-	fprintf(fout, "xi=%f\n", xi);
-	fprintf(fout, "dt=%f\n", update->dt);
-	fprintf(fout, "rand=%f\n", rand);
-	fprintf(fout, "devA=%f\n", devA);
-	fprintf(fout, "devB=%f\n", devB);
-	fprintf(fout, "devC=%f\n", devC);
-	fprintf(fout, "dev=%f\n\n", dev);*/
 }

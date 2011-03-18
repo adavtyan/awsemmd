@@ -24,8 +24,6 @@ class FixGoModel : public Fix {
  public:
   FixGoModel(class LAMMPS *, int, char **);
   ~FixGoModel();
-//  FixBackbone(class LAMMPS *, int, char **);
-//  ~FixBackbone();
   int setmask();
   void init();
   void setup(int);
@@ -60,20 +58,19 @@ private:
   double **xca;
   double prd[3], half_prd[3];
   double rand;
+  
+   //Gaussian contacts, for multi-basin
+  int n_basins;
+  double R, *G, *A, ***sigma_mb;
+  double rmin_cutoff;
 
-  bool allocated;
-  bool bonds_flag, angles_flag, dihedrals_flag, contacts_flag, contacts_dev_flag, lj_contacts_flag;
-  bool **isNative; 
+  bool allocated, contacts_allocated;
+  bool bonds_flag, angles_flag, dihedrals_flag, contacts_flag, contacts_dev_flag, contacts_sin_dev_flag, lj_contacts_flag, gaussian_contacts_flag;
+  bool **isNative, ***isNative_mb; 
 
   RanPark *random;
 
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
-
-  //Gaussian contacts, for multi-basin
-  int n_basins;
-  double R, *G, *A, ***sigma_mb;
-  double rmin_cutoff;
-  bool contacts_allocated, gaussian_contacts_flag, ***isNative_mb;
 
 private:
   void compute_goModel();

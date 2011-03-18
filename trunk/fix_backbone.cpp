@@ -22,12 +22,13 @@ Last Update: 03/04/2011
 #include "group.h"
 #include "domain.h"
 #include "memory.h"
-#include "fstream.h"
 
-#include <iostream.h>
+#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
+using std::ifstream;
 
 #define delta 0.00001
 
@@ -2493,7 +2494,6 @@ void FixBackbone::compute_backbone()
 
 	for (i=0;i<nn;i++) {
     i_resno = res_no[i];
-    j_resno = res_no[j];
     
 		if (chain_flag && res_info[i]==LOCAL)
 			compute_chain_potential(i);
@@ -2508,6 +2508,8 @@ void FixBackbone::compute_backbone()
 			compute_rama_potential(i);
 
 		for (j=0;j<nn;j++) {
+      j_resno = res_no[j];
+      
 			if (!isLast(i) && !isFirst(j) && abs(j_resno-i_resno)>2 && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j]!='P')
 				compute_dssp_hdrgn(i, j);
 

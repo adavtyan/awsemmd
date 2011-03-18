@@ -44,5 +44,7 @@ thermo		100
 dump		1 all atom 100 dump.lammpstrj
 restart         1000 restart.1r69
 
+dump_modify     1 sort id
+
 reset_timestep	0
 run		10000

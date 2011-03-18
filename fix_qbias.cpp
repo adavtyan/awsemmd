@@ -18,12 +18,13 @@ Last Update: 12/01/2010
 #include "error.h"
 #include "group.h"
 #include "domain.h"
-#include "fstream.h"
 
-#include <iostream.h>
+#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
+using std::ifstream;
 
 using namespace LAMMPS_NS;
 

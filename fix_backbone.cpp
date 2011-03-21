@@ -32,9 +32,6 @@ using std::ifstream;
 
 #define delta 0.00001
 
-double max_Edssp = 0.0;
-int iEStep = 0;
-
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */

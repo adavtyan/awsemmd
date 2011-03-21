@@ -41,7 +41,7 @@ group		oxygens id 2 5 8 11 14 17 20 23 26 29 32 35 38 41 44 47 50 53 56 59 62 65
 fix		  1 all nvt temp 300.0 300.0 100.0
 fix		  2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data 1r69.seq
 
-thermo		100
+thermo		1000
 dump		1 all atom 100 dump.lammpstrj
 restart		1000 restart.1r69
 

@@ -73,6 +73,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 
 	scalar_flag = 1;
 	vector_flag = 1;
+	thermo_energy = 1;
 	size_vector = 3;
 	extscalar = 1;
 	extvector = 1;
@@ -2548,7 +2549,7 @@ void FixBackbone::compute_backbone()
 	if (ntimestep%output->thermo_every==0) {
     fprintf(efile, "\t%d", ntimestep);
     for (int i=1;i<nEnergyTerm;++i) fprintf(efile, "\t%.6f", energy[i]);
-    fprintf(efile, "\t%.6f\n", energy[0]);
+    fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
 	}
 }
 

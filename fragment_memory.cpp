@@ -331,7 +331,30 @@ double Gamma_Array::getGamma(int ires_type, int jres_type, int ires, int jres)
 
 double Gamma_Array::getGamma(int ires_type, int jres_type, int ifres_type, int jfres_type, int ires, int jres)
 {
-  // Is not complit
+  if (!frag_resty || ires_type>=20 || jres_type>=20 || ifres_type>=20 || jfres_type>=20) { error = ERR_CALL; return 0.0; }
+  
+  int dij = abs(ires-jres);
+  if (dij<i_sep[0] || (i_sep[nseq_cl]!=-1 && dij>i_sep[nseq_cl])) return 0.0;
+  
+  int seq_cl, ires_cl, jres_cl, ifres_cl, jfres_cl, ig;
+  
+  for (seq_cl=1;seq_cl<nseq_cl && dij>=i_sep[seq_cl];seq_cl++) {}
+  
+  if (nres_cl==1) return gamma[seq_cl-1];
+  
+  if (nres_cl==4) {
+    ires_cl = four_letter_map[ires_type]-1;
+    jres_cl = four_letter_map[jres_type]-1;
+    ifres_cl = four_letter_map[ifres_type]-1;
+    jfres_cl = four_letter_map[jfres_type]-1;
+  } else if (nres_cl==20) {
+    ires_cl = ires_type;
+    jres_cl = jres_type;
+    ifres_cl = ifres_type;
+    jfres_cl = jfres_type;
+  }
+  
+  ig = (seq_cl==1 ? 0 : (seq_cl-1)*nres_cl*nres_cl*nres_cl*nres_cl) + ires_cl*nres_cl*nres_cl*nres_cl + jres_cl*nres_cl*nres_cl + ifres_cl*nres_cl + jfres_cl;
 }
 
 int Gamma_Array::get_index_array(char *resty, int *a)
@@ -385,9 +408,12 @@ void Gamma_Array::assign(char* iresty, char* jresty, int cl, double gm)
   if (error!=ERR_NONE) return;
   
   for (i=0;i<in;++i) {
-    for (j=0;j<jn;++j) {    
+    for (j=0;j<jn;++j) {
+      // gamma[iT][jT]
       ig = (cl-1)*nres_cl*nres_cl + is[i]*nres_cl + js[j];
       gamma[ig] = gm;
+      
+      // gamma[jT][iT]
       if (is[i]!=js[j]) {
         ig = (cl-1)*nres_cl*nres_cl + js[j]*nres_cl + is[i];
         gamma[ig] = gm;
@@ -401,7 +427,44 @@ void Gamma_Array::assign(char* iresty, char* jresty, char* ifresty, char* jfrest
   if (!frag_resty) { error = ERR_ASSIGN; return; }
   if (cl>nseq_cl) { error = ERR_ASSIGN; return; }
   
-  // Is not complite
+  int i, j, k, l, in, jn, kn, ln, ig;
+  int is[20], js[20], ks[20], ls[20];
+  
+  in = get_index_array(iresty, is);
+  jn = get_index_array(jresty, js);
+  kn = get_index_array(ifresty, ks);
+  ln = get_index_array(jfresty, ls);
+  if (error!=ERR_NONE) return;
+  
+  for (i=0;i<in;++i) {
+    for (j=0;j<jn;++j) {
+      for (k=0;k<kn;++k) {
+        for (l=0;l<ln;++l) {
+          // gamma[iT][jT][iF][jF]
+          ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl + ks[k]*nres_cl + ls[l];
+          gamma[ig] = gm;
+          
+          // gamma[jT][iT][iF][jF]
+          if (is[i]!=js[j]) {
+            ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl + ks[k]*nres_cl + ls[l];
+            gamma[ig] = gm;
+          }
+          
+          // gamma[iT][jT][jF][iF]
+          if (ks[k]!=ls[l]) {
+            ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl + ls[l]*nres_cl + ks[k];
+            gamma[ig] = gm;
+          }
+          
+          // gamma[jT][iT][jF][iF]
+          if (is[i]!=js[j] && ks[k]!=ls[l]) {
+            ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl + ls[l]*nres_cl + ks[k];
+            gamma[ig] = gm;
+          }
+        }
+      }
+    }
+  }
 }
 
 bool Gamma_Array::isEmptyString(char *str)

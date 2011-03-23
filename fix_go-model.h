@@ -4,7 +4,9 @@ Copyright (2010) Aram Davtyan and Garegin Papoian
 Papoian's Group, University of Maryland at Collage Park
 http://papoian.chem.umd.edu/
 
-Last Update: 12/01/2010
+Gaussian Contacts Potential was contributed by Weihua Zheng
+
+Last Update: 03/23/2011
 ------------------------------------------------------------------------- */
 #ifdef FIX_CLASS
 FixStyle(gomodel, FixGoModel)

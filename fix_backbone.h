@@ -4,7 +4,9 @@ Copyright (2010) Aram Davtyan and Garegin Papoian
 Papoian's Group, University of Maryland at Collage Park
 http://papoian.chem.umd.edu/
 
-Last Update: 03/04/2011
+Solvent Separated Barrier Potential was contributed by Nick Schafer
+
+Last Update: 03/23/2011
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -108,7 +110,6 @@ public:
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
-  double foriginal[4],foriginal_all[4];
   int force_flag;
   int nlevels_respa;
   bool allocated;
@@ -135,9 +136,9 @@ public:
   
   char se[1000]; // Protein sequance
   
-  double energy[15];
+  double energy[15], energy_all[15];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
-                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_SSB, nEnergyTerm};
+                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_SSB, nEnergyTerms};
   
  private:
   void compute_backbone();

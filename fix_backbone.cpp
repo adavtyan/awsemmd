@@ -4,7 +4,9 @@ Copyright (2010) Aram Davtyan and Garegin Papoian
 Papoian's Group, University of Maryland at Collage Park
 http://papoian.chem.umd.edu/
 
-Last Update: 03/04/2011
+Solvent Separated Barrier Potential was contributed by Nick Schafer
+
+Last Update: 03/23/2011
 ------------------------------------------------------------------------- */
 
 #include "math.h"
@@ -68,15 +70,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
 	efile = fopen("energy.log", "w");
 	
-	char eheader[] = "\tStep\tChain\tShake\tChi\tRama\tExcluded\tDSSP\tP_AP\tWater\tBurial\tHelix\tAMH-Go\tFrag_Mem\tSSB\tVTotal\n";
+	char eheader[] = "Step\tChain\tShake\tChi\tRama\tExcluded\tDSSP\tP_AP\tWater\tBurial\tHelix\tAMH-Go\tFrag_Mem\tSSB\tVTotal\n";
 	fprintf(efile, "%s", eheader);
 
 	scalar_flag = 1;
 	vector_flag = 1;
 	thermo_energy = 1;
-	size_vector = 3;
-	extscalar = 1;
-	extvector = 1;
+	size_vector = nEnergyTerms-1;
+    global_freq = 1;
+    extscalar = 1;
+    extvector = 1;
 	
 	abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
 	ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = 0;
@@ -251,8 +254,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
 	force_flag = 0;
 	n = (int)(group->count(igroup)+1e-12);
-	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
-	for (int i=0;i<nEnergyTerm;++i) energy[i] = 0.0;
+	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 	x = atom->x;
 	f = atom->f;
 	image = atom->image;
@@ -2408,17 +2410,10 @@ void FixBackbone::compute_backbone()
 	int i, j, xbox, ybox, zbox;
 	int i_resno, j_resno;
 	
-	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
-	for (int i=0;i<nEnergyTerm;++i) energy[i] = 0.0;
+	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 	force_flag = 0;
 	
-	for (i=0;i<nn;++i) {
-		if (res_info[i]==LOCAL) {
-			foriginal[1] += f[alpha_carbons[i]][0] + f[beta_atoms[i]][0] + f[oxygens[i]][0];
-			foriginal[2] += f[alpha_carbons[i]][1] + f[beta_atoms[i]][1] + f[oxygens[i]][1];
-			foriginal[3] += f[alpha_carbons[i]][2] + f[beta_atoms[i]][2] + f[oxygens[i]][2];
-		}
-		
+	for (i=0;i<nn;++i) {		
 		if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {
 			if (domain->xperiodic) {
 				xbox = (image[alpha_carbons[i]] & 1023) - 512;
@@ -2543,12 +2538,11 @@ void FixBackbone::compute_backbone()
 	if (r6_excluded_flag)
 		compute_r6_excluded_volume();
 	
-	for (int i=1;i<nEnergyTerm;++i) energy[0] += energy[i];
-	foriginal[0] = energy[0];
+	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
 	
 	if (ntimestep%output->thermo_every==0) {
-    fprintf(efile, "\t%d", ntimestep);
-    for (int i=1;i<nEnergyTerm;++i) fprintf(efile, "\t%.6f", energy[i]);
+    fprintf(efile, "%d ", ntimestep);
+    for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
     fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
 	}
 }
@@ -2575,7 +2569,7 @@ void FixBackbone::min_post_force(int vflag)
 }
 
 /* ----------------------------------------------------------------------
-	 potential energy of added force
+	 return total potential energy
 ------------------------------------------------------------------------- */
 
 double FixBackbone::compute_scalar()
@@ -2583,23 +2577,23 @@ double FixBackbone::compute_scalar()
 	// only sum across procs one time
 
 	if (force_flag == 0) {
-		MPI_Allreduce(foriginal,foriginal_all,4,MPI_DOUBLE,MPI_SUM,world);
+		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
 		force_flag = 1;
 	}
-	return foriginal_all[0];
+	return energy_all[ET_TOTAL];
 }
 
 /* ----------------------------------------------------------------------
-	 return components of total force on fix group before force was changed
+	 return potential energies of terms computed in this fix
 ------------------------------------------------------------------------- */
 
-double FixBackbone::compute_vector(int n)
+double FixBackbone::compute_vector(int nv)
 {
 	// only sum across procs one time
 
 	if (force_flag == 0) {
-		MPI_Allreduce(foriginal,foriginal_all,4,MPI_DOUBLE,MPI_SUM,world);
+		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
 		force_flag = 1;
 	}
-	return foriginal_all[n+1];
+	return energy_all[nv+1];
 }

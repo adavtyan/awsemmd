@@ -17,4 +17,4 @@ echo $output_file
 python PDBToCoordinates.py $pdb_file $output_file".coord"
 python CoordinatesToWorkLammpsDataFile.py $output_file".coord" "data."$output_file -b -go
 
-python GetContactMapFromPDB.py 1SRL fix_gomodel_coeff.data
+python GetContactMapFromPDB.py $pdb_file fix_gomodel_coeff.data

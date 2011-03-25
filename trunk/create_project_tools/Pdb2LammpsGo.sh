@@ -19,4 +19,4 @@ python SequanceToZ-Matrix.py $output_file".se" $output_file".zm" -d
 python Z-MatrixToCoordinates.py $output_file".zm" $output_file".coord"
 python CoordinatesToWorkLammpsDataFile.py $output_file".coord" "data."$output_file -b -go
 
-python GetContactMapFromPDB.py 1SRL fix_gomodel_coeff.data
+python GetContactMapFromPDB.py $pdb_file fix_gomodel_coeff.data

@@ -84,7 +84,10 @@ if len(sys.argv)<=3:
 filename = sys.argv[1]
 pdb_id = sys.argv[2]
 
-pdb_file = pdb_id + ".pdb"
+if pdb_id[-4:].lower()==".pdb":
+        pdb_file = pdb_id
+else:
+        pdb_file = pdb_id + ".pdb"
 
 frame = int(sys.argv[3])
 

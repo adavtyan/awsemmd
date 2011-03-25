@@ -91,7 +91,10 @@ if len(sys.argv)!=5 and len(sys.argv)!=4:
 	exit()
 
 struct_id = sys.argv[1]
-pdb_file = struct_id + ".pdb"
+if struct_id[-4:].lower()==".pdb":
+	pdb_file = struct_id
+else:
+	pdb_file = struct_id + ".pdb"
 lammps_file = sys.argv[2]
 
 output_file = ""

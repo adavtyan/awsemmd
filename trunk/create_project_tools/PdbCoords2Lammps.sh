@@ -1,3 +1,5 @@
+<<<<<<< .mine
+=======
 #!/bin/bash
 
 if [[ ! $# -eq 2 ]]
@@ -16,3 +18,4 @@ echo $output_file
 
 python PDBToCoordinates.py $pdb_file $output_file".coord"
 python CoordinatesToWorkLammpsDataFile.py $output_file".coord" "data."$output_file -b
+>>>>>>> .r40

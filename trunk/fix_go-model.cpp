@@ -1059,36 +1059,35 @@ void FixGoModel::restart(char *buf)
 {	
   int n = 0;
   double *list = (double *) buf;
+  bool r_cont_dev_flag, r_cont_sin_dev_flag;
+  bool r_sdivf, r_tcorr, r_dev0, r_dev;
 
-  contacts_dev_flag = static_cast<bool> (list[n++]);
-  contacts_sin_dev_flag = static_cast<bool> (list[n++]);
+  r_cont_dev_flag = static_cast<bool> (list[n++]);
+  r_cont_sin_dev_flag = static_cast<bool> (list[n++]);
   seed = static_cast<int> (list[n++]);
-  if (contacts_dev_flag) {
-    sdivf = list[n++];
-    tcorr = list[n++];
-    dev0 = list[n++];
-    dev = list[n++];
-    
-    xi = 1/tcorr;
-    w = sqrt(xi)*epsilon*sdivf;
-
-    devA = w*sqrt(2*update->dt);
-    devB = xi*update->dt;
-    devC = (1 - xi*update->dt/2);
+  
+  if (r_cont_dev_flag) {
+    r_sdivf = list[n++];
+    r_tcorr = list[n++];
+    r_dev0 = list[n++];
+    r_dev = list[n++];
   }
   
-  if (contacts_sin_dev_flag) {
-    sdivf = list[n++];
-    tcorr = list[n++];
-    dev0 = list[n++];
-    dev = list[n++];
-    
-    devA = epsilon*sdivf/sqrt(0.5);
-    devB = 2*M_PI*update->dt/tcorr;
-    devC = dev0;
-    
+  if (contacts_dev_flag && r_cont_dev_flag) {
+    dev = r_dev;
+  }
+  
+  if (r_cont_sin_dev_flag) {
+    r_sdivf = list[n++];
+    r_tcorr = list[n++];
+    r_dev0 = list[n++];
+    r_dev = list[n++];
+  }
+  
+  if (contacts_sin_dev_flag && r_cont_sin_dev_flag) {
+    devC = r_dev0;
     dev = devA*sin(devC);
   }
-
+  
   random->reset(seed);
 }

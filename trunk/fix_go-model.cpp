@@ -71,7 +71,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	allocated = false;
 	allocate();
 
-	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = contacts_dev_flag = lj_contacts_flag = gaussian_contacts_flag = 0;
+	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = contacts_sin_dev_flag = lj_contacts_flag = gaussian_contacts_flag = 0;
 	epsilon = epsilon2 = 1.0;
 	n_basins = 1;
 	rmin_cutoff = 4.0 ;
@@ -698,7 +698,7 @@ void FixGoModel::compute_contact(int i, int j)
 
 	if (isNative[i_resno][j_resno-4]) {
 		contact_epsilon = epsilon;
-		if (contacts_dev_flag) contact_epsilon = epsilon + dev;
+		if (contacts_dev_flag || contacts_sin_dev_flag) contact_epsilon = epsilon + dev;
 
 		V = contact_epsilon*(5*sgrinv12 - 6*sgrinv10);
 		force = -60*contact_epsilon*(sgrinv12 - sgrinv10)/rsq;
@@ -939,7 +939,7 @@ void FixGoModel::compute_goModel()
 		out_xyz_and_force();
 	}
 	
-	fprintf(efout, "%f\n", dev);
+//	fprintf(efout, "%f\n", dev);
 
 	tmp = foriginal[0];
 	for (i=0;i<nn;i++) {
@@ -1060,17 +1060,17 @@ void FixGoModel::restart(char *buf)
   int n = 0;
   double *list = (double *) buf;
   bool r_cont_dev_flag, r_cont_sin_dev_flag;
-  bool r_sdivf, r_tcorr, r_dev0, r_dev;
+  double r_sdivf, r_tcorr, r_dev0, r_dev;
 
   r_cont_dev_flag = static_cast<bool> (list[n++]);
   r_cont_sin_dev_flag = static_cast<bool> (list[n++]);
   seed = static_cast<int> (list[n++]);
   
   if (r_cont_dev_flag) {
-    r_sdivf = list[n++];
-    r_tcorr = list[n++];
-    r_dev0 = list[n++];
-    r_dev = list[n++];
+    r_sdivf = static_cast<double> (list[n++]);
+    r_tcorr = static_cast<double> (list[n++]);
+    r_dev0 = static_cast<double> (list[n++]);
+    r_dev = static_cast<double> (list[n++]);
   }
   
   if (contacts_dev_flag && r_cont_dev_flag) {
@@ -1078,10 +1078,10 @@ void FixGoModel::restart(char *buf)
   }
   
   if (r_cont_sin_dev_flag) {
-    r_sdivf = list[n++];
-    r_tcorr = list[n++];
-    r_dev0 = list[n++];
-    r_dev = list[n++];
+    r_sdivf = static_cast<double> (list[n++]);
+    r_tcorr = static_cast<double> (list[n++]);
+    r_dev0 = static_cast<double> (list[n++]);
+    r_dev = static_cast<double> (list[n++]);
   }
   
   if (contacts_sin_dev_flag && r_cont_sin_dev_flag) {

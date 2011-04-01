@@ -15,6 +15,7 @@ Last Update: 03/23/2011
 #include "fix_go-model.h"
 #include "atom.h"
 #include "timer.h"
+#include "output.h"
 #include "update.h"
 #include "respa.h"
 #include "comm.h"
@@ -49,6 +50,11 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 {
 	if (narg != 4) error->all("Illegal fix go-model command");
 	
+	efile = fopen("energyGO.log", "w");
+	
+	char eheader[] = "Step\tBond\tAngle\tDihedral\tContacts\tVTotal\n";
+	fprintf(efile, "%s", eheader);
+	
 	restart_global = 1;
 
 	char force_file_name[] = "forcesGO.dat";
@@ -57,14 +63,15 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	
 	scalar_flag = 1;
 	vector_flag = 1;
-	size_vector = 3;
-	//scalar_vector_freq = 1;
+	thermo_energy = 1;
+	size_vector = nEnergyTerms;
+	global_freq = 1;
 	extscalar = 1;
 	extvector = 1;
 
 	force_flag = 0;
+	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 	n = (int)(group->count(igroup)+1e-12);
-	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
 	
 	seed = time(NULL);
 
@@ -175,11 +182,11 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		devB = xi*update->dt;
 		devC = (1 - xi*update->dt/2);
 	} else if (contacts_sin_dev_flag) {	
-    devA = epsilon*sdivf/sqrt(0.5);
-    devB = 2*M_PI*update->dt/tcorr;
-    devC = M_PI*dev0;
-    
-    dev = devA*sin(devC);
+		devA = epsilon*sdivf/sqrt(0.5);
+		devB = 2*M_PI*update->dt/tcorr;
+		devC = M_PI*dev0;
+		
+		dev = devA*sin(devC);
 	}
 	
 	x = atom->x;
@@ -497,7 +504,7 @@ void FixGoModel::compute_bond(int i)
 	dr = r - r0[i_resno];
 	force = 2*epsilon*k_bonds*dr/r;
 	
-	foriginal[0] += epsilon*k_bonds*dr*dr;
+	energy[ET_BOND] += epsilon*k_bonds*dr*dr;
 
 	f[alpha_carbons[i+1]][0] -= dx[0]*force;
 	f[alpha_carbons[i+1]][1] -= dx[1]*force;
@@ -538,7 +545,7 @@ void FixGoModel::compute_angle(int i)
 	dtheta = 180*dtheta/M_PI;
 	force = 2*epsilon*k_angles*dtheta/(AB*sqrt(1-alpha*alpha));
 
-	foriginal[0] += epsilon*k_angles*dtheta*dtheta;
+	energy[ET_ANGLE] += epsilon*k_angles*dtheta*dtheta;
 
 	factor[0][0] = (b[0] - a[0]*adb/a2);
 	factor[0][1] = (b[1] - a[1]*adb/a2);
@@ -638,7 +645,7 @@ void FixGoModel::compute_dihedral(int i)
 
 		force = (2*j+1)*epsilon*k_dihedrals[j]*sin(dphi);
 
-		foriginal[0] += V;
+		energy[ET_DIHEDRAL] += V;
 
 		for (l=0; l<3; l++) {
 			f[alpha_carbons[i]][l] -= force*(y_slope[0][l] + x_slope[0][l]);
@@ -707,7 +714,7 @@ void FixGoModel::compute_contact(int i, int j)
 		force = -12*epsilon2*sgrinv12/rsq;
 	}
 
-	foriginal[0] += V;
+	energy[ET_CONTACTS] += V;
 
 	f[alpha_carbons[j]][0] -= force*dx[0];
 	f[alpha_carbons[j]][1] -= force*dx[1];
@@ -757,7 +764,7 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 	}
 	VTotal = epsilon*((1.0 + R)*V - 1.0);
 
-	foriginal[0] += VTotal;
+	energy[ET_CONTACTS] += VTotal;
 
 	force = 12.0 * R * V / r;
 	fprintf(screen, "R %f V %f f %f\n", R, V, force);
@@ -843,7 +850,7 @@ void FixGoModel::compute_goModel()
 	int i, j, xbox, ybox, zbox;
 	int i_resno, j_resno;
 	
-	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
+	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 	force_flag = 0;
 
 	for (i=0;i<nn;++i) {
@@ -967,6 +974,14 @@ void FixGoModel::compute_goModel()
 		out_xyz_and_force(1);
 		fprintf(fout, "\n\n\n");
 	}
+	
+	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
+	
+	if (ntimestep%output->thermo_every==0) {
+		fprintf(efile, "%d ", ntimestep);
+		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
+			fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
+	}
 }
 
 /* ---------------------------------------------------------------------- */
@@ -991,7 +1006,7 @@ void FixGoModel::min_post_force(int vflag)
 }
 
 /* ----------------------------------------------------------------------
-	 potential energy of added force
+	 return total potential energy
 ------------------------------------------------------------------------- */
 
 double FixGoModel::compute_scalar()
@@ -999,25 +1014,33 @@ double FixGoModel::compute_scalar()
 	// only sum across procs one time
 
 	if (force_flag == 0) {
-		MPI_Allreduce(foriginal,foriginal_all,4,MPI_DOUBLE,MPI_SUM,world);
+		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
 		force_flag = 1;
 	}
-	return foriginal_all[0];
+	return energy_all[ET_TOTAL];
 }
 
 /* ----------------------------------------------------------------------
-	 return components of total force on fix group before force was changed
+	 return potential energies of terms computed in this fix
+	 and return contact_epsilon
 ------------------------------------------------------------------------- */
 
-double FixGoModel::compute_vector(int n)
+double FixGoModel::compute_vector(int nv)
 {
+	// contact_epsilon output
+	if (nv==nEnergyTerms-1) {
+		if (contacts_dev_flag || contacts_sin_dev_flag) return epsilon + dev; 
+		else return epsilon;
+	}
+	
+	// Energy output
+	
 	// only sum across procs one time
-
 	if (force_flag == 0) {
-		MPI_Allreduce(foriginal,foriginal_all,4,MPI_DOUBLE,MPI_SUM,world);
+		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
 		force_flag = 1;
 	}
-	return foriginal_all[n+1];
+	return energy_all[nv+1];
 }
 
 /* ----------------------------------------------------------------------

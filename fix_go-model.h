@@ -73,6 +73,9 @@ private:
   RanPark *random;
 
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
+  
+  double energy[5], energy_all[5];
+  enum EnergyTerms{ET_TOTAL=0, ET_BOND, ET_ANGLE, ET_DIHEDRAL, ET_CONTACTS, nEnergyTerms};
 
 private:
   void compute_goModel();
@@ -97,6 +100,7 @@ private:
   int sStep, eStep;
   FILE *fout;
   FILE *efout;
+  FILE *efile;
   void out_xyz_and_force(int coord=0);
 };
 

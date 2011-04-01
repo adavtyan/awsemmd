@@ -2541,9 +2541,9 @@ void FixBackbone::compute_backbone()
 	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
 	
 	if (ntimestep%output->thermo_every==0) {
-    fprintf(efile, "%d ", ntimestep);
-    for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
-    fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
+		fprintf(efile, "%d ", ntimestep);
+		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
+			fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
 	}
 }
 

@@ -251,7 +251,7 @@ for igroup in groups:
     groups_string += "group\t\t" + " ".join(igroup) + "\n\n"
 
 bonds_string = ""
-if cg and cg_bonds:
+if cg and cg_bonds and not go:
 	bonds_string = "bond_style harmonic"
 
 pair_string = ""

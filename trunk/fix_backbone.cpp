@@ -2202,16 +2202,16 @@ void FixBackbone::compute_amh_go_model()
           dx[2] = xi[2] - xj[2];
           
           r = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
-          
-          if (r<amh_go_rc) {            
+
+	  if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
+	  if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
+	  rnative = m_amh_go->Rf(imol-1, iatom, jmol-1, jatom);          
+
+          if (rnative<amh_go_rc) {            
             amhgo_sigma_sq = pow(abs(imol-jmol), 0.3);
             amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, imol-1, jmol-1);
             if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
-            
-            if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
-            if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
-            
-            rnative = m_amh_go->Rf(imol-1, iatom, jmol-1, jatom);
+
             dr = r - rnative;
             drsq = dr*dr;
             
@@ -2237,9 +2237,9 @@ void FixBackbone::compute_amh_go_model()
       
       factor = -0.5*epsilon*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1);
       for (k=0;k<nforces;k++) {
-        f[amh_go_force_map[k]][0] += amh_go_force[k][0];
-        f[amh_go_force_map[k]][1] += amh_go_force[k][1];
-        f[amh_go_force_map[k]][2] += amh_go_force[k][2];
+        f[amh_go_force_map[k]][0] += factor*amh_go_force[k][0];
+        f[amh_go_force_map[k]][1] += factor*amh_go_force[k][1];
+        f[amh_go_force_map[k]][2] += factor*amh_go_force[k][2];
       }
       
       E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p);

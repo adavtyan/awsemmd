@@ -1,7 +1,7 @@
 #!/bin/bash
 
-lammps_dir="/home/aram/lammps-18Feb11/src"
-project_dir="/home/aram/Project_Files_2009.05.18/Lammps_Files/release"
+lammps_dir="$HOME/lammps-18Feb11/src"
+project_dir="$HOME/Project_Files_2009.05.18/Lammps_Files/release"
 simulation_dir=`pwd`
 
 pr_file1="fix_backbone.cpp"

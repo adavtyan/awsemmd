@@ -1,13 +1,13 @@
 /* ----------------------------------------------------------------------
-Copyright (2010) Aram Davtyan and Garegin Papoian
+   Copyright (2010) Aram Davtyan and Garegin Papoian
 
-Papoian's Group, University of Maryland at Collage Park
-http://papoian.chem.umd.edu/
+   Papoian's Group, University of Maryland at Collage Park
+   http://papoian.chem.umd.edu/
 
-Solvent Separated Barrier Potential was contributed by Nick Schafer
+   Solvent Separated Barrier Potential was contributed by Nick Schafer
 
-Last Update: 03/23/2011
-------------------------------------------------------------------------- */
+   Last Update: 03/23/2011
+   ------------------------------------------------------------------------- */
 
 #include "math.h"
 #include "string.h"
@@ -77,9 +77,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	vector_flag = 1;
 	thermo_energy = 1;
 	size_vector = nEnergyTerms-1;
-    global_freq = 1;
-    extscalar = 1;
-    extvector = 1;
+  global_freq = 1;
+  extscalar = 1;
+  extvector = 1;
 	
 	abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
 	ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = 0;
@@ -365,7 +365,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all("Fragment_Memory: Cannot build gamma array");
 		
 		// read frag_mems_file and create a list of the fragments
-		 frag_mems = read_mems(frag_mems_file, n_frag_mems);
+    frag_mems = read_mems(frag_mems_file, n_frag_mems);
 		
 		// allocate frag_mem_map and ilen_fm_map
 		ilen_fm_map = new int[n]; // Number of fragments for residue i
@@ -434,8 +434,8 @@ FixBackbone::~FixBackbone()
       delete [] amh_go_force;
       delete [] amh_go_force_map;
       
-     delete m_amh_go;
-     delete amh_go_gamma;
+      delete m_amh_go;
+      delete amh_go_gamma;
     }    
     
     if (frag_mem_flag) {
@@ -645,8 +645,8 @@ void FixBackbone::init()
   int irequest = neighbor->request((void *) this);
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->fix = 1;
-//  neighbor->requests[irequest]->half = 1;
-//  neighbor->requests[irequest]->occasional = 0;
+  //  neighbor->requests[irequest]->half = 1;
+  //  neighbor->requests[irequest]->occasional = 0;
 
 }
 
@@ -687,12 +687,12 @@ inline double adotb(double *a, double *b)
 inline double cross(double *a, double *b, int index)
 {
 	switch (index) {
-		case 0:
-			return a[1]*b[2] - a[2]*b[1];
-		case 1:
-			return a[2]*b[0] - a[0]*b[2];
-		case 2:
-			return a[0]*b[1] - a[1]*b[0];
+  case 0:
+    return a[1]*b[2] - a[2]*b[1];
+  case 1:
+    return a[2]*b[0] - a[0]*b[2];
+  case 2:
+    return a[0]*b[1] - a[1]*b[0];
 	}
 	
 	return 0;
@@ -730,27 +730,27 @@ bool FixBackbone::isEmptyString(char *str)
 
 char *ltrim(char *s) 
 {     
-    while(isspace(*s)) s++;     
-    return s; 
+  while(isspace(*s)) s++;     
+  return s; 
 }  
 
 char *rtrim(char *s) 
 {
-    char* back;
-    int len = strlen(s);
+  char* back;
+  int len = strlen(s);
 
-    if(len == 0)
-        return(s); 
+  if(len == 0)
+    return(s); 
 
-    back = s + len;     
-    while(isspace(*--back));     
-    *(back+1) = '\0';     
-    return s; 
+  back = s + len;     
+  while(isspace(*--back));     
+  *(back+1) = '\0';     
+  return s; 
 }  
 
 char *trim(char *s) 
 {     
-    return rtrim(ltrim(s));  
+  return rtrim(ltrim(s));  
 } 
 
 Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
@@ -777,32 +777,32 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
     if (isEmptyString(line)) { file_state = FS_NONE; continue; }
         
     switch (file_state) {
-      case FS_MEMS:
-        nstr = 0;
-        str[nstr] = strtok(line," \t\n");
-        while ( str[nstr]!=NULL ) {
-          nstr++;
-          if (nstr>5) break;
-          str[nstr] = strtok(NULL," \t\n");
-        }
-        if (nstr!=5) error->all("Fragment_Memory: Error reading mem file");
+    case FS_MEMS:
+      nstr = 0;
+      str[nstr] = strtok(line," \t\n");
+      while ( str[nstr]!=NULL ) {
+        nstr++;
+        if (nstr>5) break;
+        str[nstr] = strtok(NULL," \t\n");
+      }
+      if (nstr!=5) error->all("Fragment_Memory: Error reading mem file");
         
-        tpos = atoi(str[1]);
-        fpos = atoi(str[2]);
-        len = atoi(str[3]);
-        weight = atof(str[4]);
+      tpos = atoi(str[1]);
+      fpos = atoi(str[2]);
+      len = atoi(str[3]);
+      weight = atof(str[4]);
         
-        n_mems++;
-        mems_array = (Fragment_Memory **) memory->srealloc(mems_array,n_mems*sizeof(Fragment_Memory *),"modify:mems_array");
-        mems_array[n_mems-1] = new Fragment_Memory(tpos, fpos, len, weight, str[0]);
+      n_mems++;
+      mems_array = (Fragment_Memory **) memory->srealloc(mems_array,n_mems*sizeof(Fragment_Memory *),"modify:mems_array");
+      mems_array[n_mems-1] = new Fragment_Memory(tpos, fpos, len, weight, str[0]);
         
-        break;
-      case FS_NONE:
-        if (strcmp(line, "[Target]")==0)
-          file_state = FS_TARGET;
-        else if (strcmp(line, "[Memories]")==0)
-          file_state = FS_MEMS;
-        break;
+      break;
+    case FS_NONE:
+      if (strcmp(line, "[Target]")==0)
+        file_state = FS_TARGET;
+      else if (strcmp(line, "[Memories]")==0)
+        file_state = FS_MEMS;
+      break;
     }
   }
   
@@ -1488,25 +1488,25 @@ void FixBackbone::compute_r6_excluded_volume()
 }
 
 /*
- hbscl(1) short range additive
- hbscl(2) short range repulsive
- hbscl(3) med range additive
- hbscl(4) med range repulsive
- hbscl(5) med range anti-parallel non-add
- hbscl(6) med range parallel non-add
- hbscl(7) long range additive
- hbscl(8) long range repulsive
- hbscl(9) long range anti-parallel non-add
- hbscl(10) long range parallel non-add
-   seq-dep terms (that depend non-additively on identities of residues in H-bond pair)
- hbscl(11) med range seq-dep anti-P for H bonded pair
- hbscl(12) med range seq-dep anti-P for non-H bonded pair
- hbscl(13) long range seq-dep anti-P for H bonded pair
- hbscl(14) long range seq-dep anti-P for non-H bonded pair
- hbscl(15) long range seq-dep parallel (all cross strand pairs same for parallel)
-   seq-dep terms (that depend *additively* on identities of residues in H-bond pair)
- hbscl(16) seq-dep anti-P weight  
- hbscl(17) seq-dep parallel weight
+  hbscl(1) short range additive
+  hbscl(2) short range repulsive
+  hbscl(3) med range additive
+  hbscl(4) med range repulsive
+  hbscl(5) med range anti-parallel non-add
+  hbscl(6) med range parallel non-add
+  hbscl(7) long range additive
+  hbscl(8) long range repulsive
+  hbscl(9) long range anti-parallel non-add
+  hbscl(10) long range parallel non-add
+  seq-dep terms (that depend non-additively on identities of residues in H-bond pair)
+  hbscl(11) med range seq-dep anti-P for H bonded pair
+  hbscl(12) med range seq-dep anti-P for non-H bonded pair
+  hbscl(13) long range seq-dep anti-P for H bonded pair
+  hbscl(14) long range seq-dep anti-P for non-H bonded pair
+  hbscl(15) long range seq-dep parallel (all cross strand pairs same for parallel)
+  seq-dep terms (that depend *additively* on identities of residues in H-bond pair)
+  hbscl(16) seq-dep anti-P weight  
+  hbscl(17) seq-dep parallel weight
 */
 
 inline double FixBackbone::anti_HB(int res1, int res2, int k)
@@ -1580,9 +1580,9 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 			lambda[0] = -hbscl[1][0];
 			lambda[1] = -hbscl[1][1];
 			lambda[2] = -hbscl[1][2]
-				    -hbscl[1][3]*theta_seq_anti_HB[0]
-				    -hbscl[1][4]*theta_seq_anti_NHB[0]
-				    -hbscl[1][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
+        -hbscl[1][3]*theta_seq_anti_HB[0]
+        -hbscl[1][4]*theta_seq_anti_NHB[0]
+        -hbscl[1][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
 			lambda[3] = -hbscl[1][6];
 		} else {
 			lambda[0] = 0.0;
@@ -1595,23 +1595,23 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 		lambda[0] = -hbscl[2][0];
 		lambda[1] = -hbscl[2][1];
 		lambda[2] = -hbscl[2][2]
-			    -hbscl[2][3]*theta_seq_anti_HB[1]
-			    -hbscl[2][4]*theta_seq_anti_NHB[1]
-			    -hbscl[2][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
+      -hbscl[2][3]*theta_seq_anti_HB[1]
+      -hbscl[2][4]*theta_seq_anti_NHB[1]
+      -hbscl[2][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
 		lambda[3] = -hbscl[2][6]
-			    -hbscl[2][7]*theta_seq_para_HB[1]
-			    -hbscl[2][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
+      -hbscl[2][7]*theta_seq_para_HB[1]
+      -hbscl[2][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
 		hb_class = 3;
 	} else {
 		lambda[0] = -hbscl[3][0];
 		lambda[1] = -hbscl[3][1];
 		lambda[2] = -hbscl[3][2]
-			    -hbscl[3][3]*theta_seq_anti_HB[1]
-			    -hbscl[3][4]*theta_seq_anti_NHB[1]
-			    -hbscl[3][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
+      -hbscl[3][3]*theta_seq_anti_HB[1]
+      -hbscl[3][4]*theta_seq_anti_NHB[1]
+      -hbscl[3][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
 		lambda[3] = -hbscl[3][6]
-			    -hbscl[3][7]*theta_seq_para_HB[1]
-			    -hbscl[3][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
+      -hbscl[3][7]*theta_seq_para_HB[1]
+      -hbscl[3][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
 		hb_class = 4;
 	}
 
@@ -1710,9 +1710,9 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 
 	
 	theta_sum = lambda[0]*theta[0] 
-		 + lambda[1]*theta[0]*theta[1] 
-		 + lambda[2]*theta[0]*theta[2] 
-		 + lambda[3]*theta[0]*theta[3];
+    + lambda[1]*theta[0]*theta[1] 
+    + lambda[2]*theta[0]*theta[2] 
+    + lambda[3]*theta[0]*theta[3];
 
 	V[0] = epsilon*lambda[0]*theta[0]*nu[0]*nu[1];
 	V[1] = epsilon*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];
@@ -1821,7 +1821,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 void FixBackbone::compute_P_AP_potential(int i, int j)
 {
 	double K, force[2], dx[2][3];
-//	double nu_P_AP[100][100], prd_nu_P_AP[100][100];
+  //	double nu_P_AP[100][100], prd_nu_P_AP[100][100];
 	bool i_AP_med, i_AP_long, i_P;
 
 	int i_resno = res_no[i]-1;
@@ -2209,47 +2209,48 @@ void FixBackbone::compute_amh_go_model()
           if (domain->yperiodic) xj[1] += prd[1]*((image[j] >> 10 & 1023) - 512);
           if (domain->zperiodic) xj[2] += prd[2]*((image[j] >> 20) - 512);
 
-		  if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
-		  if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
-		  rnative = m_amh_go->Rf(imol-1, iatom, jmol-1, jatom);          
+          if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
+          if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
+          rnative = m_amh_go->Rf(imol-1, iatom, jmol-1, jatom);          
 
           if (rnative<amh_go_rc) {
           	dx[0] = xi[0] - xj[0];
-	        dx[1] = xi[1] - xj[1];
-    	    dx[2] = xi[2] - xj[2];
+            dx[1] = xi[1] - xj[1];
+            dx[2] = xi[2] - xj[2];
           
-        	r = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
-        	dr = r - rnative;
+            r = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+            dr = r - rnative;
             drsq = dr*dr;
             
             amhgo_sigma_sq = pow(abs(imol-jmol), 0.3);
             
             // drsq < 12*Log[10]*sigma_sq ~= 27.6*sigma_sq
+            // this equivalent to having exp[-drsq/2*sigma_sq]=10^-6
             if (drsq<27.6*amhgo_sigma_sq) {
             
-			  amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, imol-1, jmol-1);
-			  if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
+              amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, imol-1, jmol-1);
+              if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
 			  
-			  Eij = amhgo_gamma*exp(-drsq/(2*amhgo_sigma_sq));
+              Eij = amhgo_gamma*exp(-drsq/(2*amhgo_sigma_sq));
 			  
-			  force = Eij*dr/(amhgo_sigma_sq*r);
+              force = Eij*dr/(amhgo_sigma_sq*r);
 			  
-			  amh_go_force[0][0] += force*dx[0];
-			  amh_go_force[0][1] += force*dx[1];
-			  amh_go_force[0][2] += force*dx[2];
+              amh_go_force[0][0] += force*dx[0];
+              amh_go_force[0][1] += force*dx[1];
+              amh_go_force[0][2] += force*dx[2];
 			  
-			  amh_go_force[nforces][0] = -force*dx[0];
-			  amh_go_force[nforces][1] = -force*dx[1];
-			  amh_go_force[nforces][2] = -force*dx[2];
+              amh_go_force[nforces][0] = -force*dx[0];
+              amh_go_force[nforces][1] = -force*dx[1];
+              amh_go_force[nforces][2] = -force*dx[2];
 			  
-			  amh_go_force_map[nforces] = j;
-			  nforces++;
+              amh_go_force_map[nforces] = j;
+              nforces++;
 			  
-			  Ei += Eij;
-			}
-    	  }
-    	}
-	  }
+              Ei += Eij;
+            }
+          }
+        }
+      }
       
       factor = -0.5*epsilon*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1);
       for (k=0;k<nforces;k++) {
@@ -2543,7 +2544,7 @@ void FixBackbone::compute_backbone()
 	}
 
 	if (amh_go_flag)
-			compute_amh_go_model();
+    compute_amh_go_model();
 
 	if (excluded_flag)
 		compute_excluded_volume();
@@ -2559,7 +2560,7 @@ void FixBackbone::compute_backbone()
 	if (ntimestep%output->thermo_every==0) {
 		fprintf(efile, "%d ", ntimestep);
 		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
-			fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
+    fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
 	}
 }
 
@@ -2586,7 +2587,7 @@ void FixBackbone::min_post_force(int vflag)
 
 /* ----------------------------------------------------------------------
 	 return total potential energy
-------------------------------------------------------------------------- */
+   ------------------------------------------------------------------------- */
 
 double FixBackbone::compute_scalar()
 {
@@ -2601,7 +2602,7 @@ double FixBackbone::compute_scalar()
 
 /* ----------------------------------------------------------------------
 	 return potential energies of terms computed in this fix
-------------------------------------------------------------------------- */
+   ------------------------------------------------------------------------- */
 
 double FixBackbone::compute_vector(int nv)
 {

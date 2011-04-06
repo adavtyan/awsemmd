@@ -143,7 +143,9 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 				}
 			}
 		} else if (strcmp(varsection, "[Contacts]")==0) {
-			//allocate_contact();
+			if (!lj_contacts_flag && !gaussian_contacts_flag) error->all("Conflict in definition of contact potential !!");
+		
+			allocate_contact();
 			contacts_flag = 1;
 			print_log("Contacts flag on\n");
 			if(lj_contacts_flag){
@@ -205,7 +207,8 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	ifstream in_rs("record_steps");
 	in_rs >> sStep >> eStep;
 	in_rs.close();
-	fprintf(screen, "finish reading data file!\n");
+	
+	Construct_Computational_Arrays();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -840,8 +843,12 @@ void FixGoModel::compute_goModel()
 	Step++;
 
 	if(atom->nlocal==0) return;
+	
+//	int me,nprocs;
+//  	MPI_Comm_rank(world,&me);
+//  	MPI_Comm_size(world,&nprocs);
 
-	Construct_Computational_Arrays();
+//	Construct_Computational_Arrays();
 
 	x = atom->x;
         f = atom->f;
@@ -876,28 +883,36 @@ void FixGoModel::compute_goModel()
 			} else xca[i][2] = x[alpha_carbons[i]][2];
 		}
 	}
+	
+	if (contacts_dev_flag || contacts_sin_dev_flag)
+		compute_contact_deviation();
 
-/*	for (i=0;i<nn;++i) {
+	for (i=0;i<nn;++i) {
 		if (res_info[i]!=LOCAL) continue;
 
 		if (bonds_flag && res_no[i]<=n-1)
 			compute_bond(i);
 
 		if (angles_flag && res_no[i]<=n-2)
-                        compute_angle(i);
+    	    compute_angle(i);
 
 		if (dihedrals_flag && res_no[i]<=n-3)
-                        compute_dihedral(i);
+	        compute_dihedral(i);
 
-		for (j=i+1;j<nn;++j) {
+		for (j=i+1;contacts_flag && j<nn;++j) {
 			if (res_info[j]!=LOCAL && res_info[j]!=GHOST) continue;
-
-                        if (contacts_flag && res_no[i]<res_no[j]-3)
-                                compute_contact(i, j);
-                }
-	}*/
-
-	double tmp, tmp2;
+			
+			if (contacts_flag) {
+				if (lj_contacts_flag && res_no[i]<res_no[j]-3)
+					compute_contact(i, j);
+					
+				if (gaussian_contacts_flag && res_no[i]<res_no[j]-3)
+					compute_contact_gaussian(i, j);
+			}
+        }
+	}
+	
+/*	double tmp, tmp2;
 	double tmp_time;
 	int me,nprocs;
   	MPI_Comm_rank(world,&me);
@@ -973,7 +988,7 @@ void FixGoModel::compute_goModel()
 		fprintf(fout, "All:\n");
 		out_xyz_and_force(1);
 		fprintf(fout, "\n\n\n");
-	}
+	}*/
 	
 	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
 	

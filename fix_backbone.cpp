@@ -1906,6 +1906,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 	double *xi, *xj, *xk;
 	int iatom, jatom, katom, i_well, k;
 	int k_resno;
+	bool direct_contact;
 
 	int i_resno = res_no[i]-1;
 	int j_resno = res_no[j]-1;
@@ -1925,10 +1926,19 @@ void FixBackbone::compute_water_potential(int i, int j)
 	for (i_well=0;i_well<n_wells;++i_well) {
 		if (!well_flag[i_well]) continue;
 		if (fabs(well->theta(i, j, i_well))<delta) continue;
-		if (water_gamma[i_well][ires_type][jres_type][0] - water_gamma[i_well][ires_type][jres_type][1]<delta) continue;
-			
-		sigma_gamma = (1.0 - well->sigma(i, j))*water_gamma[i_well][ires_type][jres_type][0] + well->sigma(i, j)*water_gamma[i_well][ires_type][jres_type][1];
-		theta_gamma = (water_gamma[i_well][ires_type][jres_type][1] - water_gamma[i_well][ires_type][jres_type][0])*well->theta(i, j, i_well);
+		
+		direct_contact = false;
+		
+		// Optimization for gamma[0]==gamma[1]
+		if (water_gamma[i_well][ires_type][jres_type][0] - water_gamma[i_well][ires_type][jres_type][1]<delta) direct_contact = true;
+		
+		if (direct_contact) {
+			sigma_gamma = (water_gamma[i_well][ires_type][jres_type][0] + water_gamma[i_well][ires_type][jres_type][1])/2;
+			theta_gamma = 0;
+		} else {	
+			sigma_gamma = (1.0 - well->sigma(i, j))*water_gamma[i_well][ires_type][jres_type][0] + well->sigma(i, j)*water_gamma[i_well][ires_type][jres_type][1];
+			theta_gamma = (water_gamma[i_well][ires_type][jres_type][1] - water_gamma[i_well][ires_type][jres_type][0])*well->theta(i, j, i_well);
+		}		
 				
 		energy[ET_WATER] += -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well);
 		
@@ -1942,41 +1952,43 @@ void FixBackbone::compute_water_potential(int i, int j)
 		f[jatom][1] += -force*dx[1];
 		f[jatom][2] += -force*dx[2];
 		
-		for (k=0;k<n;++k) {
-			if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-			else { xk = xcb[k]; katom  = beta_atoms[k]; }
-			
-			k_resno = res_no[k]-1;
-			
-			if (abs(k_resno-i_resno)>1) {
-				dx[0] = xi[0] - xk[0];
-				dx[1] = xi[1] - xk[1];
-				dx[2] = xi[2] - xk[2];
+		if (!direct_contact) {
+			for (k=0;k<n;++k) {
+				if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
+				else { xk = xcb[k]; katom  = beta_atoms[k]; }
 				
-				force = epsilon*k_water*theta_gamma*well->prd_H(i)*well->H(j)*well->prd_theta(i, k, 0);
+				k_resno = res_no[k]-1;
 				
-				f[iatom][0] += force*dx[0];
-				f[iatom][1] += force*dx[1];
-				f[iatom][2] += force*dx[2];
-				
-				f[katom][0] += -force*dx[0];
-				f[katom][1] += -force*dx[1];
-				f[katom][2] += -force*dx[2];
-			}
-			if (abs(k_resno-j_resno)>1) {
-				dx[0] = xj[0] - xk[0];
-				dx[1] = xj[1] - xk[1];
-				dx[2] = xj[2] - xk[2];
-
-				force = epsilon*k_water*theta_gamma*well->H(i)*well->prd_H(j)*well->prd_theta(j, k, 0);
-				
-				f[jatom][0] += force*dx[0];
-				f[jatom][1] += force*dx[1];
-				f[jatom][2] += force*dx[2];
-				
-				f[katom][0] += -force*dx[0];
-				f[katom][1] += -force*dx[1];
-				f[katom][2] += -force*dx[2];
+				if (abs(k_resno-i_resno)>1) {
+					dx[0] = xi[0] - xk[0];
+					dx[1] = xi[1] - xk[1];
+					dx[2] = xi[2] - xk[2];
+					
+					force = epsilon*k_water*theta_gamma*well->prd_H(i)*well->H(j)*well->prd_theta(i, k, 0);
+					
+					f[iatom][0] += force*dx[0];
+					f[iatom][1] += force*dx[1];
+					f[iatom][2] += force*dx[2];
+					
+					f[katom][0] += -force*dx[0];
+					f[katom][1] += -force*dx[1];
+					f[katom][2] += -force*dx[2];
+				}
+				if (abs(k_resno-j_resno)>1) {
+					dx[0] = xj[0] - xk[0];
+					dx[1] = xj[1] - xk[1];
+					dx[2] = xj[2] - xk[2];
+	
+					force = epsilon*k_water*theta_gamma*well->H(i)*well->prd_H(j)*well->prd_theta(j, k, 0);
+					
+					f[jatom][0] += force*dx[0];
+					f[jatom][1] += force*dx[1];
+					f[jatom][2] += force*dx[2];
+					
+					f[katom][0] += -force*dx[0];
+					f[katom][1] += -force*dx[1];
+					f[katom][2] += -force*dx[2];
+				}
 			}
 		}
 	}
@@ -2203,11 +2215,11 @@ void FixBackbone::compute_amh_go_model()
           
           r = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
 
-	  if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
-	  if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
-	  rnative = m_amh_go->Rf(imol-1, iatom, jmol-1, jatom);          
+		  if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
+		  if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
+		  rnative = m_amh_go->Rf(imol-1, iatom, jmol-1, jatom);          
 
-          if (rnative<amh_go_rc) {            
+          if (rnative<amh_go_rc) {
             amhgo_sigma_sq = pow(abs(imol-jmol), 0.3);
             amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, imol-1, jmol-1);
             if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");

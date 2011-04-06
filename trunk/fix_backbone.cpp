@@ -2390,9 +2390,9 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
   f[iatom][1] += force*dx[1];
   f[iatom][2] += force*dx[2];
 
-  f[iatom][0] += -force*dx[0];
-  f[iatom][1] += -force*dx[1];
-  f[iatom][2] += -force*dx[2];
+  f[jatom][0] += -force*dx[0];
+  f[jatom][1] += -force*dx[1];
+  f[jatom][2] += -force*dx[2];
 }
 
 void FixBackbone::compute_backbone()

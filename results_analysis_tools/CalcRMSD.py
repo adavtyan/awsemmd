@@ -137,7 +137,7 @@ def computeRMSD():
 	l = len(ca_atoms)
 
 	fixed_coord  = numpy.zeros((l, 3))
-    moving_coord = numpy.zeros((l, 3))
+	moving_coord = numpy.zeros((l, 3))
 
 	for i in range(0, l):
 		fixed_coord[i]  = numpy.array ([ca_atoms_pdb[i][0], ca_atoms_pdb[i][1], ca_atoms_pdb[i][2]])

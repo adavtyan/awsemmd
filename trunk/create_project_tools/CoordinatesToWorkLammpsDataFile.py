@@ -273,7 +273,7 @@ replace_rules = [ ["``read_data_file",  "read_data " +  out_file],
 		  ["``pair_interactions", pair_string],
 		  ["``pair_coeff", pair_coeff_string] ]
 
-inp = open("$HOME/opt/script/inFilePattern.data")
+inp = open("inFilePattern.data")
 inFile = inp.read()
 inp.close()
 

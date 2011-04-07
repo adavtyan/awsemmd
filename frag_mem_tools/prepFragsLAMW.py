@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #rmbh11
-#v0.72
+#v0.75+
 #corects and builds on release version - v0.5
 
 #USAGE: prepFragsLAMW.py database-prefix file.fasta > logfile

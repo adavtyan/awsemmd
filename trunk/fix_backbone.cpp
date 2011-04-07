@@ -352,12 +352,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     char amhgo_mem_file[] = "amh-go.gro";
 		m_amh_go = new Fragment_Memory(0, 0, n, 1.0, amhgo_mem_file);
 		if (m_amh_go->error==m_amh_go->ERR_FILE) error->all("Cannot read file amh-go.gro");
-		if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all("AMH_Go: Wrong atom count in memory file");
+		if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all("AMH_Go: Wrong atom count in memory structure file");
 		if (m_amh_go->error==m_amh_go->ERR_RES) error->all("AMH_Go: Unknown residue");
 	}
 	
 	if (frag_mem_flag) {
-    fm_gamma = new Gamma_Array(fm_gamma_file);
+    	fm_gamma = new Gamma_Array(fm_gamma_file);
 		if (fm_gamma->error==fm_gamma->ERR_FILE) error->all("Fragment_Memory: Cannot read gamma file");
 		if (fm_gamma->error==fm_gamma->ERR_CLASS_DEF) error->all("Fragment_Memory: Wrong definition of sequance separation classes");
 		if (fm_gamma->error==fm_gamma->ERR_GAMMA) error->all("Fragment_Memory: Incorrect entery in gamma file");
@@ -375,10 +375,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       frag_mem_map[i] = NULL;
     }
 		
-		// Fill Fragment Memory map
-		int k, pos, len, min_sep;
-		min_sep = fm_gamma->minSep();
-		for (k=0;k<n_frag_mems;++k) {
+	// Fill Fragment Memory map
+	int k, pos, len, min_sep;
+	min_sep = fm_gamma->minSep();
+	for (k=0;k<n_frag_mems;++k) {
       pos = frag_mems[k]->pos;
       len = frag_mems[k]->len;
       
@@ -389,8 +389,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
         frag_mem_map[i] = (int *) memory->srealloc(frag_mem_map[i],ilen_fm_map[i]*sizeof(int),"modify:frag_mem_map");
         frag_mem_map[i][ilen_fm_map[i]-1] = k;
       }
-		}
 	}
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -795,6 +795,21 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
       n_mems++;
       mems_array = (Fragment_Memory **) memory->srealloc(mems_array,n_mems*sizeof(Fragment_Memory *),"modify:mems_array");
       mems_array[n_mems-1] = new Fragment_Memory(tpos, fpos, len, weight, str[0]);
+      
+      if (mems_array[n_mems-1]->error!=Fragment_Memory::ERR_NONE) {
+        if (screen) fprintf(screen, "Error reading %s file!\n", str[0]);
+        if (logfile) fprintf(logfile, "Error reading %s file!\n", str[0]);
+      } 
+      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_FILE) error->all("Fragment_Memory: Cannot read the file");
+      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_ATOM_COUNT) error->all("Fragment_Memory: Wrong atom count in memory structure file");
+      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_RES) error->all("Fragment_Memory: Unknown residue");
+      
+      if (mems_array[n_mems-1]->pos+mems_array[n_mems-1]->len>n) {
+      	if (screen) fprintf(screen, "Error reading %s file!\n", str[0]);
+        if (logfile) fprintf(logfile, "Error reading %s file!\n", str[0]);
+        
+      	error->all("Fragment_Memory: Incorrectly defined memory fragment");
+      }
         
       break;
     case FS_NONE:
@@ -2602,15 +2617,15 @@ double FixBackbone::compute_scalar()
 
 /* ----------------------------------------------------------------------
 	 return potential energies of terms computed in this fix
-   ------------------------------------------------------------------------- */
+   ------------------------------------------------------------------------ */
 
 double FixBackbone::compute_vector(int nv)
 {
-	// only sum across procs one time
+        // only sum across procs one time
 
-	if (force_flag == 0) {
-		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
-		force_flag = 1;
-	}
-	return energy_all[nv+1];
+        if (force_flag == 0) {
+                MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
+                force_flag = 1;
+        }
+        return energy_all[nv+1];
 }

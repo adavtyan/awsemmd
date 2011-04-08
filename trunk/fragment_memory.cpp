@@ -35,6 +35,9 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
   char buff[101], resty[4], atomty[5];
   
   FILE * file;
+  
+  FILE * dout;
+  dout = fopen("debug.info","w");
 
   error = ERR_NONE;
   
@@ -90,6 +93,12 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
     }
   }
   fclose(file);
+  
+  if (nca!=len) {
+  	fprintf(dout, "File: %s\n", fname);
+  	fprintf(dout, "nca=%d\n", nca);
+  	fprintf(dout, "len=%d\n", len);
+  }
   
   if (nca!=len) { error = ERR_ATOM_COUNT; return; }
   
@@ -197,7 +206,7 @@ Gamma_Array::Gamma_Array(char *fname)
 
   file = fopen(fname,"r");
   if (!file) { error = ERR_FILE; return; }
-
+  
   iline = 0;
   while ( fgets ( line, sizeof line, file ) != NULL ) {
     if (line[0]=='#') continue;
@@ -252,10 +261,10 @@ Gamma_Array::Gamma_Array(char *fname)
   
   if (!frag_resty) ngamma = nseq_cl*nres_cl*nres_cl;
   else ngamma = nseq_cl*nres_cl*nres_cl*nres_cl*nres_cl;
-  
+
   gamma = new double[ngamma];
   allocated = true;
-    
+
   fsetpos (file,&pos);
   while ( fgets ( line, sizeof line, file ) != NULL ) {
     if (line[0]=='#') continue;
@@ -269,11 +278,11 @@ Gamma_Array::Gamma_Array(char *fname)
       assign(iresty, jresty, cl, gm);
     } else {
       iresty = strtok(line," \t\n");
-      jresty = strtok(line," \t\n");
-      ifresty = strtok(line," \t\n");
-      jfresty = strtok(line," \t\n");
-      cl = atoi(strtok(line," \t\n"));
-      gm = atof(strtok(line," \t\n"));
+      jresty = strtok(NULL," \t\n");
+      ifresty = strtok(NULL," \t\n");
+      jfresty = strtok(NULL," \t\n");
+      cl = atoi(strtok(NULL," \t\n"));
+      gm = atof(strtok(NULL," \t\n"));
       assign(iresty, jresty, ifresty, ifresty, cl, gm);
     }
     

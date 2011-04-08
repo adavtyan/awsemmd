@@ -42,8 +42,8 @@ class Atom:
     	f.write( ("        "+str(round(self.z/10,3)))[-8:] )  
     	f.write("\n")
 
-if len(sys.argv)!=3:
-    print "\n> Pdb2Gro.py PDB_Id Output_file\n"
+if len(sys.argv)!=4:
+    print "\n> Pdb2Gro.py PDB_Id Output_file Chain\n"
     exit()
 
 from Bio.PDB.PDBParser import PDBParser
@@ -59,28 +59,33 @@ if pdb_id[-4:].lower()==".pdb":
 
 output = sys.argv[2]
 
+chain_name = sys.argv[3]
+
 s = p.get_structure(pdb_id, pdb_file)
 chains = s[0].get_list()
 
-# Take first chain
-chain = chains[0]
+if chain_name==''
+	chain_name = 'A'
 
-ires = 0
-iatom = 0
-res_name = ""
-atoms = []
-for res in chain:
-	is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
-	if res.get_id()[0]==' ' and is_regular_res:
-		ires = ires + 1
-		res_name = res.get_resname()
-		for atom in res:
-			iatom = iatom + 1
-			atom_name = atom.get_name()
-			xyz = atom.get_coord()
-			
-			residue_no = atom.get_full_id()[3][1]
-			atoms.append( Atom(iatom, atom_name, residue_no, res_name, xyz) )
+for chain in chains:
+	if chain.get_id()==chain_name:
+		ires = 0
+		iatom = 0
+		res_name = ""
+		atoms = []
+		for res in chain:
+			is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
+			if (res.get_id()[0]==' ' or res.get_id()[0]=='H_MSE') and is_regular_res:
+				ires = ires + 1
+				res_name = res.get_resname()
+				residue_no = res.get_id()[1]
+				for atom in res:
+					iatom = iatom + 1
+					atom_name = atom.get_name()
+					xyz = atom.get_coord()
+					
+#					residue_no = atom.get_full_id()[3][1]
+					atoms.append( Atom(iatom, atom_name, residue_no, res_name, xyz) )
 
 out = open(output, 'w')
 out.write(" Structure-Based gro file\n")

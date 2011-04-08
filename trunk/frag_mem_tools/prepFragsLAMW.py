@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #rmbh11
-#v0.75+
+#v0.72
 #corects and builds on release version - v0.5
 
 #USAGE: prepFragsLAMW.py database-prefix file.fasta > logfile
@@ -136,10 +136,10 @@ for line in matchlines:
         pdbIDthird=pdbfull[2:3].lower()
         chainID=pdbfull[4:5].lower()
 	groFile=fLibDir+pdbID+chainID+".gro"
-	pdbFile=pdbDir+pdbID+chainID+".pdb"
+	pdbFile=pdbDir+pdbID.upper()+".pdb"
         if os.path.isfile(pdbFile):
             print ":::convert: "+pdbFile+" --> "+groFile
-            Pdb2Gro(pdbFile, groFile)
+            Pdb2Gro(pdbFile, groFile, chainID.upper())
             
             print ":::here2: writing line to LAMWmatch"
             length=int(entries[2])-int(entries[1])+1

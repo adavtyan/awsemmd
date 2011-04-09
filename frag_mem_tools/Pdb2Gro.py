@@ -64,7 +64,7 @@ chain_name = sys.argv[3]
 s = p.get_structure(pdb_id, pdb_file)
 chains = s[0].get_list()
 
-if chain_name==''
+if chain_name=='':
 	chain_name = 'A'
 
 for chain in chains:

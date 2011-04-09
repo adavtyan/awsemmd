@@ -142,6 +142,11 @@ double Fragment_Memory::Rf(int ires, int iatom, int jres, int jatom)
   }
 }
 
+int Fragment_Memory::resType(int resno)
+{
+  return fm_se_map[se[resno - pos]-'A'];
+}
+
 inline int Fragment_Memory::min(int a, int b)
 {
   return (a<b ? a : b);

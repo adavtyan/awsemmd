@@ -787,8 +787,8 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
       }
       if (nstr!=5) error->all("Fragment_Memory: Error reading mem file");
         
-      tpos = atoi(str[1]);
-      fpos = atoi(str[2]);
+      tpos = atoi(str[1])-1;
+      fpos = atoi(str[2])-1;
       len = atoi(str[3]);
       weight = atof(str[4]);
         
@@ -2326,7 +2326,12 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       jres_type = se_map[se[j_resno]-'A'];
       
       fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
-      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
+      
+      if (!fm_gamma->fourResTypes()) {
+	    frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
+	  } else {
+	    frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
+	  }
       if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Fragment_Memory: Wrong call of getGamma() function");
       
       epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;

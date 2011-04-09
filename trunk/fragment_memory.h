@@ -38,7 +38,8 @@ public:
   int len;    // Length of the fragment
   double weight;  // Weight for the particular fragment
   char *se;
-  double Rf(int ires, int iatom, int jres, int jatom);
+  double Rf(int ires, int iatom, int jres, int jatom); // distance between atoms in residues i and j
+  int resType(int resno); // return type of fragment residue corresponding to resno in target
   char ThreeLetterToOne(char *tl_resty);
   int min(int, int);
   int max(int, int);
@@ -66,6 +67,7 @@ public:
   double getGamma(int ires, int jres);
   double getGamma(int ires_type, int jres_type, int ires, int jres);
   double getGamma(int ires_type, int jres_type, int ifres_type, int jfres_type, int ires, int jres);
+  bool fourResTypes() { return frag_resty; }
   bool isEmptyString(char *str);
   int minSep();
   int maxSep();

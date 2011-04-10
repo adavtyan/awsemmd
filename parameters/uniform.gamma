@@ -1,5 +1,5 @@
 # i_min i_med_min i_med_max
-3 5 12
+3 12
 #
 # ALL - all residue types
 # SHL - Small Hydrophilic (ALA, GLY, PRO, SER THR)

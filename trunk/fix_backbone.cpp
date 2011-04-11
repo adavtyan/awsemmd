@@ -212,6 +212,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> helix_treshold;
 			in >> helix_i_diff;
 			in >> helix_cutoff;
+			in >> n_helix_wells;
+			for (int j=0;j<n_wells;++j)
+				in >> helix_well_r_min[j] >> helix_well_r_max[j] >> helix_well_flag[j];
 			for (int j=0;j<20;++j)
 				in >> h4prob[j];
 			in >> helix_sigma_HO >> helix_sigma_NO;
@@ -468,13 +471,13 @@ void FixBackbone::allocate()
 	xcp = new double*[n];
 	xh = new double*[n];
 	
-  water_par = WPV(water_kappa, water_kappa_sigma, treshold);
-  helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold);
+  water_par = WPV(water_kappa, water_kappa_sigma, treshold, n_wells, well_flag, well_r_min, well_r_max);
+  helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold, n_helix_wells, helix_well_flag, helix_well_r_min, helix_well_r_max);
 
 	p_ap = new cP_AP<double, FixBackbone>(n, n, &ntimestep, this);
 	R = new cR<double, FixBackbone>(n, n, &ntimestep, this);
 	well = new cWell<double, FixBackbone>(n, n, n_wells, water_par, &ntimestep, this);
-	helix_well = new cWell<double, FixBackbone>(n, n, n_wells, helix_par, &ntimestep, this);
+	helix_well = new cWell<double, FixBackbone>(n, n, n_helix_wells, helix_par, &ntimestep, this);
 
 	for (int i = 0; i < n; ++i) {
 		// Ca, Cb and O coordinates

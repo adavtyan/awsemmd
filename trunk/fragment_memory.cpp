@@ -70,7 +70,8 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
   fgets(buff, 100, file);
   fscanf(file, "%d",&nAtoms);
   for (i=0;i<nAtoms;++i) {
-    fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
+//    fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
+	fscanf(file, "%5d%5s%5s%5d%8.3f%8.3f%8.3f", &ires,resty,atomty,&iatom,&x,&y,&z);
     if (ires>fpos && ires<=fpos+len) {
       ires -= fpos + 1;
       x *= 10; y *= 10; z *= 10;

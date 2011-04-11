@@ -72,6 +72,7 @@ public:
   double k_water;
   double well_r_min[5], well_r_max[5], treshold, water_kappa, water_kappa_sigma, burial_kappa;
   double water_gamma[5][20][20][2];
+  int well_flag[5], n_wells, contact_cutoff;
   
   // Burial potential parameters
   double k_burial;
@@ -81,8 +82,9 @@ public:
   // Helical hydrogen bonding parameters
   double k_helix, helix_gamma_p, helix_gamma_w, h4prob[20];
   double helix_kappa, helix_kappa_sigma, helix_treshold, helix_cutoff;
+  double helix_well_r_min[5], helix_well_r_max[5];
   double helix_sigma_HO, helix_sigma_NO, helix_HO_zero, helix_NO_zero;
-  int well_flag[5], n_wells, contact_cutoff, helix_i_diff;
+  int helix_well_flag[5], n_helix_wells, helix_i_diff;
   
   // Non-additive AMH-Go parameters
   double k_amh_go, amh_go_rc;

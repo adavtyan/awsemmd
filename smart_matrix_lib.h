@@ -11,9 +11,29 @@ typedef struct WPV {
   double kappa;
   double kappa_sigma;
   double treshold;
+  int n_wells, well_flag[5];
+  double well_r_min[5], well_r_max[5];
   WPV() {}
-  WPV(double k, double ks, double t) : kappa(k), kappa_sigma(ks), treshold(t) {}
-  WPV &operator = (const WPV &x) { kappa=x.kappa; kappa_sigma=x.kappa_sigma; treshold=x.treshold; return *this; }
+  WPV(double k, double ks, double t, int nw, int *wflag, double *wr_min, double *wr_max): 
+  	  kappa(k), kappa_sigma(ks), treshold(t), n_wells(nw)
+  {
+  	for (int i=0; i<n_wells; ++i) {
+  		well_flag[i] = wflag[i];
+  		well_r_min[i] = wr_min[i];
+  		well_r_max[i] = wr_max[i];
+  	}
+  }
+  WPV &operator = (const WPV &x) { 
+  	kappa=x.kappa; kappa_sigma=x.kappa_sigma; treshold=x.treshold; n_wells=x.n_wells;
+  	
+  	for (int i=0; i<n_wells; ++i) {
+  		well_flag[i] = x.well_flag[i];
+  		well_r_min[i] = x.well_r_min[i];
+  		well_r_max[i] = x.well_r_max[i];
+  	}
+  	
+  	return *this; 
+  }
 } _WPV;
 
 //=============================================================================================//
@@ -422,8 +442,8 @@ void cWell<T, U>::compute_theta(int i, int j, int i_well)
 	
 	rij = sqrt(pow(dx[0],2) + pow(dx[1],2) + pow(dx[2],2));
 	
-	t_min = tanh( par.kappa*(rij - lc->well_r_min[i_well]) );
-	t_max = tanh( par.kappa*(lc->well_r_max[i_well] - rij) );
+	t_min = tanh( par.kappa*(rij - par.well_r_min[i_well]) );
+	t_max = tanh( par.kappa*(par.well_r_max[i_well] - rij) );
 	v_theta[i_well][i][j] = 0.25*(1.0 + t_min)*(1.0 + t_max);
 	v_theta[i_well][j][i] = v_theta[i_well][i][j];
 	v_prd_theta[i_well][i][j] = par.kappa*v_theta[i_well][i][j]*(t_max - t_min)/rij;

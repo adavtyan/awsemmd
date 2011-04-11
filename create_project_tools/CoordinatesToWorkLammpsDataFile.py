@@ -8,7 +8,7 @@
 
 # Last Update: 03/04/2011
 # ----------------------------------------------------------------------
-
+import os
 import sys
 
 class Atom:
@@ -272,8 +272,8 @@ replace_rules = [ ["``read_data_file",  "read_data " +  out_file],
 		  ["``main_fix", fix_string],
 		  ["``pair_interactions", pair_string],
 		  ["``pair_coeff", pair_coeff_string] ]
-
-inp = open("inFilePattern.data")
+myhome = os.environ.get("HOME")
+inp = open(myhome + "/opt/script/inFilePattern.data")
 inFile = inp.read()
 inp.close()
 

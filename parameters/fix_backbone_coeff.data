@@ -107,7 +107,7 @@
 1r69.gamma
 
 #[Solvent_Barrier]
-K
+K (the height of the barrier, should be negative)
 Kappa
 Rmin Rmax
 Min(I-J)
@@ -115,7 +115,7 @@ SWITCH for residue type specifc case
 residue radii
 
 [Solvent_Barrier]-
-1.0
+-1.0
 5.0
 3.0 8.0
 13

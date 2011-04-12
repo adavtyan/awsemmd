@@ -661,7 +661,7 @@ void FixGoModel::compute_dihedral(int i)
 }
 
 /*  Correlated noise generator for contact potential
-    dev(t+dt) = dev(t) - 0.5*xi*(dev(t) - devp(t))*dt + w*sqrt(2*dt)*rand
+    dev(t+dt) = dev(t) - 0.5*xi*(dev(t) + devp(t))*dt + w*sqrt(2*dt)*rand
     devp(t) = dev(t) - xi*dev(t)*dt + w*sqrt(2*dt)*rand
 
     The formula above was simplified to

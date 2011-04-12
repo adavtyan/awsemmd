@@ -9,6 +9,8 @@
 
 export s=$HOME/opt/script
 
+mkdir -p $HOME/opt/script
+
 dir=`pwd`
 
 #cp files in create_project_tools/

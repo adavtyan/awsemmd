@@ -212,9 +212,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> helix_treshold;
 			in >> helix_i_diff;
 			in >> helix_cutoff;
-			in >> n_helix_wells;
-			for (int j=0;j<n_wells;++j)
-				in >> helix_well_r_min[j] >> helix_well_r_max[j] >> helix_well_flag[j];
+			n_helix_wells = 1;
+			helix_well_flag[0] = 1;
+			in >> helix_well_r_min[0] >> helix_well_r_max[0];
 			for (int j=0;j<20;++j)
 				in >> h4prob[j];
 			in >> helix_sigma_HO >> helix_sigma_NO;

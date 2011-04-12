@@ -371,6 +371,8 @@ double Gamma_Array::getGamma(int ires_type, int jres_type, int ifres_type, int j
   }
   
   ig = (seq_cl==1 ? 0 : (seq_cl-1)*nres_cl*nres_cl*nres_cl*nres_cl) + ires_cl*nres_cl*nres_cl*nres_cl + jres_cl*nres_cl*nres_cl + ifres_cl*nres_cl + jfres_cl;
+  
+  return gamma[ig];
 }
 
 int Gamma_Array::get_index_array(char *resty, int *a)

@@ -8,7 +8,7 @@
 
 # Last Update: 03/04/2011
 # ----------------------------------------------------------------------
-
+import os
 import sys
 
 class ZAtom:
@@ -56,7 +56,8 @@ outfname = ""
 if len(sys.argv)>1: inpfname = sys.argv[1]
 if len(sys.argv)>2: outfname = sys.argv[2]
 
-fdata = open("SequanceToZ-Matrix.data")
+myhome = os.environ.get("HOME")
+fdata = open(myhome + "/opt/script/SequanceToZ-Matrix.data")
 raw_data = []
 iFirst = 0
 iSecond = 0

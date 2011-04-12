@@ -61,7 +61,7 @@ for i in range(1,iterations+1):
     fragment.close()
 ##submit PSI-BLAST -- run psiblast -help for explanation of format 6 output
 #    exeline="psiblast -query_loc "+str(rangeStart)+"-"+str(rangeEnd)
-    exeline="/home/nschafer/ncbiblast/ncbi-blast-2.2.25+-src/c++/GCC412-Debug64/bin/psiblast -num_iterations 1 -word_size 2 -evalue "+str(EvalueThreshold)
+    exeline="psiblast -num_iterations 1 -word_size 2 -evalue "+str(EvalueThreshold)
     exeline+=" -outfmt 6 -matrix BLOSUM62 -db "
     exeline+=database+" -query fragment.fasta"
     print "executing:::"+exeline

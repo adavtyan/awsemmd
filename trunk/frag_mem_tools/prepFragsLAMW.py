@@ -8,6 +8,10 @@
 import sys,os,re
 from Pdb2GroLib import *
 
+if len(sys.argv)!=3:
+	print "\n prepFragsLAMW.py database file.fasta > logfile \n"
+	exit()
+
 database=sys.argv[1]
 inFASTA=sys.argv[2]
 weight=1 #feature in match file
@@ -57,7 +61,7 @@ for i in range(1,iterations+1):
     fragment.close()
 ##submit PSI-BLAST -- run psiblast -help for explanation of format 6 output
 #    exeline="psiblast -query_loc "+str(rangeStart)+"-"+str(rangeEnd)
-    exeline="psiblast -num_iterations 1 -word_size 2 -evalue "+str(EvalueThreshold)
+    exeline="/home/nschafer/ncbiblast/ncbi-blast-2.2.25+-src/c++/GCC412-Debug64/bin/psiblast -num_iterations 1 -word_size 2 -evalue "+str(EvalueThreshold)
     exeline+=" -outfmt 6 -matrix BLOSUM62 -db "
     exeline+=database+" -query fragment.fasta"
     print "executing:::"+exeline
@@ -110,20 +114,10 @@ for pdbfull in unique:
         exeline+=pdbIDsecond+pdbIDthird+"/pdb"+pdbID+".ent.gz"
         os.system(exeline);
         os.system("nice gunzip pdb"+pdbID+".ent.gz; mv pdb"+pdbID+".ent "+pdbDir+pdbID.upper()+".pdb");
-    if not os.path.isfile(pdbDir+pdbID+chainID+".pdb"):
-        if os.path.isfile(pdbDir+pdbID.upper()+".pdb"):
-            pdbin=open(pdbDir+pdbID.upper()+".pdb","r")
-            pdbout=open(pdbDir+pdbID+chainID+".pdb","w")        
-            for line in pdbin.readlines():
-                if(atomLine.match(line)):
-                    chain=line[21:22]
-                    if(chain==''):
-                        chain='A'
-                    if(chain==chainID.upper()):
-                        pdbout.write(line)
-            pdbout.close()
-        else:
-            print ":::Cannot build PDB for PDB ID:"+pdbID.upper()
+
+    if not os.path.isfile(pdbDir+pdbID.upper()+".pdb"):
+        print ":::Cannot build PDB for PDB ID, failed to download:"+pdbID.upper()
+        
 iter=0
 for line in matchlines:
     iter+=1

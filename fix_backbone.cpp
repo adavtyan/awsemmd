@@ -2422,9 +2422,9 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
 
   theta = 0.5*(t_min+t_max);
 
-  energy[ET_SSB] += -epsilon*k_solventb*theta;
+  energy[ET_SSB] += epsilon*k_solventb*theta;
 
-  force = epsilon*k_solventb*ssb_kappa*theta*(t_max-t_min)/r;
+  force = -epsilon*k_solventb*ssb_kappa*theta*(t_max-t_min)/r;
 
   f[iatom][0] += force*dx[0];
   f[iatom][1] += force*dx[1];

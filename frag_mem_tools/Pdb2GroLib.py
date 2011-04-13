@@ -33,7 +33,7 @@ class Atom:
     def write_(self, f):
     	f.write( ("     "+str(self.res_no))[-5:] )
     	f.write( ("     "+self.res_name)[-5:] )
-    	f.write( "   " + (self.atom_name+"   ")[:2] )
+    	f.write( " " + (self.atom_name+"    ")[:4] )
     	f.write( ("     "+str(self.atom_no))[-5:] )
     	f.write( ("        "+str(round(self.x/10,3)))[-8:] )
     	f.write( ("        "+str(round(self.y/10,3)))[-8:] )

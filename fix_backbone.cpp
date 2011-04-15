@@ -70,6 +70,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
 	efile = fopen("energy.log", "w");
 	
+	dout = fopen("forces.dat", "w");
+	
 	char eheader[] = "Step\tChain\tShake\tChi\tRama\tExcluded\tDSSP\tP_AP\tWater\tBurial\tHelix\tAMH-Go\tFrag_Mem\tSSB\tVTotal\n";
 	fprintf(efile, "%s", eheader);
 
@@ -394,6 +396,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       }
 	}
   }
+  
+  sStep=0, eStep=0;
+  ifstream in_rs("record_steps");
+  in_rs >> sStep >> eStep;
+  in_rs.close();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1203,6 +1210,13 @@ void FixBackbone::compute_rama_potential(int i)
 
 	for (j=jStart;j<nEnd;j++) {
 		V = epsilon*k_rama*w[j]*exp( -sigma[j]*( phiw[j]*pow(cos(phi + phi0[j]) - 1, 2) + psiw[j]*pow(cos(psi + psi0[j]) - 1, 2) ) );
+		
+/*		if (ntimestep>=sStep && ntimestep<=eStep && i==4) {
+			fprintf(dout, "\n");
+			fprintf(dout, "V[%d]=%f\n", j, V);
+			fprintf(dout, "ssweight[%d]=%d\n", j, ssweight[j]);
+			fprintf(dout, "aps[%d][%d]=%f\n", j, i, aps[j][i]);
+		}*/
 
 		if (ssweight[j]) {
 			if (aps[j][i]==0.0) continue;
@@ -1214,6 +1228,20 @@ void FixBackbone::compute_rama_potential(int i)
 		force1[PSI] = force*psiw[j]*(cos(psi + psi0[j]) - 1)*sin(psi + psi0[j]);
 			
 		energy[ET_RAMA] += -V;
+		
+/*		if (ntimestep>=sStep && ntimestep<=eStep && i==4) {
+			fprintf(dout, "V*[%d]=%f\n", j, V);
+			fprintf(dout, "k_rama=%f\n", k_rama);
+			fprintf(dout, "sigma[%d]=%f\n", j, sigma[j]);
+			fprintf(dout, "w[%d]=%f\n", j, w[j]);
+			fprintf(dout, "phiw[%d]=%f\n", j, phiw[j]);
+			fprintf(dout, "psiw[%d]=%f\n", j, psiw[j]);
+			fprintf(dout, "phi0[%d]=%f\n", j, phi0[j]);
+			fprintf(dout, "psi0[%d]=%f\n", j, psi0[j]);
+			fprintf(dout, "phi=%f\n", phi);
+			fprintf(dout, "psi=%f\n", psi);
+			fprintf(dout, "\n");
+		}*/
 		
 		for (ia=0; ia<nAngles; ia++) {
 			for (l=0; l<3; l++) {
@@ -2092,7 +2120,7 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	xHO[1] = xo[i][1] - xh[j][1];
 	xHO[2] = xo[i][2] - xh[j][2];
 	
-	prob_sum = h4prob[ires_type] + h4prob[jres_type];
+	prob_sum = h4prob[ires_type] + h4prob[jres_type]; // sequence-identity weight
 	pair_theta = prob_sum*exp( - pow(R_NO - helix_NO_zero, 2)/(2.0*pow(helix_sigma_NO, 2)) - pow(R_HO - helix_HO_zero, 2)/(2.0*pow(helix_sigma_HO, 2)) );
 
 	prd_pair_theta[0] = - (R_NO - helix_NO_zero)/(pow(helix_sigma_NO, 2)*R_NO);
@@ -2112,6 +2140,32 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	pair_theta_gamma = -epsilon*k_helix*(helix_gamma_w - helix_gamma_p)*pair_theta;
 	
 	V = -epsilon*k_helix*sigmma_gamma*pair_theta;
+	
+/*	if (ntimestep>=sStep && ntimestep<=eStep && i==10) {
+		fprintf(dout, "\n");
+		fprintf(dout, "helix_gamma_p=%f\n", helix_gamma_p);
+		fprintf(dout, "helix_gamma_w=%f\n", helix_gamma_w);
+		fprintf(dout, "k_helix=%f\n", k_helix);
+		fprintf(dout, "sigma=%f\n", helix_well->sigma(i, j));
+		fprintf(dout, "pair_theta=%f\n", pair_theta);
+		fprintf(dout, "sigmma_gamma=%f\n", sigmma_gamma);
+		fprintf(dout, "prob_sum=%f\n", prob_sum);
+		fprintf(dout, "R_NO=%f\n", R_NO);
+		fprintf(dout, "R_HO=%f\n", R_HO);
+		fprintf(dout, "helix_NO_zero=%f\n", helix_NO_zero);
+		fprintf(dout, "helix_HO_zero=%f\n", helix_HO_zero);
+		fprintf(dout, "helix_sigma_NO=%f\n", helix_sigma_NO);
+		fprintf(dout, "helix_sigma_HO=%f\n", helix_sigma_HO);
+		fprintf(dout, "V=%f\n", V);
+		fprintf(dout, "abcN={%f, %f, %f}\n", an, bn, cn);
+		fprintf(dout, "abcH={%f, %f, %f}\n", ah, bh, ch);
+		fprintf(dout, "h4prob[%d]=%f\n", ires_type, h4prob[ires_type]);
+		fprintf(dout, "h4prob[%d]=%f\n", jres_type, h4prob[jres_type]);
+		fprintf(dout, "kappa_sigma=%f\n", helix_par.kappa_sigma);
+		fprintf(dout, "well_r_min=%f\n", helix_par.well_r_min[0]);
+		fprintf(dout, "well_r_max=%f\n", helix_par.well_r_max[0]);
+		fprintf(dout, "kappa=%f\n", helix_par.kappa);
+	}*/
 
 	energy[ET_HELIX] += V;
 
@@ -2144,13 +2198,13 @@ void FixBackbone::compute_helix_potential(int i, int j)
 			
 			force = pair_theta_gamma*helix_well->prd_H(i)*helix_well->H(j)*helix_well->prd_theta(i, k, 0);
 			
-			f[iatom][0] += force*dx[0];
-			f[iatom][1] += force*dx[1];
-			f[iatom][2] += force*dx[2];
+			f[iatom][0] -= force*dx[0];
+			f[iatom][1] -= force*dx[1];
+			f[iatom][2] -= force*dx[2];
 			
-			f[katom][0] += -force*dx[0];
-			f[katom][1] += -force*dx[1];
-			f[katom][2] += -force*dx[2];
+			f[katom][0] -= -force*dx[0];
+			f[katom][1] -= -force*dx[1];
+			f[katom][2] -= -force*dx[2];
 		}
 		if (abs(k_resno-j_resno)>1) {
 			dx[0] = xj[0] - xk[0];
@@ -2159,13 +2213,13 @@ void FixBackbone::compute_helix_potential(int i, int j)
 
 			force = pair_theta_gamma*helix_well->H(i)*helix_well->prd_H(j)*helix_well->prd_theta(j, k, 0);
 			
-			f[jatom][0] += force*dx[0];
-			f[jatom][1] += force*dx[1];
-			f[jatom][2] += force*dx[2];
+			f[jatom][0] -= force*dx[0];
+			f[jatom][1] -= force*dx[1];
+			f[jatom][2] -= force*dx[2];
 			
-			f[katom][0] += -force*dx[0];
-			f[katom][1] += -force*dx[1];
-			f[katom][2] += -force*dx[2];
+			f[katom][0] -= -force*dx[0];
+			f[katom][1] -= -force*dx[1];
+			f[katom][2] -= -force*dx[2];
 		}
 	}
 }
@@ -2435,6 +2489,94 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
   f[jatom][2] += -force*dx[2];
 }
 
+void FixBackbone::print_forces(int coord)
+{
+	int index;
+
+	if (coord==1) {
+		fprintf(dout, "rca = {");
+		for (int i=0;i<nn;i++) {
+			index = alpha_carbons[i];
+			if (index!=-1) {
+				fprintf(dout, "{%.8f, %.8f, %.8f}", x[index][0], x[index][1], x[index][2]);
+				if (i!=nn-1) fprintf(dout, ",\n");
+			}
+		}
+		fprintf(dout, "};\n\n");
+
+		fprintf(dout, "rcb = {");
+		for (int i=0;i<nn;i++) {
+			index = beta_atoms[i];
+			if (index!=-1) {
+				fprintf(dout, "{%.8f, %.8f, %.8f}", x[index][0], x[index][1], x[index][2]);
+				if (i!=nn-1) fprintf(dout, ",\n");
+			}
+		}
+		fprintf(dout, "};\n\n");
+
+		fprintf(dout, "ro = {");
+		for (int i=0;i<nn;i++) {
+			index = oxygens[i];
+			if (index!=-1) {
+				fprintf(dout, "{%.8f, %.8f, %.8f}", x[index][0], x[index][1], x[index][2]);
+				if (i!=nn-1) fprintf(dout, ",\n");
+			}
+		}
+		fprintf(dout, "};\n\n");
+
+		fprintf(dout, "rn = {");
+		for (int i=0;i<nn;i++) {
+			fprintf(dout, "{%.8f, %.8f, %.8f}", xn[i][0], xn[i][1], xn[i][2]);
+			if (i!=nn-1) fprintf(dout, ",\n");
+		}
+		fprintf(dout, "};\n\n");
+
+		fprintf(dout, "rcp = {");
+		for (int i=0;i<nn;i++) {
+			fprintf(dout, "{%.8f, %.8f, %.8f}", xcp[i][0], xcp[i][1], xcp[i][2]);
+			if (i!=nn-1) fprintf(dout, ",\n");
+		}
+        fprintf(dout, "};\n\n");
+        
+        fprintf(dout, "rh = {");
+		for (int i=0;i<nn;i++) {
+			fprintf(dout, "{%.8f, %.8f, %.8f}", xh[i][0], xh[i][1], xh[i][2]);
+			if (i!=nn-1) fprintf(dout, ",\n");
+		}
+        fprintf(dout, "};\n\n\n");
+	}
+	
+	fprintf(dout, "fca = {");
+	for (int i=0;i<nn;i++) {
+		index = alpha_carbons[i];
+		if (index!=-1) {
+			fprintf(dout, "{%.8f, %.8f, %.8f}", f[index][0], f[index][1], f[index][2]);
+			if (i!=nn-1) fprintf(dout, ",\n");
+		}
+	}
+	fprintf(dout, "};\n\n");
+
+	fprintf(dout, "fcb = {");
+	for (int i=0;i<nn;i++) {
+		index = beta_atoms[i];
+		if (index!=-1) {
+			fprintf(dout, "{%.8f, %.8f, %.8f}", f[index][0], f[index][1], f[index][2]);
+			if (i!=nn-1) fprintf(dout, ",\n");
+		}
+	}
+	fprintf(dout, "};\n\n");
+
+	fprintf(dout, "fo = {");
+	for (int i=0;i<nn;i++) {
+		index = oxygens[i];
+		if (index!=-1) {
+			fprintf(dout, "{%.8f, %.8f, %.8f}", f[index][0], f[index][1], f[index][2]);
+			if (i!=nn-1) fprintf(dout, ",\n");
+		}
+	}
+	fprintf(dout, "};\n\n\n\n");
+}
+
 void FixBackbone::compute_backbone()
 {
 	ntimestep = update->ntimestep;
@@ -2524,6 +2666,174 @@ void FixBackbone::compute_backbone()
 
 	}
 	xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
+	
+/*	if (ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "AtStart: %d\n", ntimestep);
+		fprintf(dout, "Number of residues %d\n", n);
+		fprintf(dout, "Local Number of residues %d\n\n", nn);
+		print_forces(1);
+	}
+	
+	for (i=0;i<nn;i++) {
+		if (chain_flag && res_info[i]==LOCAL)
+			compute_chain_potential(i);
+	}
+	
+	if (chain_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Chain: %d\n", ntimestep);
+		fprintf(dout, "Chain_Energy: %f\n\n", energy[ET_CHAIN]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		if (!isFirst(i) && !isLast(i) && chi_flag && res_info[i]==LOCAL && se[i]!='G')
+			compute_chi_potential(i);
+	}
+	
+	if (chi_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Chi: %d\n", ntimestep);
+		fprintf(dout, "Chi_Energy: %f\n\n", energy[ET_CHI]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		if (shake_flag && res_info[i]==LOCAL)
+			compute_shake(i);
+	}
+	
+	double tmp;
+	if (ntimestep>=sStep && ntimestep<=eStep)
+		fprintf(dout, "\n{");
+	for (i=0;i<nn;i++) {
+		tmp = energy[ET_RAMA];
+		
+		if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i]!='G')
+			compute_rama_potential(i);
+			
+		if (ntimestep>=sStep && ntimestep<=eStep)
+			fprintf(dout, "%f, ", energy[ET_RAMA]-tmp);
+	}
+	if (ntimestep>=sStep && ntimestep<=eStep)
+		fprintf(dout, "}\n");
+	
+	if (rama_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Rama: %d\n", ntimestep);
+		fprintf(dout, "Rama_Energy: %f\n\n", energy[ET_RAMA]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		i_resno = res_no[i];
+		for (j=0;j<nn;j++) {
+			j_resno = res_no[j];
+			if (!isLast(i) && !isFirst(j) && abs(j_resno-i_resno)>2 && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j]!='P')
+				compute_dssp_hdrgn(i, j);
+		}
+	}
+	
+	if (dssp_hdrgn_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "DSSP: %d\n", ntimestep);
+		fprintf(dout, "DSSP_Energy: %f\n\n", energy[ET_DSSP]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		for (j=0;j<nn;j++) {
+			if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && res_info[j]==LOCAL)
+				compute_P_AP_potential(i, j);
+		}
+	}
+	
+	if (p_ap_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "P_AP: %d\n", ntimestep);
+		fprintf(dout, "P_AP_Energy: %f\n\n", energy[ET_PAP]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		i_resno = res_no[i];
+		for (j=0;j<nn;j++) {
+			j_resno = res_no[j];
+			if (water_flag && abs(j_resno-i_resno)>=contact_cutoff && res_info[i]==LOCAL)
+				compute_water_potential(i, j);
+		}
+	}
+	
+	if (water_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Water: %d\n", ntimestep);
+		fprintf(dout, "Water_Energy: %f\n\n", energy[ET_WATER]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		i_resno = res_no[i];
+		for (j=0;j<nn;j++) {
+			j_resno = res_no[j];
+			if (ssb_flag && abs(j_resno-i_resno)>=ssb_ij_sep && res_info[i]==LOCAL)
+				compute_solvent_barrier(i, j);
+		}
+	}
+	
+	if (ssb_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "SSB: %d\n", ntimestep);
+		fprintf(dout, "SSB_Energy: %f\n\n", energy[ET_SSB]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		if (burial_flag && res_info[i]==LOCAL)
+     		compute_burial_potential(i);
+	}
+	
+	if (burial_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Burial: %d\n", ntimestep);
+		fprintf(dout, "Burial_Energy: %f\n\n", energy[ET_BURIAL]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		i_resno = res_no[i];
+		if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
+			compute_helix_potential(i, i+helix_i_diff);
+	}
+	
+	if (helix_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Helix: %d\n", ntimestep);
+		fprintf(dout, "Helix_Energy: %f\n\n", energy[ET_HELIX]);
+		print_forces();
+	}
+	
+	for (i=0;i<nn;i++) {
+		if (frag_mem_flag && res_info[i]==LOCAL)
+    		compute_fragment_memory_potential(i);
+	}
+	
+	if (frag_mem_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Frag_Mem: %d\n", ntimestep);
+		fprintf(dout, "Frag_Mem_Energy: %f\n\n", energy[ET_FRAGMEM]);
+		print_forces();
+	}
+	
+	if (amh_go_flag && ntimestep>=sStep && ntimestep<=eStep)
+    	compute_amh_go_model();
+    	
+    if (amh_go_flag) {
+		fprintf(dout, "AMH-Go: %d\n", ntimestep);
+		fprintf(dout, "AMH-Go_Energy: %f\n\n", energy[ET_AMHGO]);
+		print_forces();
+	}
+
+	if (excluded_flag)
+		compute_excluded_volume();
+
+	if (p_excluded_flag)
+		compute_p_degree_excluded_volume();
+
+	if (r6_excluded_flag)
+		compute_r6_excluded_volume();
+	
+	if (ntimestep>=sStep && ntimestep<=eStep)
+		fprintf(dout, "\n\n");*/
 
 	for (i=0;i<nn;i++) {
     i_resno = res_no[i];

@@ -807,7 +807,6 @@ void FixGoModel::out_xyz_and_force(int coord)
 	fprintf(fout, "%d\n", Step);
 	fprintf(fout, "%d%d%d%d\n", bonds_flag, angles_flag, dihedrals_flag, contacts_flag);
 	fprintf(fout, "Number of atoms %d\n", n);
-	fprintf(fout, "Energy: %f\n\n", foriginal[0]);
 
 	int index;	
 
@@ -861,11 +860,6 @@ void FixGoModel::compute_goModel()
 	force_flag = 0;
 
 	for (i=0;i<nn;++i) {
-		if (res_info[i]==LOCAL) {
-			foriginal[1] += f[alpha_carbons[i]][0];
-			foriginal[2] += f[alpha_carbons[i]][1];
-			foriginal[3] += f[alpha_carbons[i]][2];
-		}
 
 		// Calculating xca Ca atoms coordinates array
 		if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {

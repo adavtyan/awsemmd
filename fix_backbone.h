@@ -187,6 +187,10 @@ public:
   WPV helix_par;
   
   FILE *efile;
+  
+  FILE *dout;
+  int sStep, eStep;
+  void print_forces(int coord=0);
 };
 
 }

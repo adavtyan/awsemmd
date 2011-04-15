@@ -51,7 +51,6 @@ private:
 
   double epsilon, epsilon2;
   double k_bonds, k_angles, k_dihedrals[2];
-  double foriginal[4], foriginal_all[4];
   double *r0, *theta0, *phi0, **sigma;
   double dev, devA, devB, devC;
   double sdivf, tcorr, dev0;

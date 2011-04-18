@@ -770,7 +770,7 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 	energy[ET_CONTACTS] += VTotal;
 
 	force = 12.0 * R * V / r;
-	fprintf(screen, "R %f V %f f %f\n", R, V, force);
+	//fprintf(screen, "R %f V %f f %f\n", R, V, force);
 	force_tmp_sum = 0.0 ;
 	for(k=0; k<n_basins; ++k){
 		if(isNative_mb[k][i_resno][j_resno-4]){

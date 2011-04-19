@@ -105,6 +105,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			for(i=0; i<n_basins; ++i){
 				in >> A[i];
 			}
+			fprintf(screen, "A = %f %f\n", A[0], A[1]);
 			in >> rmin_cutoff ;
 		} else if (strcmp(varsection, "[Bonds]")==0) {
 			bonds_flag = 1;
@@ -145,7 +146,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		} else if (strcmp(varsection, "[Contacts]")==0) {
 			if (!lj_contacts_flag && !gaussian_contacts_flag) error->all("Conflict in definition of contact potential !!");
 		
-			allocate_contact();
+			//allocate_contact();
 			contacts_flag = 1;
 			print_log("Contacts flag on\n");
 			if(lj_contacts_flag){
@@ -755,12 +756,12 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 	for(k=0; k<n_basins; ++k){
 		if(isNative_mb[k][i_resno][j_resno-4]){
 			dr = r - sigma_mb[k][i_resno][j_resno-4] ;
-			G[k]= A[k] * exp(-dr*dr*w_sq_inv/2.0);
+			G[k]= - A[k] * exp(-dr*dr*w_sq_inv/2.0);
 			V *= 1.0 + G[k];
 			//fprintf(screen, "%f %f %f\n", xca[i][0],xca[i][1], xca[i][2]);
 			//fprintf(screen, "%f %f %f\n", xca[j][0],xca[j][1], xca[j][2]);
 			//fprintf(screen, "i %d j %d sigma %f\n", i_resno, j_resno, sigma_mb[k][i_resno][j_resno-4]);
-			//fprintf(screen, "r %f dr %f G %f\n", r, dr, G[k]);
+			//fprintf(screen, "r %f dr %f A %f G %e w_sq_inv %e\n", r, dr, A[k], G[k], w_sq_inv);
 		} else {
 			G[k] = 0.0;
 		}

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 lammps_dir="/home/aram/lammps-18Feb11/src"
-project_dir="/home/aram/Project_Files_2009.05.18/Lammps_Files/release"
+project_dir="/home/aram/Project_Files_2009.05.18/amnesiacmd"
 simulation_dir=`pwd`
 
 pr_file1="fix_backbone.cpp"
@@ -26,7 +26,6 @@ pwd
 cd  $lammps_dir
 #make clean-all
 make serial
-#make serial_debug
 
 cp -v $lammps_dir/$lmp_name $simulation_dir
 pwd

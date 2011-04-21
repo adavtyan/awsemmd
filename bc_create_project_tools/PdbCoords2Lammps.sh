@@ -14,5 +14,5 @@ output_file=$2
 echo $pdb_file
 echo $output_file
 
-python ~/lammpsamw/amnesiacmd/bc_create_project_tools/PDBToCoordinates.py $pdb_file $output_file".coord"
-python ~/lammpsamw/amnesiacmd/bc_create_project_tools/CoordinatesToWorkLammpsDataFile.py $output_file".coord" "data."$output_file -b
+python PDBToCoordinates.py $pdb_file $output_file".coord"
+python CoordinatesToWorkLammpsDataFile.py $output_file".coord" "data."$output_file -b

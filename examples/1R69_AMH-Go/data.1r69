@@ -12,9 +12,9 @@ LAMMPS protain data file
            0  dihedral types
            0  improper types
 
--500.0	500.0	xlo xhi
--500.0	500.0	ylo yhi
--500.0	500.0	zlo zhi
+-50.0	50.0	xlo xhi
+-50.0	50.0	ylo yhi
+-50.0	50.0	zlo zhi
 
 Masses
 

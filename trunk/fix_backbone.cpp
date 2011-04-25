@@ -2436,7 +2436,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
 
 void FixBackbone::compute_solvent_barrier(int i, int j)
 {
-  if (abs(res_no[j]-res_no[i])<ssb_ij_sep) return;
+  if (res_no[j]-res_no[i]<ssb_ij_sep) return;
 
   double dx[3], force;
   double *xi, *xj, r, rmin, rmax, rshift;

@@ -231,11 +231,11 @@ out.write( "\n" )
 
 if cg and cg_bonds and not go:
 	out.write( "Bond Coeffs\n\n" )
-	out.write( space11 + "1\t10\t3.77\n" )
-	out.write( space11 + "2\t10\t2.41\n" )
-	out.write( space11 + "3\t10\t2.50\n" )
-	out.write( space11 + "4\t10\t1.54\n" )
-	out.write( space11 + "5\t10\t1.54\n" )
+	out.write( space11 + "1\t20\t3.77\n" )
+	out.write( space11 + "2\t20\t2.41\n" )
+	out.write( space11 + "3\t20\t2.50\n" )
+	out.write( space11 + "4\t20\t1.54\n" )
+	out.write( space11 + "5\t20\t1.54\n" )
 
 if (cg_bonds or not cg) and not go:
 	out.write( "Bonds\n\n" )

@@ -42,8 +42,8 @@ class Atom:
     	f.write( ("        "+str(round(self.z/10,3)))[-8:] )  
     	f.write("\n")
 
-if len(sys.argv)!=4:
-    print "\n> Pdb2Gro.py PDB_Id Output_file Chain\n"
+if len(sys.argv)!=4 and len(sys.argv)!=3:
+    print "\n> Pdb2Gro.py PDB_Id Output_file [Chain]\n"
     exit()
 
 from Bio.PDB.PDBParser import PDBParser
@@ -59,20 +59,21 @@ if pdb_id[-4:].lower()==".pdb":
 
 output = sys.argv[2]
 
-chain_name = sys.argv[3]
+chain_name = ""
+if len(sys.argv)>=4:
+	chain_name = sys.argv[3]
 
 s = p.get_structure(pdb_id, pdb_file)
 chains = s[0].get_list()
 
-if chain_name=='':
-	chain_name = 'A'
+atoms = []
 
 for chain in chains:
-	if chain.get_id()==chain_name:
+	if chain_name=="" or chain.get_id()==chain_name:
 		ires = 0
 		iatom = 0
 		res_name = ""
-		atoms = []
+#		atoms = []
 		for res in chain:
 			is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 			if (res.get_id()[0]==' ' or res.get_id()[0]=='H_MSE') and is_regular_res:

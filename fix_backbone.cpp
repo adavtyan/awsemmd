@@ -406,7 +406,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 /* ---------------------------------------------------------------------- */
 
 FixBackbone::~FixBackbone()
-{
+{	
 	if (allocated) {
 		for (int i=0;i<n;i++) {
 			delete [] xca[i];
@@ -1210,13 +1210,6 @@ void FixBackbone::compute_rama_potential(int i)
 
 	for (j=jStart;j<nEnd;j++) {
 		V = epsilon*k_rama*w[j]*exp( -sigma[j]*( phiw[j]*pow(cos(phi + phi0[j]) - 1, 2) + psiw[j]*pow(cos(psi + psi0[j]) - 1, 2) ) );
-		
-/*		if (ntimestep>=sStep && ntimestep<=eStep && i==4) {
-			fprintf(dout, "\n");
-			fprintf(dout, "V[%d]=%f\n", j, V);
-			fprintf(dout, "ssweight[%d]=%d\n", j, ssweight[j]);
-			fprintf(dout, "aps[%d][%d]=%f\n", j, i, aps[j][i]);
-		}*/
 
 		if (ssweight[j]) {
 			if (aps[j][i]==0.0) continue;
@@ -1229,22 +1222,8 @@ void FixBackbone::compute_rama_potential(int i)
 			
 		energy[ET_RAMA] += -V;
 		
-/*		if (ntimestep>=sStep && ntimestep<=eStep && i==4) {
-			fprintf(dout, "V*[%d]=%f\n", j, V);
-			fprintf(dout, "k_rama=%f\n", k_rama);
-			fprintf(dout, "sigma[%d]=%f\n", j, sigma[j]);
-			fprintf(dout, "w[%d]=%f\n", j, w[j]);
-			fprintf(dout, "phiw[%d]=%f\n", j, phiw[j]);
-			fprintf(dout, "psiw[%d]=%f\n", j, psiw[j]);
-			fprintf(dout, "phi0[%d]=%f\n", j, phi0[j]);
-			fprintf(dout, "psi0[%d]=%f\n", j, psi0[j]);
-			fprintf(dout, "phi=%f\n", phi);
-			fprintf(dout, "psi=%f\n", psi);
-			fprintf(dout, "\n");
-		}*/
-		
 		for (ia=0; ia<nAngles; ia++) {
-			for (l=0; l<3; l++) {
+			for (l=0; l<3; l++) {				
 				f[alpha_carbons[i-1]][l] += force1[ia]*(y_slope[ia][CA0][l] + x_slope[ia][CA0][l]);
 				f[alpha_carbons[i]][l] += force1[ia]*(y_slope[ia][CA1][l] + x_slope[ia][CA1][l]);
 				f[alpha_carbons[i+1]][l] += force1[ia]*(y_slope[ia][CA2][l] + x_slope[ia][CA2][l]);
@@ -2140,32 +2119,6 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	pair_theta_gamma = -epsilon*k_helix*(helix_gamma_w - helix_gamma_p)*pair_theta;
 	
 	V = -epsilon*k_helix*sigmma_gamma*pair_theta;
-	
-/*	if (ntimestep>=sStep && ntimestep<=eStep && i==10) {
-		fprintf(dout, "\n");
-		fprintf(dout, "helix_gamma_p=%f\n", helix_gamma_p);
-		fprintf(dout, "helix_gamma_w=%f\n", helix_gamma_w);
-		fprintf(dout, "k_helix=%f\n", k_helix);
-		fprintf(dout, "sigma=%f\n", helix_well->sigma(i, j));
-		fprintf(dout, "pair_theta=%f\n", pair_theta);
-		fprintf(dout, "sigmma_gamma=%f\n", sigmma_gamma);
-		fprintf(dout, "prob_sum=%f\n", prob_sum);
-		fprintf(dout, "R_NO=%f\n", R_NO);
-		fprintf(dout, "R_HO=%f\n", R_HO);
-		fprintf(dout, "helix_NO_zero=%f\n", helix_NO_zero);
-		fprintf(dout, "helix_HO_zero=%f\n", helix_HO_zero);
-		fprintf(dout, "helix_sigma_NO=%f\n", helix_sigma_NO);
-		fprintf(dout, "helix_sigma_HO=%f\n", helix_sigma_HO);
-		fprintf(dout, "V=%f\n", V);
-		fprintf(dout, "abcN={%f, %f, %f}\n", an, bn, cn);
-		fprintf(dout, "abcH={%f, %f, %f}\n", ah, bh, ch);
-		fprintf(dout, "h4prob[%d]=%f\n", ires_type, h4prob[ires_type]);
-		fprintf(dout, "h4prob[%d]=%f\n", jres_type, h4prob[jres_type]);
-		fprintf(dout, "kappa_sigma=%f\n", helix_par.kappa_sigma);
-		fprintf(dout, "well_r_min=%f\n", helix_par.well_r_min[0]);
-		fprintf(dout, "well_r_max=%f\n", helix_par.well_r_max[0]);
-		fprintf(dout, "kappa=%f\n", helix_par.kappa);
-	}*/
 
 	energy[ET_HELIX] += V;
 
@@ -2667,7 +2620,7 @@ void FixBackbone::compute_backbone()
 	}
 	xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
 	
-/*	if (ntimestep>=sStep && ntimestep<=eStep) {
+	if (ntimestep>=sStep && ntimestep<=eStep) {
 		fprintf(dout, "AtStart: %d\n", ntimestep);
 		fprintf(dout, "Number of residues %d\n", n);
 		fprintf(dout, "Local Number of residues %d\n\n", nn);
@@ -2769,7 +2722,7 @@ void FixBackbone::compute_backbone()
 		i_resno = res_no[i];
 		for (j=0;j<nn;j++) {
 			j_resno = res_no[j];
-			if (ssb_flag && abs(j_resno-i_resno)>=ssb_ij_sep && res_info[i]==LOCAL)
+			if (ssb_flag && j_resno-i_resno>=ssb_ij_sep && res_info[i]==LOCAL)
 				compute_solvent_barrier(i, j);
 		}
 	}
@@ -2833,9 +2786,9 @@ void FixBackbone::compute_backbone()
 		compute_r6_excluded_volume();
 	
 	if (ntimestep>=sStep && ntimestep<=eStep)
-		fprintf(dout, "\n\n");*/
+		fprintf(dout, "\n\n");
 
-	for (i=0;i<nn;i++) {
+/*	for (i=0;i<nn;i++) {
     i_resno = res_no[i];
     
 		if (chain_flag && res_info[i]==LOCAL)
@@ -2862,7 +2815,7 @@ void FixBackbone::compute_backbone()
 			if (water_flag && abs(j_resno-i_resno)>=contact_cutoff && res_info[i]==LOCAL)
 			  compute_water_potential(i, j);
 
-			if (ssb_flag && abs(j_resno-i_resno)>=ssb_ij_sep && res_info[i]==LOCAL)
+			if (ssb_flag && j_resno-i_resno>=ssb_ij_sep && res_info[i]==LOCAL)
 			  compute_solvent_barrier(i, j);
 		}
 		
@@ -2886,7 +2839,7 @@ void FixBackbone::compute_backbone()
 		compute_p_degree_excluded_volume();
 
 	if (r6_excluded_flag)
-		compute_r6_excluded_volume();
+		compute_r6_excluded_volume();*/
 	
 	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
 	

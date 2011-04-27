@@ -64,6 +64,7 @@ private:
   int n_basins;
   double R, *G, *A, ***sigma_mb;
   double gaussian_width;
+  double g_w_sq_inv;
   double rmin_cutoff;
 
   bool allocated, contacts_allocated;

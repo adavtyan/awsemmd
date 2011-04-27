@@ -63,6 +63,7 @@ private:
    //Gaussian contacts, for multi-basin
   int n_basins;
   double R, *G, *A, ***sigma_mb;
+  double gaussian_width;
   double rmin_cutoff;
 
   bool allocated, contacts_allocated;

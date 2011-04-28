@@ -371,24 +371,24 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all("Fragment_Memory: Cannot build gamma array");
 		
 		// read frag_mems_file and create a list of the fragments
-    frag_mems = read_mems(frag_mems_file, n_frag_mems);
+    	frag_mems = read_mems(frag_mems_file, n_frag_mems);
 		
 		// allocate frag_mem_map and ilen_fm_map
 		ilen_fm_map = new int[n]; // Number of fragments for residue i
 		frag_mem_map = new int*[n]; // Memory Fragments map
 		for (i=0;i<n;++i) {
-      ilen_fm_map[i] = 0;
-      frag_mem_map[i] = NULL;
-    }
+			ilen_fm_map[i] = 0;
+			frag_mem_map[i] = NULL;
+    	}
 		
-	// Fill Fragment Memory map
-	int k, pos, len, min_sep;
-	min_sep = fm_gamma->minSep();
-	for (k=0;k<n_frag_mems;++k) {
-      pos = frag_mems[k]->pos;
-      len = frag_mems[k]->len;
+		// Fill Fragment Memory map
+		int k, pos, len, min_sep;
+		min_sep = fm_gamma->minSep();
+		for (k=0;k<n_frag_mems;++k) {
+			pos = frag_mems[k]->pos;
+			len = frag_mems[k]->len;
       
-      if (pos+len>n) error->all("Fragment_Memory: Incorrectly defined memory fragment");
+      		if (pos+len>n) error->all("Fragment_Memory: Incorrectly defined memory fragment");
       
       for (i=pos; i<pos+len-min_sep; ++i) {
         ilen_fm_map[i]++;
@@ -408,7 +408,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 
 FixBackbone::~FixBackbone()
 {
-//	fprintf(dout, "\n\nncalles=%d\n", ncalles);
+	fprintf(dout, "\n\nncalles=%d\n", ncalles);
 	
 	if (allocated) {
 		for (int i=0;i<n;i++) {
@@ -438,33 +438,27 @@ FixBackbone::~FixBackbone()
 		delete R;
 		
 		if (amh_go_flag) {
-      int nall = atom->nmax;
-
-	fprintf(dout, "\nnall=%d\n",nall);
-	fprintf(dout, "nmax=%d\n", atom->nmax);
-
-      for (int i=0;i<nall;i++) {
-	fprintf(dout, "i=%d\n", i);
-        delete [] amh_go_force[i];
-      }
+			for (int i=0;i<3*n;i++) {
+				delete [] amh_go_force[i];
+			}
       
-      delete [] amh_go_force;
-      delete [] amh_go_force_map;
-      
-      delete m_amh_go;
-      delete amh_go_gamma;
-    }    
+			delete [] amh_go_force;
+			delete [] amh_go_force_map;
+			
+			delete m_amh_go;
+			delete amh_go_gamma;
+		}
     
-    if (frag_mem_flag) {
-      delete fm_gamma;
-      
-      for (int i=0;i<n_frag_mems;i++) delete frag_mems[i];
-      if (n_frag_mems>0) memory->sfree(frag_mems);
-      
-      for (int i=0;i<n;++i) memory->sfree(frag_mem_map[i]);
-      delete [] frag_mem_map;
-      delete [] ilen_fm_map;
-    }
+		if (frag_mem_flag) {
+			delete fm_gamma;
+			
+			for (int i=0;i<n_frag_mems;i++) delete frag_mems[i];
+			if (n_frag_mems>0) memory->sfree(frag_mems);
+			
+			for (int i=0;i<n;++i) memory->sfree(frag_mem_map[i]);
+			delete [] frag_mem_map;
+			delete [] ilen_fm_map;
+		}
 	}
 	
 	fclose(efile);
@@ -520,15 +514,9 @@ void FixBackbone::allocate()
 	xh[0][2] = 0;
 	
 	if (amh_go_flag) {
-    int nall = atom->nmax;
-   
-	fprintf(dout, "\nnall=%d\n",nall);
-	fprintf(dout, "nmax=%d\n", atom->nmax);
- 
-    amh_go_force = new double*[nall];
-    amh_go_force_map = new int[nall];
-    for (int i=0;i<nall;i++) {
-	fprintf(dout, "i=%d\n", i);
+		amh_go_force = new double*[3*n];
+		amh_go_force_map = new int[3*n];
+    for (int i=0;i<3*n;i++) {
       amh_go_force[i] = new double[3];
     }
 	}
@@ -666,8 +654,8 @@ void FixBackbone::init()
   int irequest = neighbor->request((void *) this);
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->fix = 1;
-//  neighbor->requests[irequest]->half = 0;
-//  neighbor->requests[irequest]->full = 1;
+  neighbor->requests[irequest]->half = 0;
+  neighbor->requests[irequest]->full = 1;
   //  neighbor->requests[irequest]->occasional = 0;
 
 }
@@ -2241,8 +2229,8 @@ void FixBackbone::compute_amh_go_model()
           xj[0] = x[j][0];
           xj[1] = x[j][1];
           xj[2] = x[j][2];
-
-	ncalles++;
+          
+          if (ntimestep==0) ncalles++;
           
           if (domain->xperiodic) xj[0] += prd[0]*((image[j] & 1023) - 512);
           if (domain->yperiodic) xj[1] += prd[1]*((image[j] >> 10 & 1023) - 512);
@@ -2781,10 +2769,10 @@ void FixBackbone::compute_backbone()
 		print_forces();
 	}
 	
-	if (amh_go_flag && ntimestep>=sStep && ntimestep<=eStep)
+	if (amh_go_flag)
     	compute_amh_go_model();
     	
-    if (amh_go_flag) {
+    if (amh_go_flag && ntimestep>=sStep && ntimestep<=eStep) {
 		fprintf(dout, "AMH-Go: %d\n", ntimestep);
 		fprintf(dout, "AMH-Go_Energy: %f\n\n", energy[ET_AMHGO]);
 		print_forces();

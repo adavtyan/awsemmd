@@ -87,6 +87,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 
 	char varsection[100];
 	ifstream in(arg[3]);
+	if (!in) error->all("Coefficient file was not found!");
 	while (!in.eof()) {
 		in >> varsection;
 		if (strcmp(varsection, "[Go-Model_LJ]")==0) {

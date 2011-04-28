@@ -550,9 +550,6 @@ void FixGoModel::compute_angle(int i)
 
 	theta = acos(alpha);
 	dtheta = theta - theta0[i_resno];
-	
-	if (Step==1)
-		fprintf(fout, "theta=%f\theta0=%f\n", theta, theta0[i_resno]);
 
 	force = 2*epsilon*k_angles*dtheta/(AB*sqrt(1-alpha*alpha));
 

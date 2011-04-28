@@ -7,7 +7,7 @@ def calc_dihedral_angle(p1, p2, p3, p4):
     v1 = vector(p1, p2)
     v2 = vector(p2, p3)
     v3 = vector(p3, p4)
-    return pi*dihedral_angle(v1, v2, v3)/180
+    return dihedral_angle(v1, v2, v3)
 
 def calc_angle(p1, p2, p3):
     v1 = vector(p1, p2)

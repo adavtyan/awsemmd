@@ -937,12 +937,10 @@ void FixGoModel::compute_goModel()
 	}
 
 	tmp = energy[ET_ANGLE];
-	if (angles_flag && Step>=sStep && Step<=eStep) fprintf(fout, "\n{");
 	for (i=0;i<nn;i++) {
 		if (angles_flag && res_info[i]==LOCAL && res_no[i]<=n-2)
 			compute_angle(i);
 	}
-	if (angles_flag && Step>=sStep && Step<=eStep) fprintf(fout, "}\n");
 
 	if (angles_flag && Step>=sStep && Step<=eStep) {
 		fprintf(fout, "Angles %d:\n", nn);

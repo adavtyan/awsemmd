@@ -11,7 +11,7 @@ def calc_dihedral_angle(p1, p2, p3, p4):
 
 def calc_angle(p1, p2, p3):
     v1 = vector(p1, p2)
-    v2 = vector(p2, p3)
+    v2 = vector(p3, p2)
     return vangle(v1, v2)
 
 def calc_bond(p1, p2):
@@ -162,7 +162,7 @@ for ch in chains:
 	out.write(str(k_bond))
 	out.write('\n')
 	for ir in bonds:
-		out.write( str(round(ir, 4)) )
+		out.write( str(round(ir, 5)) )
 		if bonds.index(ir)!=len(bonds)-1:
 			out.write(' ')
 	out.write('\n\n')
@@ -171,7 +171,7 @@ for ch in chains:
 	out.write(str(k_angle))
 	out.write('\n')
 	for ia in angles:
-		out.write( str(round(ia, 3)) )
+		out.write( str(round(ia, 5)) )
 		if angles.index(ia)!=len(angles)-1:
 			out.write(' ')
 	out.write('\n\n')
@@ -182,7 +182,7 @@ for ch in chains:
 	out.write(str(k_dihedral[1]))
 	out.write('\n')
 	for idha in dihedrals:
-		out.write( str(round(idha, 3)) )
+		out.write( str(round(idha, 5)) )
 		if dihedrals.index(idha)!=len(dihedrals)-1:
 			out.write(' ')
 	out.write('\n\n')

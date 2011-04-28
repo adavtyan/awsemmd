@@ -532,9 +532,9 @@ void FixGoModel::compute_angle(int i)
 	double a[3], b[3], a2, b2, A, B, AB, adb, alpha;
 	double theta, dtheta, force, factor[2][3];
 
-	a[0] = xca[i+1][0] - xca[i][0];
-	a[1] = xca[i+1][1] - xca[i][1];
-	a[2] = xca[i+1][2] - xca[i][2];
+	a[0] = xca[i][0] - xca[i+1][0];
+	a[1] = xca[i][1] - xca[i+1][1];
+	a[2] = xca[i][2] - xca[i+1][2];
 
 	b[0] = xca[i+2][0] - xca[i+1][0];
 	b[1] = xca[i+2][1] - xca[i+1][1];
@@ -548,8 +548,11 @@ void FixGoModel::compute_angle(int i)
 	AB = A*B;
 	alpha = adb/AB;
 
-	theta = acos(-alpha);
+	theta = acos(alpha);
 	dtheta = theta - theta0[i_resno];
+	
+	if (Step==1)
+		fprintf(fout, "theta=%f\theta0=%f\n", theta, theta0[i_resno]);
 
 	force = 2*epsilon*k_angles*dtheta/(AB*sqrt(1-alpha*alpha));
 
@@ -563,13 +566,13 @@ void FixGoModel::compute_angle(int i)
 	factor[1][1] = (a[1] - b[1]*adb/b2);
 	factor[1][2] = (a[2] - b[2]*adb/b2);
 
-	f[alpha_carbons[i]][0] -= factor[0][0]*force;
-	f[alpha_carbons[i]][1] -= factor[0][1]*force;
-	f[alpha_carbons[i]][2] -= factor[0][2]*force;
+	f[alpha_carbons[i]][0] -= -factor[0][0]*force;
+	f[alpha_carbons[i]][1] -= -factor[0][1]*force;
+	f[alpha_carbons[i]][2] -= -factor[0][2]*force;
 
-	f[alpha_carbons[i+1]][0] -= (factor[1][0] - factor[0][0])*force;
-	f[alpha_carbons[i+1]][1] -= (factor[1][1] - factor[0][1])*force;
-	f[alpha_carbons[i+1]][2] -= (factor[1][2] - factor[0][2])*force;
+	f[alpha_carbons[i+1]][0] -= (factor[1][0] + factor[0][0])*force;
+	f[alpha_carbons[i+1]][1] -= (factor[1][1] + factor[0][1])*force;
+	f[alpha_carbons[i+1]][2] -= (factor[1][2] + factor[0][2])*force;
 
 	f[alpha_carbons[i+2]][0] -= -factor[1][0]*force;
 	f[alpha_carbons[i+2]][1] -= -factor[1][1]*force;

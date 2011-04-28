@@ -49,7 +49,7 @@ def dihedral_angle(v1, v2, v3):
     n2 = vcross_product(v2, v3)
     y = vproduct( vproduct(vabs(v2), v1), n2 )
     x = vproduct( n1, n2 )
-    return 180*atan2(y, x)/pi
+    return atan2(y, x)
 
 def mproduct(a, b):
     na = len(a)

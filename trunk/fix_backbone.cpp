@@ -42,6 +42,7 @@ using namespace LAMMPS_NS;
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
 int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 16, 0, 19, 17, 0, 18, 0};
 
+int ncalles=0;
 
 void itoa(int a, char *buf, int s)
 {
@@ -406,7 +407,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 /* ---------------------------------------------------------------------- */
 
 FixBackbone::~FixBackbone()
-{	
+{
+//	fprintf(dout, "\n\nncalles=%d\n", ncalles);
+	
 	if (allocated) {
 		for (int i=0;i<n;i++) {
 			delete [] xca[i];
@@ -435,9 +438,13 @@ FixBackbone::~FixBackbone()
 		delete R;
 		
 		if (amh_go_flag) {
-      int nall = atom->nlocal + atom->nghost;
+      int nall = atom->nmax;
+
+	fprintf(dout, "\nnall=%d\n",nall);
+	fprintf(dout, "nmax=%d\n", atom->nmax);
 
       for (int i=0;i<nall;i++) {
+	fprintf(dout, "i=%d\n", i);
         delete [] amh_go_force[i];
       }
       
@@ -513,11 +520,15 @@ void FixBackbone::allocate()
 	xh[0][2] = 0;
 	
 	if (amh_go_flag) {
-    int nall = atom->nlocal + atom->nghost;
-    
+    int nall = atom->nmax;
+   
+	fprintf(dout, "\nnall=%d\n",nall);
+	fprintf(dout, "nmax=%d\n", atom->nmax);
+ 
     amh_go_force = new double*[nall];
     amh_go_force_map = new int[nall];
     for (int i=0;i<nall;i++) {
+	fprintf(dout, "i=%d\n", i);
       amh_go_force[i] = new double[3];
     }
 	}
@@ -655,7 +666,8 @@ void FixBackbone::init()
   int irequest = neighbor->request((void *) this);
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->fix = 1;
-  //  neighbor->requests[irequest]->half = 1;
+//  neighbor->requests[irequest]->half = 0;
+//  neighbor->requests[irequest]->full = 1;
   //  neighbor->requests[irequest]->occasional = 0;
 
 }
@@ -2229,6 +2241,8 @@ void FixBackbone::compute_amh_go_model()
           xj[0] = x[j][0];
           xj[1] = x[j][1];
           xj[2] = x[j][2];
+
+	ncalles++;
           
           if (domain->xperiodic) xj[0] += prd[0]*((image[j] & 1023) - 512);
           if (domain->yperiodic) xj[1] += prd[1]*((image[j] >> 10 & 1023) - 512);

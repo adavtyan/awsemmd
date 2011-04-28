@@ -182,7 +182,7 @@ for ch in chains:
 	out.write(str(k_dihedral[1]))
 	out.write('\n')
 	for idha in dihedrals:
-		out.write( str(round(idha, 5)) )
+		out.write( str(round(idha, 4)) )
 		if dihedrals.index(idha)!=len(dihedrals)-1:
 			out.write(' ')
 	out.write('\n\n')
@@ -200,7 +200,7 @@ for ch in chains:
 	out.write('\n\n')
 	for i in range( 0, len(all_res)-4 ):
         	for j in range( i+4, len(all_res) ):
-			out.write( str(round(sigma[i][j], 3)) )
+			out.write( str(round(sigma[i][j], 4)) )
 			if j!=len(all_res)-1:
 				out.write(' ')
 		out.write('\n')
@@ -219,19 +219,19 @@ for ch in chains:
 	print "[Bonds]"
 	print str(k_bond)
 	for ir in bonds:
-		print str(round(ir, 4)), ' ',
+		print str(round(ir, 5)), ' ',
 	print '\n'
 	
 	print "[Angles]"
 	print str(k_angle)
 	for ia in angles:
-		print str(round(ia, 3)), ' ',
+		print str(round(ia, 4)), ' ',
 	print '\n'
 	
 	print "[Dihedrals]"
 	print str(k_dihedral[0]), str(k_dihedral[1])
 	for idha in dihedrals:
-		print str(round(idha, 3)), ' ',
+		print str(round(idha, 4)), ' ',
 	print '\n'
 	
 	print "[Contacts]"
@@ -245,7 +245,7 @@ for ch in chains:
 	print '\n',
 	for i in range( 0, len(all_res)-4 ):
         	for j in range( i+4, len(all_res) ):
-			print str(round(sigma[i][j], 3)),
+			print str(round(sigma[i][j], 4)),
 		print '\n',
         print '\n'
 

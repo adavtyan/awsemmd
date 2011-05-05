@@ -68,12 +68,14 @@ def CalcGoModelCoeffs(atoms):
 				sigma[i].append(sigma[j][i])
 
 def Compare():
-	dContactTotal = 0
+	dContactTotal = 0.0
 	for i in range(0, len(sigma) ):
 		for j in range(0, len(sigma[i]) ):
 			if isNative(sigmaN[i][j]):
 				if sigma[i][j]>1.2*sigmaN[i][j]:
 					dContactTotal = dContactTotal + 1
+	if frac:
+		dContactTotal = (nNative - dContactTotal)/nNative
 	diff.append(dContactTotal)
 
 #Variables
@@ -83,10 +85,13 @@ sigmaN = []
 sigma = []
 sigma0 = 4
 diff = []
+frac = False # Output fraction of native contacts
+nNative = 0
 
 if len(sys.argv)<=2:
-    print "\nExtractGoModelCGCoeffs.py Input_file PDB_id [Output_file [-s]]\n"
-    print "-s\tSplit into files for each chain"
+    print "\nExtractGoModelCGCoeffs.py Input_file PDB_id [Output_file [-s]] [-f]\n"
+    print "-s\tSplit into files for each chain\n"
+    print "-f\tOutput fraction of native contacts\n"
     exit()
 
 filename = sys.argv[1]
@@ -101,8 +106,9 @@ splite = False
 for av in sys.argv:
     if av=="-s":
         splite = True
-        sys.argv.remove(av)
-        break
+#        sys.argv.reimove(av)
+    if av=="-f":
+	frac = True
 
 output_fn = ""
 if len(sys.argv)>3: output_fn = sys.argv[3]
@@ -130,6 +136,7 @@ for i in range( 0, len(ca_atoms_pdb) ):
 			xyz_CAj = ca_atoms_pdb[j]
 			v = vector(xyz_CAi, xyz_CAj)
 			sigmaN[i].append(vabs(v))
+			if isNative(vabs(v)): nNative = nNative + 1
 		else:
 			sigmaN[i].append(sigmaN[j][i])
 
@@ -184,6 +191,8 @@ if len(ca_atoms)>0:
 
 ldiff = len(diff)
 
+print "Number of native contacts: ", nNative
+
 if output_fn!="":
 #        if splite and len(sequance)==0: continue
         if splite:
@@ -195,8 +204,11 @@ if output_fn!="":
 		
 	idf = 0
 	for df in diff:
-		idf = idf + 1 
-		out.write(str(df))
+		idf = idf + 1
+		if frac: 
+			out.write(str(round(df,4)))
+		else:
+			out.write(str(int(df)))
 		if idf != ldiff:
 			out.write(" ")
 	out.write("\n")
@@ -209,7 +221,10 @@ else:
 	idf = 0
 	for df in diff:
 		idf = idf + 1
-		print str(df),
+		if frac:
+			print str(round(df,4)),
+		else:
+			print str(int(df)),
 		if idf!=ldiff:
 			print " ",
 	print "\n"

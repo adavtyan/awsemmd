@@ -1925,7 +1925,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 
 void FixBackbone::compute_water_potential(int i, int j)
 {
-	if (abs(res_no[j]-res_no[i])<contact_cutoff) return;
+	if (res_no[j]-res_no[i]<contact_cutoff) return;
 	
 	double dx[3], sigma_gamma, theta_gamma, force;
 	double *xi, *xj, *xk;
@@ -1955,7 +1955,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 		direct_contact = false;
 		
 		// Optimization for gamma[0]==gamma[1]
-		if (water_gamma[i_well][ires_type][jres_type][0] - water_gamma[i_well][ires_type][jres_type][1]<delta) direct_contact = true;
+		if (fabs(water_gamma[i_well][ires_type][jres_type][0] - water_gamma[i_well][ires_type][jres_type][1])<delta) direct_contact = true;
 		
 		if (direct_contact) {
 			sigma_gamma = (water_gamma[i_well][ires_type][jres_type][0] + water_gamma[i_well][ires_type][jres_type][1])/2;
@@ -1966,6 +1966,19 @@ void FixBackbone::compute_water_potential(int i, int j)
 		}		
 				
 		energy[ET_WATER] += -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well);
+		
+		if (ntimestep==0 && i==6 && j==34) {
+			fprintf(dout, "\n");
+			fprintf(dout, "k_water=%f\n", k_water);
+			fprintf(dout, "sigma_gamma=%f\n", sigma_gamma);
+			fprintf(dout, "theta=%f\n", well->theta(i, j, i_well));
+			fprintf(dout, "gamma1=%f\n", water_gamma[i_well][ires_type][jres_type][0]);
+			fprintf(dout, "gamma2=%f\n", water_gamma[i_well][ires_type][jres_type][1]);
+			fprintf(dout, "sigma=%f\n", well->sigma(i, j));
+			fprintf(dout, "dx={%f, %f, %f}\n", dx[0], dx[1], dx[2]);
+			fprintf(dout, "energy=%f\n", -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well));
+			fprintf(dout, "\n");
+		}
 		
 		force = epsilon*k_water*sigma_gamma*well->prd_theta(i, j, i_well);
 		
@@ -2705,14 +2718,22 @@ void FixBackbone::compute_backbone()
 		print_forces();
 	}
 	
+	if (ntimestep>=sStep && ntimestep<=eStep)
+		fprintf(dout, "\n{");
 	for (i=0;i<nn;i++) {
 		i_resno = res_no[i];
 		for (j=0;j<nn;j++) {
+			tmp = energy[ET_WATER];
 			j_resno = res_no[j];
-			if (water_flag && abs(j_resno-i_resno)>=contact_cutoff && res_info[i]==LOCAL)
+			if (water_flag && j_resno-i_resno>=contact_cutoff && res_info[i]==LOCAL)
 				compute_water_potential(i, j);
+				
+			if (ntimestep>=sStep && ntimestep<=eStep)
+				fprintf(dout, "%f, ", energy[ET_WATER]-tmp);
 		}
 	}
+	if (ntimestep>=sStep && ntimestep<=eStep)
+		fprintf(dout, "}\n");
 	
 	if (water_flag && ntimestep>=sStep && ntimestep<=eStep) {
 		fprintf(dout, "Water: %d\n", ntimestep);
@@ -2814,7 +2835,7 @@ void FixBackbone::compute_backbone()
 			if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && res_info[j]==LOCAL)
 				compute_P_AP_potential(i, j);
 
-			if (water_flag && abs(j_resno-i_resno)>=contact_cutoff && res_info[i]==LOCAL)
+			if (water_flag && j_resno-i_resno>=contact_cutoff && res_info[i]==LOCAL)
 			  compute_water_potential(i, j);
 
 			if (ssb_flag && j_resno-i_resno>=ssb_ij_sep && res_info[i]==LOCAL)

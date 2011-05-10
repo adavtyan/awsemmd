@@ -74,17 +74,35 @@ for ch in chains:
 	ires = all_res[i]
         if ires.get_resname()=='GLY':
             xyz_i_ca = ires['CA'].get_coord()
+            xyz_i_ca[0] = round(xyz_i_ca[0]*100)/100.0
+            xyz_i_ca[1] = round(xyz_i_ca[1]*100)/100.0
+            xyz_i_ca[2] = round(xyz_i_ca[2]*100)/100.0
         else:
             xyz_i_ca = ires['CA'].get_coord()
+            xyz_i_ca[0] = round(xyz_i_ca[0]*100)/100.0
+            xyz_i_ca[1] = round(xyz_i_ca[1]*100)/100.0
+            xyz_i_ca[2] = round(xyz_i_ca[2]*100)/100.0
             xyz_i_cb = ires['CB'].get_coord()
+            xyz_i_cb[0] = round(xyz_i_cb[0]*100)/100.0
+            xyz_i_cb[1] = round(xyz_i_cb[1]*100)/100.0
+            xyz_i_cb[2] = round(xyz_i_cb[2]*100)/100.0
 	for j in range( 0, len(all_res) ):
 		jres = all_res[j]
                 if jres.get_resname()=='GLY':
                     xyz_j_ca = jres['CA'].get_coord()
+                    xyz_j_ca[0] = round(xyz_j_ca[0]*100)/100.0
+                    xyz_j_ca[1] = round(xyz_j_ca[1]*100)/100.0
+                    xyz_j_ca[2] = round(xyz_j_ca[2]*100)/100.0
                 else:
                     xyz_j_ca = jres['CA'].get_coord()
+                    xyz_j_ca[0] = round(xyz_j_ca[0]*100)/100.0
+                    xyz_j_ca[1] = round(xyz_j_ca[1]*100)/100.0
+                    xyz_j_ca[2] = round(xyz_j_ca[2]*100)/100.0
                     xyz_j_cb = jres['CB'].get_coord()
-		
+                    xyz_j_cb[0] = round(xyz_j_cb[0]*100)/100.0
+                    xyz_j_cb[1] = round(xyz_j_cb[1]*100)/100.0
+                    xyz_j_cb[2] = round(xyz_j_cb[2]*100)/100.0
+
                     
                 rcaca = calc_dis(xyz_i_ca, xyz_j_ca)
 		dis[i].append(rcaca);

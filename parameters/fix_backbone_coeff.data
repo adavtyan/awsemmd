@@ -107,7 +107,7 @@
 1r69.gamma
 
 #[Solvent_Barrier]
-K (the height of the barrier, should be negative)
+K (the height of the barrier)
 Kappa
 Rmin Rmax
 Min(I-J)

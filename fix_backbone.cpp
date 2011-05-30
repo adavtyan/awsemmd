@@ -2634,7 +2634,9 @@ void FixBackbone::compute_backbone()
 
 	}
 	xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
-	
+
+#ifdef DEBUGFORCES
+
 	if (ntimestep>=sStep && ntimestep<=eStep) {
 		fprintf(dout, "AtStart: %d\n", ntimestep);
 		fprintf(dout, "Number of residues %d\n", n);
@@ -2811,7 +2813,9 @@ void FixBackbone::compute_backbone()
 	if (ntimestep>=sStep && ntimestep<=eStep)
 		fprintf(dout, "\n\n");
 
-/*	for (i=0;i<nn;i++) {
+#else
+  
+	for (i=0;i<nn;i++) {
     i_resno = res_no[i];
     
 		if (chain_flag && res_info[i]==LOCAL)
@@ -2862,7 +2866,9 @@ void FixBackbone::compute_backbone()
 		compute_p_degree_excluded_volume();
 
 	if (r6_excluded_flag)
-		compute_r6_excluded_volume();*/
+	compute_r6_excluded_volume();
+
+#endif
 	
 	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
 	

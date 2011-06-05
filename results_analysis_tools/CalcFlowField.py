@@ -66,7 +66,7 @@ print "{",
 for i in xrange(dimension):
     for j in xrange(dimension):
         for k in xrange(dimension):
-            print "{{",i+1,",",j+1,",",k+1,"},{",flowfield[i][j][k][0],",",flowfield[i][j][k][1],",",flowfield[i][j][k][2],"}}",
+            print "{{",i,",",j,",",k,"},{",flowfield[i][j][k][0],",",flowfield[i][j][k][1],",",flowfield[i][j][k][2],"}}",
             if(k != dimension-1): print ",",
 
 print "}"

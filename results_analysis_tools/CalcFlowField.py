@@ -16,6 +16,7 @@ def sign(x):
 filename=sys.argv[1]
 dimension=int(sys.argv[2])
 x=[int(sys.argv[3]),int(sys.argv[4]),int(sys.argv[5])]
+scalefactor=sys.argv[6]
 
 # Initialize vector field
 flowfield=[]
@@ -62,11 +63,23 @@ for line in file(filename):
     point1 = point2
 
 # print the results in a Mathematica friendly way
-print "{",
+# print "{",
+# for i in xrange(dimension):
+#     for j in xrange(dimension):
+#         for k in xrange(dimension):
+#             print "{{",i,",",j,",",k,"},{",flowfield[i][j][k][0],",",flowfield[i][j][k][1],",",flowfield[i][j][k][2],"}}",
+#             if(k != dimension-1): print ",",
+
+# print "}"
+
+# print the results in a gnuplot friendly way
 for i in xrange(dimension):
     for j in xrange(dimension):
         for k in xrange(dimension):
-            print "{{",i,",",j,",",k,"},{",flowfield[i][j][k][0],",",flowfield[i][j][k][1],",",flowfield[i][j][k][2],"}}",
-            if(k != dimension-1): print ",",
+            # scale the field
+            flowfield[i][j][k][0]=flowfield[i][j][k][0]*float(scalefactor)
+            flowfield[i][j][k][1]=flowfield[i][j][k][1]*float(scalefactor)
+            flowfield[i][j][k][2]=flowfield[i][j][k][2]*float(scalefactor)
+            # print out a line with coordinates and field
+            print i,j,k,flowfield[i][j][k][0],flowfield[i][j][k][1],flowfield[i][j][k][2]
 
-print "}"

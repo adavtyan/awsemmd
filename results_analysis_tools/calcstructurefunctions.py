@@ -18,7 +18,7 @@ for line in file:
 for i in range(len(vecpts)):
     for j in range(i+1,len(vecpts)):
         # calculate displacement vector
-        lvec = [(float(vecpts[i][0])-float(vecpts[j][0])),(float(vecpts[i][1])-float(vecpts[j][1])),(float(vecpts[i][2])-float(vecpts[j][2])))]        
+        lvec = [(float(vecpts[i][0])-float(vecpts[j][0])),(float(vecpts[i][1])-float(vecpts[j][1])),(float(vecpts[i][2])-float(vecpts[j][2]))]        
         # calculate distance difference
         distance = math.sqrt(lvec[0]**2+lvec[1]**2+lvec[2]**2)
         print distance,

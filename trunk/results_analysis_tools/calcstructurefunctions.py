@@ -23,7 +23,7 @@ for i in range(len(vecpts)):
         distance = math.sqrt(lvec[0]**2+lvec[1]**2+lvec[2]**2)
         print distance,
         # calculate vector difference
-        vecdiff = [(float(vecpts[i][3])-float(vecpts[j][3])),(float(vecpts[i][4])-float(vecpts[j][4])),(float(vecpts[i][5])-float(vecpts[j][5]))]
+        vecdiff = [(float(vecpts[i][3])-float(vecpts[j][3]),(float(vecpts[i][4])-float(vecpts[j][4])),(float(vecpts[i][5])-float(vecpts[j][5]))]
         # print vecdiff,
         # calculate each structure function and print line with distance and each structure function
         sfn2 = (vecdiff[0]*lvec[0]+vecdiff[1]*lvec[1]+vecdiff[2]*lvec[2])/distance

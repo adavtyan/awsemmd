@@ -3,6 +3,8 @@
 from math import atan2
 import sys
 
+# define a function which returns the sign of an argument
+# this is used when adding vector components to the field
 def sign(x):
     if(x > 0):
         return 1
@@ -11,35 +13,46 @@ def sign(x):
     else:
         return 0
         
-
-
+# this is the file that contains all the transition information
+# it can, and should, contain data from multiple simulations
+# each simulation is separated by a blank line so that nothing
+# is added to the vector field for going from the end of one simulation
+# to the start of another
 filename=sys.argv[1]
+# the dimension should be greater than the maximum number of contacts
+# formed in any given foldon, it is used to size arrays
 dimension=int(sys.argv[2])
+# x is a vector that stores the column numbers for the intrafoldon
+# or interfoldon number of contacts that you are interested in
 x=[int(sys.argv[3]),int(sys.argv[4]),int(sys.argv[5])]
+# at the end of calculating the field from all the transitions, each
+# vector component is multiplied by a scale factor which should be chosen
+# such that the maximum component is of order one, for plotting purposes
 scalefactor=sys.argv[6]
 
-# Initialize vector field
+# Initialize vector field, it is a 3D array of 3D vectors
 flowfield=[]
 for i in xrange(dimension):
     flowfield.append([])
     for j in xrange(dimension):
         flowfield[i].append([])
         for k in xrange(dimension):
-            flowfield[i][j].append([0,0,0])
+            flowfield[i][j].append([0,0,0]) # all components are zero initially
 
-# Go and get the first point
+# The loop below needs to know if the state it reads in is the first one for
+# a given simulation; if it is, it will break out of the loop after reading it in
 firstone = 1
 
 # For all of the rest of the points
 for line in file(filename):
     # If this is the first line, get it and go on to the next line
     line = line.strip()
-    if line == "":
-        firstone = 1
+    if line == "": # blank lines are used to indicate the start of a new simulation
+        firstone = 1 # so the next line it reads in should be a "first one"
         continue
-    if(firstone):
-        point1 = line.split()
-        firstone=0
+    if(firstone): # as mentioned above, if this is the first state in a simulation,
+        point1 = line.split() # read it in and then go immediately to the next state
+        firstone=0            # without adding anything to the vector field
         continue
 
     # Get the next line
@@ -52,19 +65,31 @@ for line in file(filename):
                 tp=[xt,yt,zt]
                 # Loop over all components of the vector x, y and z
                 for coord in [0,1,2]:
-                    # Make sure you are not going to divide by zero
+                    # Make sure you are not going to divide by zero, if so skip because those transitions won't contribute to that component anyway
                     if(int(point1[x[coord]]) != int(point2[x[coord]])):
                         # Find where the transition line crosses the plane defined by the test point and the component
-                        test1 = float(((float(point2[x[(coord+1)%3]])-float(point1[x[(coord+1)%3]]))/(float(point2[x[coord]])-float(point1[x[coord]])))*(float(tp[coord])-float(point1[x[coord]]))+float(point1[x[(coord+1)%3]]))
-                        if((test1 > float(tp[(coord+1)%3])-0.5) and (test1 < float(tp[(coord+1)%3])+0.5)):
-                            test2 = float(((float(point2[x[(coord+2)%3]])-float(point1[x[(coord+2)%3]]))/(float(point2[x[coord]])-float(point1[x[coord]])))*(float(tp[coord])-float(point1[x[coord]]))+float(point1[x[(coord+1)%3]]))
-                            if((test2 > float(tp[(coord+2)%3])-0.5) and (test2 < float(tp[(coord+2)%3])+0.5)):
+                        # in the first case
+                        i = x[coord]       # i.e. x then y then z
+                        j = x[(coord+1)%3] #      y then z then x
+                        k = x[(coord+2)%3] #      z then x then y
+                        p1i = float(point2[i]) # starting point i
+                        p1j = float(point2[j]) #                j
+                        p1k = float(point2[k]) #                k
+                        p2i = float(point2[i]) # ending point   i
+                        p2j = float(point2[j]) #                j
+                        p2k = float(point2[k]) #                k
+                        tpi = float(tp[coord]) # test point     i
+                        tpj = float(tp[(coord+1)%3]) #          j
+                        tpk = float(tp[(coord+2)%3]) #          k
+                        # find the point where the transition line crosses the i=tpi (const) plane
+                        test1 = ((p2j-p1j)/(p2i-p1i))*(tpi-p1i)+p1j 
+                        if((test1 > tpj-0.5 and test1 < tpj+0.5): # if it passes close by the test point, go to the next test
+                           test2 = ((p2k-p1k)/(p2i-p1i))*(tpi-p1i)+p1k # find the other coordinate for the same point
+                           if(test2 > tpk-0.5 and test2 < tpk+0.5):
                                 # If it passes nearby the test point, add the appropriate component to the vector field
-                                flowfield[xt][yt][zt][coord]=flowfield[xt][yt][zt][coord]+sign(int(point2[x[coord]])-int(point1[x[coord]]))
-                                
-
-        
-    point1 = point2
+                                flowfield[xt][yt][zt][coord]=flowfield[xt][yt][zt][coord]+sign(int(p2i-p1i))
+                                        
+    point1 = point2 # make the ending point the new starting point then loop back to get a new ending point
 
 # print the results in a Mathematica friendly way
 # print "{",

@@ -33,6 +33,10 @@ firstone = 1
 # For all of the rest of the points
 for line in file(filename):
     # If this is the first line, get it and go on to the next line
+    line = line.strip()
+    if line == "":
+        firstone = 1
+        continue
     if(firstone):
         point1 = line.split()
         firstone=0

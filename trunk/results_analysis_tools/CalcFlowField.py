@@ -83,7 +83,7 @@ for line in file(filename):
                         tpk = float(tp[(coord+2)%3]) #          k
                         # find the point where the transition line crosses the i=tpi (const) plane
                         test1 = ((p2j-p1j)/(p2i-p1i))*(tpi-p1i)+p1j 
-                        if((test1 > tpj-0.5 and test1 < tpj+0.5): # if it passes close by the test point, go to the next test
+                        if(test1 > tpj-0.5 and test1 < tpj+0.5): # if it passes close by the test point, go to the next test
                            test2 = ((p2k-p1k)/(p2i-p1i))*(tpi-p1i)+p1k # find the other coordinate for the same point
                            if(test2 > tpk-0.5 and test2 < tpk+0.5):
                                 # If it passes nearby the test point, add the appropriate component to the vector field

@@ -72,9 +72,9 @@ for line in file(filename):
                         i = x[coord]       # i.e. x then y then z
                         j = x[(coord+1)%3] #      y then z then x
                         k = x[(coord+2)%3] #      z then x then y
-                        p1i = float(point2[i]) # starting point i
-                        p1j = float(point2[j]) #                j
-                        p1k = float(point2[k]) #                k
+                        p1i = float(point1[i]) # starting point i
+                        p1j = float(point1[j]) #                j
+                        p1k = float(point1[k]) #                k
                         p2i = float(point2[i]) # ending point   i
                         p2j = float(point2[j]) #                j
                         p2k = float(point2[k]) #                k

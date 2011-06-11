@@ -160,15 +160,16 @@ for i in range(1,iterations+1):
     psiblastOut=os.popen(exeline).read()
     psiblastOut=psiblastOut.splitlines() #now an array
     print "Number of searched PDBs:  ", len(psiblastOut)
-#    print psiblastOut
+#   print psiblastOut
 #   exit()
 #    print "PDB INSEQ-START INSEQ-END MATCH-START MATCH-END EVALUE"
     for line in psiblastOut:#[0:memoriesPerPosition]:
         this=line.split()
 	this.append(str(i))
+	print this
 	# 0:sseqid 1:qlen 2:slen 3:qstart 4:qend 5:sstart 6:send 7:qseq 8:sseq 9:length 10:gaps 11:bitscore 12:evalue 13:window_index
         queryStart=int(this[3])+rangeStart  #+int(this[6])
-        queryEnd  =queryStart+int(this[4])-1
+        queryEnd  = rangeStart + int(this[4])
         #print this #[1],str(queryStart),str(queryEnd),this[8],this[9],this[11]
 	this[3] = str(queryStart)
 	this[4] = str(queryEnd)
@@ -194,6 +195,11 @@ match=open('prepFrags.match','r') #match is read-only now
 LAMWmatch=open('fragsLAMW.mem','w')
 LAMWmatch.write('[Target]'+"\n")
 LAMWmatch.write(query+"\n\n"+'[Memories]'+"\n")
+
+log_match=open('log.mem','w')
+log_match.write('**********for debugging purpose*************'+"\n")
+log_match.write('[Target]'+"\n")
+log_match.write(query+"\n\n"+'[Memories]'+"\n")
 
 ##get pdbs
 matchlines=list()
@@ -244,10 +250,9 @@ if brain_damage == 1:
     exeline+=database+" -query fragment.fasta"
     print "brain damamge, finding homologs"
     print "executing::: "+exeline
-    psiblastOut=os.popen(exeline).read()
-    psiblastOut=psiblastOut.splitlines() #now an array
-    #print psiblastOut
-    for line in psiblastOut:
+    homoOut=os.popen(exeline).read()
+    homoOut=homoOut.splitlines() #now an array
+    for line in homoOut:
     	entries=line.split()
 	print entries
 	pdbfull = entries[0]
@@ -261,6 +266,7 @@ for i in range(1,iterations+1):
 	count[str(i)]=0
 
 Missing_count = 0
+Missing_pdb = {}
 for line in matchlines:
     iter+=1
     if not(iter==1):
@@ -281,6 +287,7 @@ for line in matchlines:
 		continue
 	#ignore homologs
 	if brain_damage and  homo[pdbID]:
+		print pdbID, " is a homolog, discard"
 		continue
 	atoms_list = ('CA', 'CB')
 	residue_list = entries[8]  ##sseq
@@ -295,9 +302,10 @@ for line in matchlines:
 		continue
 
 	if NoMissingAtoms(atoms_list, residue_list, res_Start, pdbID, pdbFile):
-	        if os.path.isfile(pdbFile):
+	        if os.path.isfile(pdbFile): 
+		    if not os.path.isfile(groFile) :
+        	        Pdb2Gro(pdbFile, groFile, chainID.upper())
         	    print ":::convert: "+pdbFile+" --> "+groFile
-        	    Pdb2Gro(pdbFile, groFile, chainID.upper())
 		    count[windows_index_str] += 1
             
         	    print ":::here2: writing line to LAMWmatch\n"
@@ -305,10 +313,27 @@ for line in matchlines:
 	            out=groFile+' '+entries[3]+' '
         	    out+=entries[5]+' '+str(length)+' '+str(weight)+"\n"
         	    LAMWmatch.write(out)
+		    #out1 = out
+		    out1 = ' window ' + windows_index_str 
+		    out1 += ' N_mem ' + str(count[windows_index_str])
+		    out1 += out
+		    log_match.write(out1)
 		else:
 		    print pdbFile, "does not exist! Go figure..."
 	else:
+		Missing_pdb[pdbID] = 1
 		Missing_count += 1
-print "MemPerPosition: ", count
-print "Number of failed downloaded PDB: ", len(failed_pdb)
-print "Number of PDB with Missing atoms: ", Missing_count
+for line in homoOut:
+  entries=line.split()
+  print "HOMOLOGS:::"
+  print entries
+print "memories per position that is fewer than expected:"  
+for i in count
+  if count[i] < N_mem:
+    print i, count[i]
+
+#print "MemPerPosition: ", count
+print "Number of blasted PDB: ", len(failed_pdb)
+print "Number of failed downloaded PDB: ", sum(failed_pdb.values())
+print "Number of PDB with Missing atoms: ", len(Missing_pdb)
+print "Discarded fragments with Missing atoms: ", Missing_count 

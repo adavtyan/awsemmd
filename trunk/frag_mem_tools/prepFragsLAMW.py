@@ -328,7 +328,7 @@ for line in homoOut:
   print "HOMOLOGS:::"
   print entries
 print "memories per position that is fewer than expected:"  
-for i in count
+for i in count:
   if count[i] < N_mem:
     print i, count[i]
 

@@ -154,7 +154,7 @@ for i in range(1,iterations+1):
     ##submit PSI-BLAST
     ##run "psiblast -help" for more details of output format (outfmt)
     exeline="psiblast -num_iterations 1 -word_size 2 -evalue "+str(EvalueThreshold)
-    exeline+=" -outfmt '6 sseqid qlen slen qstart qend sstart send qseq sseq length gaps bitscore evalue' -matrix BLOSUM62 -db "
+    exeline+=" -outfmt '6 sseqid qstart qend sstart send qseq sseq length gaps bitscore evalue' -matrix BLOSUM62 -db "
     exeline+=database+" -query fragment.fasta"
     print "executing:::"+exeline
     psiblastOut=os.popen(exeline).read()
@@ -168,15 +168,15 @@ for i in range(1,iterations+1):
 	this.append(str(i))
 	print this
 	# 0:sseqid 1:qlen 2:slen 3:qstart 4:qend 5:sstart 6:send 7:qseq 8:sseq 9:length 10:gaps 11:bitscore 12:evalue 13:window_index
-        queryStart=int(this[3])+rangeStart  #+int(this[6])
-        queryEnd  = rangeStart + int(this[4])
+        queryStart=int(this[1])+rangeStart  #+int(this[6])
+        queryEnd  = rangeStart + int(this[2])
         #print this #[1],str(queryStart),str(queryEnd),this[8],this[9],this[11]
-	this[3] = str(queryStart)
-	this[4] = str(queryEnd)
+	this[1] = str(queryStart)
+	this[2] = str(queryEnd)
 
 	out = ' '.join(this)
 	out+='\n'
-	gaps = this[10]
+	gaps = this[8]
 	if(gaps == '0'): #skip gapped alignments
 		match.write(out)
 	
@@ -273,7 +273,7 @@ for line in matchlines:
         print ":::here: match line:"+line.rstrip('\n')
         entries=line.split()
 
-	windows_index_str = entries[13]
+	windows_index_str = entries[11]
 
         pdbfull=str(entries[0])
         pdbID=pdbfull[0:4].lower()
@@ -290,9 +290,9 @@ for line in matchlines:
 		print pdbID, " is a homolog, discard"
 		continue
 	atoms_list = ('CA', 'CB')
-	residue_list = entries[8]  ##sseq
-	res_Start = int(entries[5])
-	res_End   = int(entries[6])
+	residue_list = entries[6]  ##sseq
+	res_Start = int(entries[3])
+	res_End   = int(entries[4])
 	print "start: ", res_Start, "end: ", res_End
 
 	#check missing atoms
@@ -309,9 +309,9 @@ for line in matchlines:
 		    count[windows_index_str] += 1
             
         	    print ":::here2: writing line to LAMWmatch\n"
-        	    length=res_End - res_Start + 1  #int(entries[2])-int(entries[1])+1
-	            out=groFile+' '+entries[3]+' '
-        	    out+=entries[5]+' '+str(length)+' '+str(weight)+"\n"
+        	    length=res_End - res_Start + 1  
+	            out=groFile+' '+entries[1]+' '
+        	    out+=entries[3]+' '+str(length)+' '+str(weight)+"\n"
         	    LAMWmatch.write(out)
 		    #out1 = out
 		    out1 = ' window ' + windows_index_str 

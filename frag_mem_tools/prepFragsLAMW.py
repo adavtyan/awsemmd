@@ -28,22 +28,19 @@ if len(sys.argv)!=5:
 ################################################################
 ## NoMissingAtoms function
 
-def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, pdbFile):
+def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 	res_End = res_Start + len(residue_list) - 1
-	#print "res:", res_Start, res_End
 	p = PDBParser(PERMISSIVE=1)
 	s = p.get_structure(pdbID, pdbFile)
 	chains = s[0].get_list()
-	chain_name = "A" 
-	count_chain = 1 #do the following for just one chain
+	if ch_name == '':
+		ch_name = "A" 
 
 	keys_res = {}
 	keys = {}
 
 	for chain in chains:
-		name = chain.get_id()
-		if (name == '' or name == chain_name) and count_chain == 1:
-	        	count_chain = 0     
+		if chain.get_id()==ch_name:
 			i = 0
 			for res in chain:
 		                res_index = res.get_id()[1]
@@ -56,7 +53,7 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, pdbFile):
 		                is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 				res_id = res.get_id()[0]
 		                if not ((res_id ==' ' or res_id =='H_MSE') and is_regular_res):
-					print 'Non-regular residue:', res.get_id()[0], 'at position', res_index,  'in pdb:', pdbID
+					print 'Discard Fragment: Non-regular residue:', res.get_id()[0], 'at position', res_index,  'in pdb:', pdbID
 					return False
 				res_name = res.get_resname()
 				#convert to 1-letter code
@@ -67,7 +64,7 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, pdbFile):
 
 				#Add sanity check, residues have to match the blast-out seq
 				if ( res_code != residue_list[i] ):
-					print "Mismatching residue in the PDB file:", pdbID, "letter code:", res_code
+					print "Mismatching residue in the PDB file:", pdbID, "residue :", res_code
 					return False
 
 				i += 1
@@ -301,7 +298,7 @@ for line in matchlines:
 	if count[windows_index_str] >= N_mem:
 		continue
 
-	if NoMissingAtoms(atoms_list, residue_list, res_Start, pdbID, pdbFile):
+	if NoMissingAtoms(atoms_list, residue_list, res_Start, pdbID, chainID.upper(), pdbFile):
 	        if os.path.isfile(pdbFile): 
 		    if not os.path.isfile(groFile) :
         	        Pdb2Gro(pdbFile, groFile, chainID.upper())
@@ -314,9 +311,9 @@ for line in matchlines:
         	    out+=entries[3]+' '+str(length)+' '+str(weight)+"\n"
         	    LAMWmatch.write(out)
 		    #out1 = out
-		    out1 = ' window ' + windows_index_str 
-		    out1 += ' N_mem ' + str(count[windows_index_str])
-		    out1 += out
+		    out1 = windows_index_str 
+		    out1 += ' '+str(count[windows_index_str])
+		    out1 += ' '+entries[9]+' '+entries[10]+out #output scores
 		    log_match.write(out1)
 		else:
 		    print pdbFile, "does not exist! Go figure..."

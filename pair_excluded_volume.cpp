@@ -36,13 +36,13 @@ PairExcludedVolume::PairExcludedVolume(LAMMPS *lmp) : Pair(lmp)
 PairExcludedVolume::~PairExcludedVolume()
 {
   if (allocated) {
-    memory->destroy_2d_int_array(setflag);
-    memory->destroy_2d_double_array(cutsq);
+    memory->destroy(setflag);
+    memory->destroy(cutsq);
 
-    memory->destroy_2d_double_array(lambda);
-    memory->destroy_2d_double_array(prefactor);
-    memory->destroy_2d_double_array(cut_short);
-    memory->destroy_2d_double_array(cut_long);
+    memory->destroy(lambda);
+    memory->destroy(prefactor);
+    memory->destroy(cut_short);
+    memory->destroy(cut_long);
   }
 }
 
@@ -50,7 +50,7 @@ PairExcludedVolume::~PairExcludedVolume()
 
 void PairExcludedVolume::compute(int eflag, int vflag)
 {
-  int i,j,ii,jj,inum,jnum,itype,jtype,sign,imol,jmol;
+  int i,j,ii,jj,inum,jnum,itype,jtype,sign,imol,jmol,ires,jres;
   double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,fpair;
   double r,rsq,dr,factor_lj,pref,rcut;
   int *ilist,*jlist,*numneigh,**firstneigh;
@@ -96,6 +96,9 @@ void PairExcludedVolume::compute(int eflag, int vflag)
 
       imol = atom->molecule[i];
       jmol = atom->molecule[j];
+      
+      ires = atom->residue[i];
+      jres = atom->residue[j];
 
       if (j < nall) factor_lj = 1.0;
       else {
@@ -110,7 +113,7 @@ void PairExcludedVolume::compute(int eflag, int vflag)
       r = sqrt(rsq);
       jtype = type[j];
 
-      if (abs(imol-jmol)<5) rcut = cut_short[itype][jtype];
+      if (abs(ires-jres)<5 && imol==jmol) rcut = cut_short[itype][jtype];
       else rcut = cut_long[itype][jtype];
 
       if (r < rcut) {
@@ -149,17 +152,17 @@ void PairExcludedVolume::allocate()
   allocated = 1;
   int n = atom->ntypes;
 
-  setflag = memory->create_2d_int_array(n+1,n+1,"pair:setflag");
+  memory->create(setflag, n+1,n+1,"pair:setflag");
   for (int i = 1; i <= n; i++)
     for (int j = i; j <= n; j++)
       setflag[i][j] = 0;
 
-  cutsq = memory->create_2d_double_array(n+1,n+1,"pair:cutsq");
+  memory->create(cutsq, n+1,n+1,"pair:cutsq");
 
-  lambda = memory->create_2d_double_array(n+1,n+1,"pair:lambda");
-  prefactor = memory->create_2d_double_array(n+1,n+1,"pair:prefactor");
-  cut_short = memory->create_2d_double_array(n+1,n+1,"pair:cut_short");
-  cut_long = memory->create_2d_double_array(n+1,n+1,"pair:cut_long");
+   memory->create(lambda, n+1,n+1,"pair:lambda");
+   memory->create(prefactor, n+1,n+1,"pair:prefactor");
+   memory->create(cut_short, n+1,n+1,"pair:cut_short");
+   memory->create(cut_long, n+1,n+1,"pair:cut_long");
 
   // init lambda to 0.0
   // since pair_hybrid can use all types even if pair_excluded_volume sub-class
@@ -340,12 +343,15 @@ double PairExcludedVolume::single(int i, int j, int itype, int jtype, double rsq
 			double &fforce)
 {
   double r,dr,philj, rcut;
-  int imol, jmol;
+  int imol, jmol, ires, jres;
 
   imol = atom->molecule[i];
   jmol = atom->molecule[j];
+  
+  ires = atom->residue[i];
+  jres = atom->residue[j];
 
-  if (abs(imol-jmol)<5) rcut = cut_short[itype][jtype];
+  if (abs(ires-jres)<5 && imol==jmol) rcut = cut_short[itype][jtype];
   else rcut = cut_long[itype][jtype];
 
   r = sqrt(rsq);

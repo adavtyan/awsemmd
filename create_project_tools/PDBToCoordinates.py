@@ -28,24 +28,28 @@ atom_desc = {'1' : 'C-Alpha', '2' : 'N', '3' : 'O', '4' : 'C-Beta', '5' : 'H-Bet
 PDB_type = {'1' : 'CA', '2' : 'N', '3' : 'O', '4' : 'CB', '5' : 'HB', '6' : 'C' }
 
 class Atom:
+    ch = 0
     ty = ''
     x = 0.0
     y = 0.0
     z = 0.0
     
-    def __init__(self, No, ty, x, y, z, desc=''):
+    def __init__(self, No, ch, ty, x, y, z, desc=''):
         self.No = No
         self.ty = ty
         self.x = x
         self.y = y
         self.z = z
         self.desc = desc
+        self.ch = ch
 
     def print_(self):
-        print self.No, self.ty , self.x, ',', self.y, ',', self.z, self.desc
+        print self.No, self.ch, self.ty , self.x, ',', self.y, ',', self.z, self.desc
 
     def write_(self, f):
         f.write(str(self.No))
+        f.write('\t')
+        f.write(str(self.ch))
         f.write('\t')
         f.write(self.ty)
         f.write('  ')
@@ -65,6 +69,7 @@ def print_array(a):
 
 class PDB_Atom:
 	no = 0
+	ch = 0
 	ty = ''
 	res = 'UNK'
 	res_no = 0
@@ -73,9 +78,10 @@ class PDB_Atom:
 	z = 0.0
 	atm = 'C'
 	
-	def __init__(self, no, ty, res, res_no, x, y, z, atm):
+	def __init__(self, no, ty, ch, res, res_no, x, y, z, atm):
 		self.no = no
 		self.ty = ty
+		self.ch = ch
 		self.res = res
 		self.res_no = res_no
 		self.x = x
@@ -146,6 +152,7 @@ if output_fn!="" and not splite:
     out = open( (output_fn+".coord"), 'w' )
     se_out = open( (output_fn+".seq"), 'w' )
 
+ichain = 0
 s = p.get_structure(struct_id, filename)
 chains = s[0].get_list()
 for ch in chains:
@@ -153,6 +160,7 @@ for ch in chains:
     atoms = []
     ires = 0
     iatom = 0
+    ichain = ichain + 1
     if output_fn!="":
 	pass
 #        if not splite:
@@ -180,28 +188,28 @@ for ch in chains:
                 xyz_H[2] = aH*xyz_N[2] + bH*xyz_CA[2] + cH*xyz_C[2]
             
             iatom = iatom + 1
-            atom = Atom(iatom, 'N', xyz_N[0], xyz_N[1], xyz_N[2], 'N')
+            atom = Atom(iatom, ichain, 'N', xyz_N[0], xyz_N[1], xyz_N[2], 'N')
             atoms.append(atom)
             
             iatom = iatom + 1
-            atom = Atom(iatom, 'C', xyz_CA[0], xyz_CA[1], xyz_CA[2], 'C-Alpha')
+            atom = Atom(iatom, ichain, 'C', xyz_CA[0], xyz_CA[1], xyz_CA[2], 'C-Alpha')
             atoms.append(atom)
             
             iatom = iatom + 1
-            atom = Atom(iatom, 'C', xyz_C[0], xyz_C[1], xyz_C[2], 'C-Prime')
+            atom = Atom(iatom, ichain, 'C', xyz_C[0], xyz_C[1], xyz_C[2], 'C-Prime')
             atoms.append(atom)
             
             iatom = iatom + 1
-            atom = Atom(iatom, 'O', xyz_O[0], xyz_O[1], xyz_O[2], 'O')
+            atom = Atom(iatom, ichain, 'O', xyz_O[0], xyz_O[1], xyz_O[2], 'O')
             atoms.append(atom)
             
             if res.has_id('CB'):
                 iatom = iatom + 1
-                atom = Atom(iatom, 'C', xyz_CB[0], xyz_CB[1], xyz_CB[2], 'C-Beta')
+                atom = Atom(iatom, ichain, 'C', xyz_CB[0], xyz_CB[1], xyz_CB[2], 'C-Beta')
                 atoms.append(atom)
             else:            
                 iatom = iatom + 1
-                atom = Atom(iatom, 'H', xyz_N[0], xyz_H[1], xyz_H[2], 'H-Beta')
+                atom = Atom(iatom, ichain, 'H', xyz_N[0], xyz_H[1], xyz_H[2], 'H-Beta')
                 atoms.append(atom)
             
     if output_fn!="":
@@ -214,6 +222,7 @@ for ch in chains:
             out = open( file_name+".coord", 'w' )
             se_out = open( (file_name+".seq"), 'w' )
         se_out.write(three2one(sequance))
+        se_out.write('\n')
         for iAtm in atoms:
             iAtm.write_(out)
         if splite:

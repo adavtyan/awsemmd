@@ -68,7 +68,7 @@ public:
   double getGamma(int ires_type, int jres_type, int ires, int jres);
   double getGamma(int ires_type, int jres_type, int ifres_type, int jfres_type, int ires, int jres);
   bool fourResTypes() { return frag_resty; }
-  bool isEmptyString(char *str);
+  static bool isEmptyString(char *str);
   int minSep();
   int maxSep();
   int error;

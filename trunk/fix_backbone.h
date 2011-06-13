@@ -123,7 +123,7 @@ public:
   int *alpha_carbons;
   int *beta_atoms;
   int *oxygens;
-  int *res_no, *res_info;
+  int *res_no, *res_info, *chain_no;
   double **xca, **xcb, **xo, **xn, **xcp, **xh;
   double **x, **f;
   int *image;
@@ -137,6 +137,7 @@ public:
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
   
   char se[1000]; // Protein sequance
+  int nch, ch_len[100], ch_pos[100];
   
   double energy[15], energy_all[15];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 

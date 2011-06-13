@@ -12,8 +12,9 @@ import os
 import sys
 
 class ZAtom:
-    def __init__(self, no=0, ty='', desc='', d=0, d_no=0, a=0, a_no=0, b=0, b_no=0):
+    def __init__(self, no=0, ch=1, ty='', desc='', d=0, d_no=0, a=0, a_no=0, b=0, b_no=0):
         self.no = no
+        self.ch = ch
         self.ty = ty
         self.d = d
         self.d_no = d_no
@@ -24,7 +25,7 @@ class ZAtom:
         self.desc = desc
 
     def print_(self, wdesc=False):
-        pr = [ str(self.no), self.ty ]
+        pr = [ str(self.no), str(self.ch), self.ty ]
         if wdesc: pr += [ (self.desc+"            ")[0:12] ]
         if self.d_no>0: pr += [ str(round(self.d,3)), str(self.d_no) ]
         if self.a_no>0: pr += [ str(round(self.a,1)), str(self.a_no) ]
@@ -32,7 +33,7 @@ class ZAtom:
         print '\t'.join(pr)
 
     def write_(self, f, wdesc=False):
-        pr = [ str(self.no), self.ty ]
+        pr = [ str(self.no), str(self.ch), self.ty ]
         if wdesc: pr += [ (self.desc+"            ")[0:12] ]
         if self.d_no>0: pr += [ str(round(self.d,3)), str(self.d_no) ]
         if self.a_no>0: pr += [ str(round(self.a,1)), str(self.a_no) ]
@@ -118,13 +119,13 @@ for i in range(0,len(seq)):
 #            continue
         
         if len(jrd)==3:
-            atom = ZAtom(int(jrd[0]), jrd[1], jrd[2])
+            atom = ZAtom(int(jrd[0]), 1, jrd[1], jrd[2])
         elif len(jrd)==5:
-            atom = ZAtom(int(jrd[0]), jrd[1], jrd[2], float(jrd[3]), int(jrd[4]))
+            atom = ZAtom(int(jrd[0]), 1, jrd[1], jrd[2], float(jrd[3]), int(jrd[4]))
         elif len(jrd)==7:
-            atom = ZAtom(int(jrd[0]), jrd[1], jrd[2], float(jrd[3]), int(jrd[4]), float(jrd[5]), int(jrd[6]))
+            atom = ZAtom(int(jrd[0]), 1, jrd[1], jrd[2], float(jrd[3]), int(jrd[4]), float(jrd[5]), int(jrd[6]))
         elif len(jrd)==9:
-            atom = ZAtom(int(jrd[0]), jrd[1], jrd[2], float(jrd[3]), int(jrd[4]), float(jrd[5]), int(jrd[6]), float(jrd[7]), int(jrd[8]))
+            atom = ZAtom(int(jrd[0]), 1, jrd[1], jrd[2], float(jrd[3]), int(jrd[4]), float(jrd[5]), int(jrd[6]), float(jrd[7]), int(jrd[8]))
 
         dn = nAtoms - atom.no + 1
         atom.d_no += dn

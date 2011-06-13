@@ -65,6 +65,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
   }
   
   nca = ncb = 0;
+  fprintf(dout, "%s\n", fname);
   file = fopen(fname,"r");
   if (!file) { error = ERR_FILE; return; }
   fgets(buff, 100, file);

@@ -72,10 +72,6 @@ for ch in chains:
     psi = standartPsi
     if output_fn!="":
 	pass
-#        if not splite:
-#            out.write("Chain: ")
-#            out.write(ch.get_id())
-#            out.write('\n')
     else:
         print "Chain:", ch.get_id()
     two_res = [None, None]

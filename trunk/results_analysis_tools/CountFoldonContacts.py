@@ -150,7 +150,7 @@ for l in infile:
 			A = []
 		elif item == "NUMBER OF ATOMS":
 			nAtoms = int(l)
-		elif item == "BOX BOUNDS":
+		elif item[:10] == "BOX BOUNDS":
 			box.append(l)
 			l = l.split()
 			A.append([float(l[0]), float(l[1])])

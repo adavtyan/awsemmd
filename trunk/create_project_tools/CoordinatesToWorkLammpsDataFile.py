@@ -12,10 +12,12 @@ import os
 import sys
 
 class Atom:
-    def __init__(self, no, moltag, ty, x, y, z):
+    def __init__(self, no, ch, res, ty, q, x, y, z):
         self.no = no
-        self.moltag = moltag
+        self.ch = ch
+        self.res = res
         self.ty = ty
+        self.q = q
         self.x = x
         self.y = y
         self.z = z
@@ -23,7 +25,7 @@ class Atom:
     def write_(self, f):
         space11 = "           "
         f.write( (space11+str(self.no))[-12:] + "\t" )
-        f.write( "\t".join([ str(self.moltag), str(self.ty), str(self.x), str(self.y), str(self.z) ]) )
+        f.write( "\t".join([ str(self.ch), str(self.res), str(self.ty), str(self.q), str(self.x), str(self.y), str(self.z) ]) )
         f.write( "\n" )
 
 class Bond:
@@ -109,11 +111,12 @@ inp = open(inp_file)
 atom_type = 0
 for l in inp:
     l = l.strip().split()
-    if len(l)==5:
-        print "Input file lacks description!"
+    if len(l)==6:
+        print "Input file lacks description field!"
         exit()
 
-    desc = l[5]
+    desc = l[6]
+    chain_no = l[1]
     if not go:
 	if desc == 'C-Beta' or desc == 'H-Beta' or desc == 'C-Alpha' or desc == 'O':
 		n_atoms += 1
@@ -182,13 +185,13 @@ for l in inp:
     if not go:
         if desc == 'C-Beta' or desc == 'H-Beta' or desc == 'C-Alpha' or desc == 'O':
 #            n_atoms += 1
-            atoms.append( Atom(n_atoms, n_res, atom_type, float(l[2]), float(l[3]), float(l[4])) )
+            atoms.append( Atom(n_atoms, chain_no, n_res, atom_type, 0.0, float(l[3]), float(l[4]), float(l[5])) )
             groups[group_id - 1].append(str(n_atoms))
     else:
         if desc == 'C-Alpha':
 	    atom_type = 1
 	    n_res += 1
-            atoms.append( Atom(n_atoms, n_res, atom_type, float(l[2]), float(l[3]), float(l[4])) )
+            atoms.append( Atom(n_atoms, chain_no, n_res, atom_type, 0.0, float(l[3]), float(l[4]), float(l[5])) )
             groups[group_id - 1].append(str(n_atoms))
 inp.close()
 

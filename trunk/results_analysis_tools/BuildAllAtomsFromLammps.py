@@ -281,7 +281,7 @@ if snapshot<0:
 				nFrame = nFrame + 1
 			elif item == "NUMBER OF ATOMS":
 				n_atoms = int(l)
-			elif item == "BOX BOUNDS":
+			elif item[:10] == "BOX BOUNDS":
 				box.append(l)
 				l = l.split()
 				A.append([float(l[0]), float(l[1])])
@@ -319,7 +319,7 @@ else:
 				step = int(l)
 			elif item == "NUMBER OF ATOMS":
 					n_atoms = int(l)
-			elif item == "BOX BOUNDS":
+			elif item[:10] == "BOX BOUNDS":
 				box.append(l)
 				l = l.split()
 				A.append([float(l[0]), float(l[1])])

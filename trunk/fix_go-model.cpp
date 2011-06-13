@@ -654,6 +654,37 @@ void FixGoModel::compute_dihedral(int i)
 		force = (2*j+1)*epsilon*k_dihedrals[j]*sin(dphi);
 
 		energy[ET_DIHEDRAL] += V;
+		
+		if (Step>=sStep && Step<=eStep) {
+			if (i==24) {
+				fprintf(fout, "i=%d\tj=%d\n", i, j);
+				fprintf(fout, "V=%f\n", V);
+				fprintf(fout, "f=%f\n", force*(y_slope[3][0] + x_slope[3][0]));
+			}
+			if (i==25) {
+				fprintf(fout, "i=%d\tj=%d\n", i, j);
+				fprintf(fout, "V=%f\n", V);
+				fprintf(fout, "f=%f\n", force*(y_slope[2][0] + x_slope[2][0]));
+				fprintf(fout, "phi=%f\n", phi);
+				fprintf(fout, "phi0[i_resno]=%f\n", phi0[i_resno]);
+				fprintf(fout, "dphi=%f\n", dphi);
+				fprintf(fout, "force=%f\n", force);
+				fprintf(fout, "y_slope[2][l]=%f\n", y_slope[2][l]);
+				fprintf(fout, "x_slope[2][l]=%f\n", x_slope[2][l]);
+				fprintf(fout, "X=%f\n", X);
+				fprintf(fout, "Y=%f\n", Y);
+			}
+			if (i==26) {
+				fprintf(fout, "i=%d\tj=%d\n", i, j);
+				fprintf(fout, "V=%f\n", V);
+				fprintf(fout, "f=%f\n", force*(y_slope[1][0] + x_slope[1][0]));
+			}
+			if (i==27) {
+				fprintf(fout, "i=%d\tj=%d\n", i, j);
+				fprintf(fout, "V=%f\n", V);
+				fprintf(fout, "f=%f\n", force*(y_slope[0][0] + x_slope[0][0]));
+			}
+		}
 
 		for (l=0; l<3; l++) {
 			f[alpha_carbons[i]][l] -= force*(y_slope[0][l] + x_slope[0][l]);
@@ -820,7 +851,7 @@ void FixGoModel::out_xyz_and_force(int coord)
 		for (int i=0;i<nn;i++) {
 			index = alpha_carbons[i];
 			if (index!=-1) {
-				fprintf(fout, "{%.8f, %.8f, %.8f}", x[index][0], x[index][1], x[index][2]);
+				fprintf(fout, "{%.12f, %.12f, %.12f}", x[index][0], x[index][1], x[index][2]);
 				if (i!=nn-1) fprintf(fout, ",\n");
 			}
 		}
@@ -832,7 +863,7 @@ void FixGoModel::out_xyz_and_force(int coord)
 	for (int i=0;i<nn;i++) {
 		index = alpha_carbons[i];
 		if (index!=-1) {
-			fprintf(fout, "{%.8f, %.8f, %.8f}", f[index][0], f[index][1], f[index][2]);
+			fprintf(fout, "{%.12f, %.12f, %.12f}", f[index][0], f[index][1], f[index][2]);
 			if (i!=nn-1) fprintf(fout, ",\n");
 
 		}
@@ -963,8 +994,10 @@ void FixGoModel::compute_goModel()
 //	fprintf(efout, "%f\n", dev);
 
 	tmp = energy[ET_CONTACTS];
+//	if (contacts_flag && Step>=sStep && Step<=eStep) fprintf(fout, "\n{");
 	for (i=0;i<nn;i++) {
 		for (j=0;j<nn;j++) {
+			tmp2 = energy[ET_CONTACTS];
 			if (res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && res_no[i]<res_no[j]-3){
 				if (lj_contacts_flag)
 					compute_contact(i, j);
@@ -972,8 +1005,11 @@ void FixGoModel::compute_goModel()
 				if (gaussian_contacts_flag)
 					compute_contact_gaussian(i, j);
 			}
+//			if (contacts_flag && Step>=sStep && Step<=eStep)
+//				fprintf(fout, "%f, ", energy[ET_CONTACTS]-tmp2);
 		}
 	}
+//	if (contacts_flag && Step>=sStep && Step<=eStep) fprintf(fout, "}\n");
 
 	if (contacts_flag && Step>=sStep && Step<=eStep) {
 		fprintf(fout, "Contacts %d:\n", nn);

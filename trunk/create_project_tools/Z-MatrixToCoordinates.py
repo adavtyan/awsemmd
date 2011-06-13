@@ -19,8 +19,9 @@ class Atom:
     y = 0.0
     z = 0.0
     
-    def __init__(self, No, ty, x, y, z, desc=''):
+    def __init__(self, No, ch, ty, x, y, z, desc=''):
         self.No = No
+        self.ch = ch
         self.ty = ty
         self.x = x
         self.y = y
@@ -28,10 +29,12 @@ class Atom:
         self.desc = desc
 
     def print_(self):
-        print self.No, self.ty , self.x, ',', self.y, ',', self.z, self.desc
+        print self.No, self.ch, self.ty , self.x, ',', self.y, ',', self.z, self.desc
 
     def write_(self, f):
         f.write(str(self.No))
+        f.write('\t')
+        f.write(str(self.ch))
         f.write('\t')
         f.write(self.ty)
         f.write('  ')
@@ -66,33 +69,33 @@ for l in inp:
     no += 1
     l = l.strip().split()
     if len(l)==0: continue
-    if len(l)%2==0:
-        atom = Atom(no, l[1], 0.0, 0.0, 0.0)
+    if len(l)%2==1:
+        atom = Atom(no, l[1], l[2], 0.0, 0.0, 0.0)
         di = 0
     else:
-        atom = Atom(no, l[1], 0.0, 0.0, 0.0, l[2])
+        atom = Atom(no, l[1], l[2], 0.0, 0.0, 0.0, l[3])
         di = 1
-    if len(l)==4 or len(l)==5:
-        i1 = int(l[3+di])-1
-        atom.x = round(atoms[i1].x + float(l[2+di]), 12)
-    elif len(l)==6 or len(l)==7:
-        i1 = int(l[3+di])-1
-        i2 = int(l[5+di])-1
-        d = float(l[2+di])
-        a = pi*float(l[4+di])/180
+    if len(l)==5 or len(l)==6:
+        i1 = int(l[4+di])-1
+        atom.x = round(atoms[i1].x + float(l[3+di]), 12)
+    elif len(l)==7 or len(l)==8:
+        i1 = int(l[4+di])-1
+        i2 = int(l[6+di])-1
+        d = float(l[3+di])
+        a = pi*float(l[5+di])/180
         dx = atoms[i1].x - atoms[i2].x
         dy = atoms[i1].y - atoms[i2].y
         d0 = sqrt(pow(dx,2) + pow(dy,2))
         atom.x = round(atoms[i1].x + d*(dy*sin(a) - dx*cos(a))/d0, 12)
         atom.y = round(atoms[i1].y - d*(dx*sin(a) + dy*cos(a))/d0, 12)
         atom.z = atoms[i1].z
-    elif len(l)==8 or len(l)==9:
-        i1 = int(l[3+di])-1
-        i2 = int(l[5+di])-1
-        i3 = int(l[7+di])-1
-        d = float(l[2+di])
-        a = pi*float(l[4+di])/180
-        b = -pi*float(l[6+di])/180
+    elif len(l)==9 or len(l)==10:
+        i1 = int(l[4+di])-1
+        i2 = int(l[6+di])-1
+        i3 = int(l[8+di])-1
+        d = float(l[3+di])
+        a = pi*float(l[5+di])/180
+        b = -pi*float(l[7+di])/180
         v1 = [atoms[i2].x-atoms[i3].x, atoms[i2].y-atoms[i3].y, atoms[i2].z-atoms[i3].z]
         v2 = [atoms[i2].x-atoms[i1].x, atoms[i2].y-atoms[i1].y, atoms[i2].z-atoms[i1].z]
         # must check if v1 & v2 are coliniar or not

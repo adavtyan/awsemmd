@@ -55,7 +55,7 @@ private:
   double *sigma_sq;
   int l;
   double **rN, **r, **q;
-  int *res_no, *res_info;
+  int *res_no, *res_info, *chain_no;
   double **x, **f;
   double **xca;
   int *image;

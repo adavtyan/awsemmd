@@ -137,6 +137,7 @@ FixQBias::~FixQBias()
 		delete [] xca;
 		delete [] res_no;
 		delete [] res_info;
+		delete [] chain_no;
 
 		delete [] sigma_sq;
 	}
@@ -178,6 +179,7 @@ inline void FixQBias::Construct_Computational_Arrays()
 	int nlocal = atom->nlocal;
 	int nall = atom->nlocal + atom->nghost;
 	int *mol_tag = atom->molecule;
+	int *res_tag = atom->residue;
 
 	int i, j, js;
 
@@ -187,12 +189,12 @@ inline void FixQBias::Construct_Computational_Arrays()
 	for (i = 0; i < n; ++i) {
 		int min = -1, jm = -1;
 		for (int j = 0; j < nall; ++j) {
-			if (i==0 && mol_tag[j]<=0)
+			if (i==0 && res_tag[j]<=0)
 				error->all("Molecular tag must be positive in fix qbias");
 			
-			if ( (mask[j] & groupbit) && mol_tag[j]>last ) {
-				if (mol_tag[j]<min || min==-1) {
-					min = mol_tag[j];
+			if ( (mask[j] & groupbit) && res_tag[j]>last ) {
+				if (res_tag[j]<min || min==-1) {
+					min = res_tag[j];
 					jm = j;
 				}
 			}
@@ -206,14 +208,6 @@ inline void FixQBias::Construct_Computational_Arrays()
 		nn++;	
 	}
 
-	/*if (Step>=sStep && Step<=eStep) {
-		fprintf(fout, "\n\n");
-		for (i = 0; i < nn; ++i) {
-			fprintf(fout, "%d ", res_no[i]);
-		}
-		fprintf(fout, "\n\n");
-	}*/
-
 	int nMinNeighbours = 3;
 	int iLastLocal = -1;
 	int lastResNo = -1;
@@ -222,6 +216,8 @@ inline void FixQBias::Construct_Computational_Arrays()
 
 	// Checking sequance and marking residues
 	for (i = 0; i < nn; ++i) {
+		chain_no[i] = -1;
+	
 		if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
 			if (lastResType==LOCAL && res_no[i]!=n)
 				error->all("Missing neighbor atoms in fix qbias (code: 001)");
@@ -242,6 +238,8 @@ inline void FixQBias::Construct_Computational_Arrays()
 		}
 
 		if (alpha_carbons[i]!=-1) {
+			chain_no[i] = mol_tag[alpha_carbons[i]];
+		
 			if (alpha_carbons[i]<nlocal) {
 				if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
 					error->all("Missing neighbor atoms in fix qbias  (code: 003)");
@@ -274,13 +272,6 @@ inline void FixQBias::Construct_Computational_Arrays()
 //			for (j=js;j<nn;++j) res_info[j] = OFF;
 //		}
 	}
-
-/*	if (Step>=sStep && Step<=eStep) {
-		for (i = 0; i < nn; ++i) {
-			fprintf(fout, "%d ", res_info[i]);
-		}
-		fprintf(fout, "\n");
-	}*/
 }
 
 void FixQBias::allocate()
@@ -295,6 +286,7 @@ void FixQBias::allocate()
 	xca = new double*[n];
 	res_no = new int[n];
 	res_info = new int[n];
+	chain_no = new int[n];
 
 	for (int i = 0; i < n; ++i) {
 		r[i] = new double [n];
@@ -524,26 +516,6 @@ void FixQBias::compute()
 			} else xca[i][2] = x[alpha_carbons[i]][2];
 		}
 	}
-
-/*	for (i=0;i<nn;++i) {
-		if (res_info[i]!=LOCAL) continue;
-
-		if (bonds_flag && res_no[i]<=n-1)
-			compute_bond(i);
-
-		if (angles_flag && res_no[i]<=n-2)
-                        compute_angle(i);
-
-		if (dihedrals_flag && res_no[i]<=n-3)
-                        compute_dihedral(i);
-
-		for (j=i+1;j<nn;++j) {
-			if (res_info[j]!=LOCAL && res_info[j]!=GHOST) continue;
-
-                        if (contacts_flag && res_no[i]<res_no[j]-3)
-                                compute_contact(i, j);
-                }
-	}*/
 
 	double tmp, tmp2;
 	double tmp_time;

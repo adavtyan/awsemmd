@@ -36,6 +36,19 @@ typedef struct WPV {
   }
 } _WPV;
 
+typedef struct TBV {
+  double energy;
+  double force;
+  TBV() : energy(0.0), force(0.0) {}
+  TBV(double ee, double ff): energy(ee), force(ff) {}
+  TBV &operator = (const TBV &x) {
+    energy=x.energy;
+    force=x.force;
+  
+    return *this;
+  }
+} _TBV;
+
 //=============================================================================================//
 
 template <typename T, typename U>

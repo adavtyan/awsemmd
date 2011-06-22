@@ -78,15 +78,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	vector_flag = 1;
 	thermo_energy = 1;
 	size_vector = nEnergyTerms-1;
-  global_freq = 1;
-  extscalar = 1;
-  extvector = 1;
+    global_freq = 1;
+    extscalar = 1;
+    extvector = 1;
 	
 	abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
 	ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = 0;
 	ssb_flag = frag_mem_tb_flag = 0;
 	epsilon = 1.0; // general energy scale
 	p = 2; // for excluded volume
+	
+	int i, j;
+	
+	for (i=0;i<12;i++) ssweight[i] = false;
 
 	// backbone geometry coefficients
 	an = 0.4831806; bn = 0.7032820; cn = -0.1864262;
@@ -255,9 +259,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		varsection[0]='\0'; // Clear buffer
 	}
 	in.close();
-	print_log("\n");
-
-	int i, j;	
+	print_log("\n");	
 	
 	// Read sequance file
 	ifstream ins(arg[6]);
@@ -417,6 +419,56 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       		}
 	   }
 	   print_log(" done\n");
+	   
+/*	   Fragment_Memory *frag=frag_mems[26];
+	   for (i=0; i<frag->len; i++) {
+		   for (j=0; j<frag->len; j++) {
+		   	  int ires=i+frag->pos;
+		   	  int jres=j+frag->pos;
+		   	  double r=frag->Rf(ires, 1, jres, 1);
+		   	  if (frag->error==frag->ERR_CALL) error->all("Call error");
+		   	  fprintf(dout, "%.2f ", r);
+		   }
+	   	  fprintf(dout, "\n");
+	   }
+   	  fprintf(dout, "\n");
+   	  
+ 	   for (i=0; i<frag->len; i++) {
+		   for (j=0; j<frag->len; j++) {
+		   	  int ires=i+frag->pos;
+		   	  int jres=j+frag->pos;
+		   	  double r=frag->Rf(ires, 2, jres, 2);
+		   	  if (frag->error==frag->ERR_CALL) error->all("Call error");
+		   	  fprintf(dout, "%.2f ", r);
+		   }
+	   	  fprintf(dout, "\n");
+	   }
+   	  fprintf(dout, "\n");
+   	  
+  	   for (i=0; i<frag->len; i++) {
+		   for (j=0; j<frag->len; j++) {
+		   	  int ires=i+frag->pos;
+		   	  int jres=j+frag->pos;
+		   	  double r=frag->Rf(ires, 1, jres, 2);
+		   	  if (frag->error==frag->ERR_CALL) error->all("Call error");
+		   	  fprintf(dout, "%.2f ", r);
+		   }
+	   	  fprintf(dout, "\n");
+	   }
+   	  fprintf(dout, "\n");
+
+  	   for (i=0; i<frag->len; i++) {
+		   for (j=0; j<frag->len; j++) {
+		   	  int ires=i+frag->pos;
+		   	  int jres=j+frag->pos;
+		   	  double r=frag->Rf(ires, 2, jres, 1);
+		   	  if (frag->error==frag->ERR_CALL) error->all("Call error");
+		   	  fprintf(dout, "%.2f ", r);
+		   }
+	   	  fprintf(dout, "\n");
+	   }
+   	  fprintf(dout, "\n");*/
+
   }
   
   // Allocate the table
@@ -432,8 +484,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			fm_table[i] = NULL;
 		}
 		
-		Construct_Computational_Arrays();
+//		Construct_Computational_Arrays();
 		compute_fragment_memory_table();
+		
+		for (i=0; i<4*n*tb_nbrs; ++i) {
+			if (fm_table[i]) {
+				fprintf(dout, "i=%d     ", i);
+				for (j=0; j<tb_size; ++j) {
+					fprintf(dout, "%f ", fm_table[i][j].energy);
+				}
+				fprintf(dout, "\n");
+			}
+		}
+		fprintf(dout, "\n");
 		
 		/*	
 		fm_table = new TBV***[n];
@@ -2555,8 +2618,8 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       jatom[3] = beta_atoms[j];
       
       for (k=0;k<4;++k) {
-        if (se[i_resno]=='G' && iatom_type[k]==frag->FM_CB) continue;
-        if (se[j_resno]=='G' && jatom_type[k]==frag->FM_CB) continue;
+	    if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
+	    if ( jatom_type[k]==frag->FM_CB && (se[j_resno]=='G' || frag->getSe(j_resno)=='G') ) continue;
         
         dx[0] = xi[k][0] - xj[k][0];
         dx[1] = xi[k][1] - xj[k][1];
@@ -2564,6 +2627,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
 
         r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
         rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+        if (frag->error==frag->ERR_CALL) error->all("Fragment_Memory: Wrong call of Rf() function");
         dr = r - rf;
         drsq = dr*dr;
         
@@ -2609,7 +2673,8 @@ void FixBackbone::compute_fragment_memory_table()
 	  iatom[2] = beta_atoms[i];
 	  iatom[3] = beta_atoms[i];
 	  
-	  i_resno = res_no[i]-1;
+//	  i_resno = res_no[i]-1;
+	  i_resno = i;
 	  ires_type = se_map[se[i_resno]-'A'];
 	  
 	  for (i_fm=0; i_fm<ilen_fm_map[i_resno]; ++i_fm) {
@@ -2619,13 +2684,15 @@ void FixBackbone::compute_fragment_memory_table()
 		
 		js = i+fm_gamma->minSep();
 		je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
-		if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
+//		if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
+		if (je>=n) error->all("Missing residues in memory potential");
 		
 		for (j=js;j<=je;++j) {
-		  j_resno = res_no[j]-1;
+//		  j_resno = res_no[j]-1;
+		  j_resno = j;
 		  jres_type = se_map[se[j_resno]-'A'];
 		  
-		  if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
+//		  if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
 		  
 		  fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
 		  
@@ -2644,20 +2711,31 @@ void FixBackbone::compute_fragment_memory_table()
 		  jatom[3] = beta_atoms[j];
 		  
 		  for (k=0;k<4;++k) {
-			if (se[i_resno]=='G' && iatom_type[k]==frag->FM_CB) continue;
-			if (se[j_resno]=='G' && jatom_type[k]==frag->FM_CB) continue;
+			if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
+			if ( jatom_type[k]==frag->FM_CB && (se[j_resno]=='G' || frag->getSe(j_resno)=='G') ) continue;
 			
 			itb = 4*tb_nbrs*i + 4*(j-js) + k;
-//			fprintf(screen, "itb=%d\n", itb);
 			if (!fm_table[itb])
 				fm_table[itb] = new TBV[tb_size];
+				
+			if (itb==93) {
+				fprintf(screen, "\ni=%d j=%d k=%d i_fm=%d\n", i, j, k, i_fm);
+			}
 			
 			rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+			if (frag->error==frag->ERR_CALL) error->all("Fragment_Memory: Wrong call of Rf() function");
 			for (ir=0;ir<tb_size;++ir) {
 				r = tb_rmin + ir*tb_dr;
 				
 				dr = r - rf;
 				drsq = dr*dr;
+				
+				if (itb==93 && r>40.0) {
+					double VV=-epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+					if (fabs(VV)>0.000001) {
+						fprintf(screen, "\ni_fm=%d r=%f rf=%f\n", i_fm, r, rf);
+					}
+				}
 				
 				fm_table[itb][ir].energy += -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
 				
@@ -3111,7 +3189,7 @@ void FixBackbone::compute_backbone()
 		for (j=0;j<nn;j++) {
 			j_resno = res_no[j]-1;
 			j_chno = chain_no[j]-1;
-			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && res_info[i]==LOCAL)
+			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL)
 				table_fragment_memory(i, j);
 		}
 	}
@@ -3224,7 +3302,7 @@ void FixBackbone::compute_backbone()
 			if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
 			  compute_water_potential(i, j);
 			  
-			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && res_info[i]==LOCAL)
+			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL)
 				table_fragment_memory(i, j);
 
 			if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL)

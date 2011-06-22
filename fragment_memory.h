@@ -38,13 +38,14 @@ public:
   int len;    // Length of the fragment
   double weight;  // Weight for the particular fragment
   char *se;
+  char getSe(int resno); // residue name in one letter code corresponding to resno in target
   double Rf(int ires, int iatom, int jres, int jatom); // distance between atoms in residues i and j
   int resType(int resno); // return type of fragment residue corresponding to resno in target
   char ThreeLetterToOne(char *tl_resty);
   int min(int, int);
   int max(int, int);
   int error;
-  enum Errors {ERR_NONE=0, ERR_FILE, ERR_ATOM_COUNT, ERR_RES};
+  enum Errors {ERR_NONE=0, ERR_FILE, ERR_ATOM_COUNT, ERR_RES, ERR_CALL};
   enum FM_AtomTypes { FM_CA=1, FM_CB };
 private:
   // rf[0][i][j] are CA-CA (i<j) and CB-CB (i>j) distances

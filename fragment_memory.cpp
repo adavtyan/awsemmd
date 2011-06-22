@@ -136,6 +136,7 @@ double Fragment_Memory::Rf(int ires, int iatom, int jres, int jatom)
 {
   ires -= pos;
   jres -= pos;
+  if (ires<0 || ires>=len || jres<0 || jres>=len) { error = ERR_CALL; return 0.0; }
   if (iatom==FM_CA && jatom==FM_CA ) {
     return rf[0][min(ires,jres)][max(ires,jres)];
   } else if (iatom==FM_CB && jatom==FM_CB) {
@@ -143,6 +144,11 @@ double Fragment_Memory::Rf(int ires, int iatom, int jres, int jatom)
   } else {
     return (iatom==FM_CA ? rf[1][ires][jres] : rf[1][jres][ires]);
   }
+}
+
+char Fragment_Memory::getSe(int resno)
+{
+  return se[resno - pos];
 }
 
 int Fragment_Memory::resType(int resno)

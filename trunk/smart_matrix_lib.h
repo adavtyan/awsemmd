@@ -487,7 +487,7 @@ void cWell<T, U>::compute_ro(int i)
   
   v_ro[i] = 0;
   for (j=0;j<lc->nn;++j) {
-  	if ( lc->chain_no[i]!=lc->chain_no[j] || abs(lc->res_no[j] - lc->res_no[j])>1 )
+  	if ( lc->chain_no[i]!=lc->chain_no[j] || abs(lc->res_no[j] - lc->res_no[i])>1 )
   		v_ro[i] += theta(i, j, 0);
   }
   

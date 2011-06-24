@@ -25,6 +25,9 @@
 #include "domain.h"
 #include "memory.h"
 
+#include "mpi.h"
+#include "timer.h"
+
 #include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +38,9 @@ using std::ifstream;
 #define delta 0.00001
 
 using namespace LAMMPS_NS;
+
+//double fm_f[100][2][3], tfm_f[100][2][3];
+//double err=0.0, err_max=0.0, err_max2=0.0;
 
 /* ---------------------------------------------------------------------- */
 
@@ -91,6 +97,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	int i, j;
 	
 	for (i=0;i<12;i++) ssweight[i] = false;
+	
+	for (i=0;i<TIME_N;i++) ctime[i] = 0.0;
 
 	// backbone geometry coefficients
 	an = 0.4831806; bn = 0.7032820; cn = -0.1864262;
@@ -383,7 +391,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	}
 	
 	if (frag_mem_flag || frag_mem_tb_flag) {
-		print_log("Reading fragments...");
+		print_log("Reading fragments...\n");
 		
     	fm_gamma = new Gamma_Array(fm_gamma_file);
 		if (fm_gamma->error==fm_gamma->ERR_FILE) error->all("Fragment_Memory: Cannot read gamma file");
@@ -418,7 +426,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
         		frag_mem_map[i][ilen_fm_map[i]-1] = k;
       		}
 	   }
-	   print_log(" done\n");
+//	   print_log(" done\n");
 	   
 /*	   Fragment_Memory *frag=frag_mems[26];
 	   for (i=0; i<frag->len; i++) {
@@ -485,9 +493,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		}
 		
 //		Construct_Computational_Arrays();
+		print_log("Computing FM table...\n");
 		compute_fragment_memory_table();
 		
-		for (i=0; i<4*n*tb_nbrs; ++i) {
+/*		for (i=0; i<4*n*tb_nbrs; ++i) {
 			if (fm_table[i]) {
 				fprintf(dout, "i=%d     ", i);
 				for (j=0; j<tb_size; ++j) {
@@ -495,8 +504,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 				}
 				fprintf(dout, "\n");
 			}
+			
+			if (fm_table[i]) {
+				fprintf(dout, "i=%d     ", i);
+				for (j=0; j<tb_size; ++j) {
+					fprintf(dout, "%f ", fm_table[i][j].force);
+				}
+				fprintf(dout, "\n");
+			}
 		}
-		fprintf(dout, "\n");
+		fprintf(dout, "\n");*/
 		
 		/*	
 		fm_table = new TBV***[n];
@@ -518,9 +535,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 }
 
 /* ---------------------------------------------------------------------- */
-
 FixBackbone::~FixBackbone()
 {
+    fprintf(dout, "\nChain\tShake\tChi\tRama\tVexcluded\tDSSP\tPAP\tWater\tBurial\tHelix\tAHM-Go\tFrag_Mem\tSSB\n");
+	for (int i=0;i<TIME_N;++i)
+		fprintf(dout, "%f\t", ctime[i]);
+	fprintf(dout, "\n");
+	
+//	fprintf(dout, "\n\nerr_max=%f\n\n", err_max);
+//	fprintf(dout, "\n\nerr_max2=%f\n\n", err_max2);
+
 	if (allocated) {
 		for (int i=0;i<n;i++) {
 			delete [] xca[i];
@@ -1070,6 +1094,22 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
   fclose(file);
   
   return mems_array;
+}
+
+void FixBackbone::timerBegin()
+{
+  // uncomment if want synchronized timing
+  // MPI_Barrier(world);
+  previous_time = MPI_Wtime();
+}
+
+void FixBackbone::timerEnd(int which)
+{
+  // uncomment if want synchronized timing
+  // MPI_Barrier(world);
+  double current_time = MPI_Wtime();
+  ctime[which] += current_time - previous_time;
+  previous_time = current_time;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2637,6 +2677,18 @@ void FixBackbone::compute_fragment_memory_potential(int i)
         
         force = V*dr/(fm_sigma_sq*r);
         
+/*        int iatm, jatm;
+        iatm = ( (k==0 || k==1) ? 0 : 1);
+        jatm = ( (k==0 || k==2) ? 0 : 1);
+        
+        fm_f[i][iatm][0] += force*dx[0];
+        fm_f[i][iatm][1] += force*dx[1];
+        fm_f[i][iatm][2] += force*dx[2];
+        
+        fm_f[j][jatm][0] += -force*dx[0];
+        fm_f[j][jatm][1] += -force*dx[1];
+        fm_f[j][jatm][2] += -force*dx[2];*/
+        
         f[iatom[k]][0] += force*dx[0];
         f[iatom[k]][1] += force*dx[1];
         f[iatom[k]][2] += force*dx[2];
@@ -2717,10 +2769,6 @@ void FixBackbone::compute_fragment_memory_table()
 			itb = 4*tb_nbrs*i + 4*(j-js) + k;
 			if (!fm_table[itb])
 				fm_table[itb] = new TBV[tb_size];
-				
-			if (itb==93) {
-				fprintf(screen, "\ni=%d j=%d k=%d i_fm=%d\n", i, j, k, i_fm);
-			}
 			
 			rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
 			if (frag->error==frag->ERR_CALL) error->all("Fragment_Memory: Wrong call of Rf() function");
@@ -2730,14 +2778,9 @@ void FixBackbone::compute_fragment_memory_table()
 				dr = r - rf;
 				drsq = dr*dr;
 				
-				if (itb==93 && r>40.0) {
-					double VV=-epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
-					if (fabs(VV)>0.000001) {
-						fprintf(screen, "\ni_fm=%d r=%f rf=%f\n", i_fm, r, rf);
-					}
-				}
+				V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
 				
-				fm_table[itb][ir].energy += -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+				fm_table[itb][ir].energy += V;
 				
 				fm_table[itb][ir].force += V*dr/(fm_sigma_sq*r);
 				
@@ -2751,23 +2794,28 @@ void FixBackbone::compute_fragment_memory_table()
 	}
 }
 
-void FixBackbone::table_fragment_memory(int i, int j)
+/*void FixBackbone::table_fragment_memory(int iii, int jjj)
 {
   int k, i_resno, j_resno, tb_i, tb_j, itb, iatom_type[4], jatom_type[4], iatom[4], jatom[4], ir;
   double *xi[4], *xj[4], dx[3], r, r1, r2;
   double V, force, v1, v2, f1, f2;
+ 
+  int i, j;
+  for (i=0; i<nn; i++) {
+  	for (j=i+1; j<nn; j++) {
 
   i_resno = res_no[i]-1;
   j_resno = res_no[j]-1;
   
-  if ( j_resno-i_resno<fm_gamma->minSep() ) return;
-  if ( fm_gamma->maxSep()!=-1 && j_resno-i_resno>fm_gamma->maxSep() ) return;
+  if ( j_resno-i_resno<fm_gamma->minSep() ) continue;
+  if ( fm_gamma->maxSep()!=-1 && j_resno-i_resno>fm_gamma->maxSep() ) continue;
+  if ( chain_no[i]!=chain_no[j] ) continue;
   
   tb_i = i_resno;
   tb_j = j_resno - i_resno - fm_gamma->minSep();
 
   itb = 4*tb_nbrs*tb_i + 4*tb_j;
-  if (!fm_table[itb]) return;
+  if (!fm_table[itb]) continue;
   
   iatom_type[0] = Fragment_Memory::FM_CA;
   iatom_type[1] = Fragment_Memory::FM_CA;
@@ -2822,15 +2870,11 @@ void FixBackbone::table_fragment_memory(int i, int j)
     	r1 = tb_rmin + ir*tb_dr;
     	r2 = tb_rmin + (ir+1)*tb_dr;
     	
-//    	v1 = fm_table[tb_i][tb_j][k][ir].energy;
-//    	v2 = fm_table[tb_i][tb_j][k][ir+1].energy;
 		v1 = fm_table[itb][ir].energy;
     	v2 = fm_table[itb][ir+1].energy;
     	
     	V = ((v2-v1)*r + v1*r2 - v2*r1)/(r2-r1);
     	
-//    	f1 = fm_table[tb_i][tb_j][k][ir].force;
-//    	f2 = fm_table[tb_i][tb_j][k][ir+1].force;
     	f1 = fm_table[itb][ir].force;
     	f2 = fm_table[itb][ir+1].force;
     	
@@ -2850,6 +2894,164 @@ void FixBackbone::table_fragment_memory(int i, int j)
     	fprintf(screen, "r=%f\n", r);
     	fprintf(logfile, "r=%f\n", r);
     }
+  }
+  
+  
+  
+    }
+  }
+}*/
+
+void FixBackbone::table_fragment_memory(int i, int j)
+{
+  static double tmax=0.0;
+
+  int k, i_resno, j_resno, tb_i, tb_j, itb, iatom_type[4], jatom_type[4], iatom[4], jatom[4], ir;
+  double *xi[4], *xj[4], dx[3], r, r1, r2;
+  double V, ff, v1, v2, f1, f2;
+
+  i_resno = res_no[i]-1;
+  j_resno = res_no[j]-1;
+  
+  if ( j_resno-i_resno<fm_gamma->minSep() ) return;
+  if ( fm_gamma->maxSep()!=-1 && j_resno-i_resno>fm_gamma->maxSep() ) return;
+  
+  tb_i = i_resno;
+  tb_j = j_resno - i_resno - fm_gamma->minSep();
+
+  itb = 4*tb_nbrs*tb_i + 4*tb_j;
+  if (!fm_table[itb]) return;
+  
+  iatom_type[0] = Fragment_Memory::FM_CA;
+  iatom_type[1] = Fragment_Memory::FM_CA;
+  iatom_type[2] = Fragment_Memory::FM_CB;
+  iatom_type[3] = Fragment_Memory::FM_CB;
+  
+  jatom_type[0] = Fragment_Memory::FM_CA; 
+  jatom_type[1] = Fragment_Memory::FM_CB; 
+  jatom_type[2] = Fragment_Memory::FM_CA; 
+  jatom_type[3] = Fragment_Memory::FM_CB;
+  
+  iatom[0] = alpha_carbons[i];
+  iatom[1] = alpha_carbons[i];
+  iatom[2] = beta_atoms[i];
+  iatom[3] = beta_atoms[i];
+  
+  jatom[0] = alpha_carbons[j];
+  jatom[1] = beta_atoms[j];
+  jatom[2] = alpha_carbons[j];
+  jatom[3] = beta_atoms[j];
+  
+  xi[0] = xca[i];
+  xi[1] = xca[i];
+  xi[2] = xcb[i];
+  xi[3] = xcb[i];
+  
+  xj[0] = xca[j];
+  xj[1] = xcb[j];
+  xj[2] = xca[j];
+  xj[3] = xcb[j];
+  
+  for (k=0;k<4;++k) {
+//    double st= MPI_Wtime();
+  
+    if (se[i_resno]=='G' && iatom_type[k]==Fragment_Memory::FM_CB) continue;
+    if (se[j_resno]=='G' && jatom_type[k]==Fragment_Memory::FM_CB) continue;
+    
+    dx[0] = xi[k][0] - xj[k][0];
+    dx[1] = xi[k][1] - xj[k][1];
+    dx[2] = xi[k][2] - xj[k][2];
+
+    r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+    
+    if (r>=tb_rmin && r<=tb_rmax) {
+    	ir = int((r-tb_rmin)/tb_dr);
+    	
+    	itb = 4*tb_nbrs*tb_i + 4*tb_j + k;
+    	
+    	if (!fm_table[itb]) return;
+    	
+    	if (ir<0 || ir>=tb_size) error->all("Table Fragment Memory: ir is out of range.");
+    	
+    	// Energy and force values are obtained from trangle interpolation
+    	r1 = tb_rmin + (double)ir*tb_dr;
+    	r2 = tb_rmin + (double)(ir+1)*tb_dr;
+    	
+//    	v1 = fm_table[tb_i][tb_j][k][ir].energy;
+//    	v2 = fm_table[tb_i][tb_j][k][ir+1].energy;
+		v1 = fm_table[itb][ir].energy;
+    	v2 = fm_table[itb][ir+1].energy;
+    	
+    	V = ((v2-v1)*r + v1*r2 - v2*r1)/(r2-r1);
+    	
+//    	f1 = fm_table[tb_i][tb_j][k][ir].force;
+//    	f2 = fm_table[tb_i][tb_j][k][ir+1].force;
+    	f1 = fm_table[itb][ir].force;
+    	f2 = fm_table[itb][ir+1].force;
+    	
+    	ff = ((f2-f1)*r + f1*r2 - f2*r1)/(r2-r1);
+    	   	
+    	energy[ET_FRAGMEM] += V;
+    	
+/*        int iatm, jatm;
+        iatm = ( (k==0 || k==1) ? 0 : 1);
+        jatm = ( (k==0 || k==2) ? 0 : 1);
+        
+        tfm_f[i][iatm][0] += ff*dx[0];
+        tfm_f[i][iatm][1] += ff*dx[1];
+        tfm_f[i][iatm][2] += ff*dx[2];
+        
+        tfm_f[j][jatm][0] += -ff*dx[0];
+        tfm_f[j][jatm][1] += -ff*dx[1];
+        tfm_f[j][jatm][2] += -ff*dx[2];*/
+    	
+    	f[iatom[k]][0] += ff*dx[0];
+        f[iatom[k]][1] += ff*dx[1];
+        f[iatom[k]][2] += ff*dx[2];
+        
+        f[jatom[k]][0] += -ff*dx[0];
+        f[jatom[k]][1] += -ff*dx[1];
+        f[jatom[k]][2] += -ff*dx[2];
+        
+/*        // Fake
+        f[iatom[k]][0] -= ff*dx[0];
+        f[iatom[k]][1] -= ff*dx[1];
+        f[iatom[k]][2] -= ff*dx[2];
+        
+        f[jatom[k]][0] -= -ff*dx[0];
+        f[jatom[k]][1] -= -ff*dx[1];
+        f[jatom[k]][2] -= -ff*dx[2];*/
+    	
+/*        f[iatom[k]][0] += force*dx[0];
+        f[iatom[k]][1] += force*dx[1];
+        f[iatom[k]][2] += force*dx[2];
+        
+        f[jatom[k]][0] += -force*dx[0];
+        f[jatom[k]][1] += -force*dx[1];
+        f[jatom[k]][2] += -force*dx[2];
+        
+        // Fake
+        f[iatom[k]][0] -= force*dx[0];
+        f[iatom[k]][1] -= force*dx[1];
+        f[iatom[k]][2] -= force*dx[2];
+        
+        f[jatom[k]][0] -= -force*dx[0];
+        f[jatom[k]][1] -= -force*dx[1];
+        f[jatom[k]][2] -= -force*dx[2];*/
+    } else {
+    	error->warning("Table Fragment Memory: r is out of computed range.");
+    	fprintf(screen, "r=%f\n", r);
+    	fprintf(logfile, "r=%f\n", r);
+    }
+    
+/*    double tm = MPI_Wtime()-st;
+    if (tm>tmax) { 
+    	tmax=tm;
+    	fprintf(dout, "%f %d %d %d %d\n", tmax, ntimestep, i, j, k);
+	    fprintf(dout, "r=%f, V=%f, ff=%.15f, dx={%f, %f, %f}\n", r, V, ff, dx[0], dx[1], dx[2]);
+	    fprintf(dout, "ir=%d, r1=%f, r2=%f, v1=%f, v2=%f f1=%f f2=%f\n", ir, r1, r2, v1, v2, ff1, ff2);
+	}*/
+	    
   }
 }
 
@@ -3003,6 +3205,14 @@ void FixBackbone::compute_backbone()
 	if(atom->nlocal==0) return;
 
 	Construct_Computational_Arrays();
+	
+/*	for (int i=0; i<n; i++) {
+		fm_f[i][0][0] = fm_f[i][0][1] = fm_f[i][0][2] = 0.0;
+		fm_f[i][1][0] = fm_f[i][1][1] = fm_f[i][1][2] = 0.0;
+		
+		tfm_f[i][0][0] = tfm_f[i][0][1] = tfm_f[i][0][2] = 0.0;
+		tfm_f[i][1][0] = tfm_f[i][1][1] = tfm_f[i][1][2] = 0.0;
+  	}*/
 
 	x = atom->x;
 	f = atom->f;
@@ -3096,6 +3306,8 @@ void FixBackbone::compute_backbone()
 		print_forces(1);
 	}
 	
+	timerBegin();
+	
 	for (i=0;i<nn;i++) {
 		if (chain_flag && res_info[i]==LOCAL)
 			compute_chain_potential(i);
@@ -3106,6 +3318,8 @@ void FixBackbone::compute_backbone()
 		fprintf(dout, "Chain_Energy: %f\n\n", energy[ET_CHAIN]);
 		print_forces();
 	}
+	
+	timerEnd(TIME_CHAIN);
 	
 	for (i=0;i<nn;i++) {
 		if (!isFirst(i) && !isLast(i) && chi_flag && res_info[i]==LOCAL && se[i]!='G')
@@ -3118,10 +3332,14 @@ void FixBackbone::compute_backbone()
 		print_forces();
 	}
 	
+	timerEnd(TIME_CHI);
+	
 	for (i=0;i<nn;i++) {
 		if (shake_flag && res_info[i]==LOCAL)
 			compute_shake(i);
 	}
+	
+	timerEnd(TIME_SHAKE);
 
 	for (i=0;i<nn;i++) {
 		if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i]!='G')
@@ -3133,6 +3351,8 @@ void FixBackbone::compute_backbone()
 		fprintf(dout, "Rama_Energy: %f\n\n", energy[ET_RAMA]);
 		print_forces();
 	}
+	
+	timerEnd(TIME_RAMA);
 
 	for (i=0;i<nn;i++) {
 		i_resno = res_no[i]-1;
@@ -3151,6 +3371,8 @@ void FixBackbone::compute_backbone()
 		fprintf(dout, "DSSP_Energy: %f\n\n", energy[ET_DSSP]);
 		print_forces();
 	}
+	
+	timerEnd(TIME_DSSP);
 
 	for (i=0;i<nn;i++) {
 		for (j=0;j<nn;j++) {
@@ -3164,6 +3386,8 @@ void FixBackbone::compute_backbone()
 		fprintf(dout, "P_AP_Energy: %f\n\n", energy[ET_PAP]);
 		print_forces();
 	}
+	
+	timerEnd(TIME_PAP);
 
 	for (i=0;i<nn;i++) {
 		i_resno = res_no[i]-1;
@@ -3183,6 +3407,8 @@ void FixBackbone::compute_backbone()
 		print_forces();
 	}
 	
+	timerEnd(TIME_WATER);
+	
 	for (i=0;i<nn;i++) {
 		i_resno = res_no[i]-1;
 		i_chno = chain_no[i]-1;
@@ -3193,6 +3419,14 @@ void FixBackbone::compute_backbone()
 				table_fragment_memory(i, j);
 		}
 	}
+	
+	if (frag_mem_tb_flag && ntimestep>=sStep && ntimestep<=eStep) {
+		fprintf(dout, "Table_Frag_Mem: %d\n", ntimestep);
+		fprintf(dout, "Table_Frag_Mem_Energy: %f\n\n", energy[ET_FRAGMEM]);
+		print_forces();
+	}
+	
+	timerEnd(TIME_FRAGMEM);
 
 	for (i=0;i<nn;i++) {
 		i_resno = res_no[i]-1;
@@ -3211,6 +3445,8 @@ void FixBackbone::compute_backbone()
 		fprintf(dout, "SSB_Energy: %f\n\n", energy[ET_SSB]);
 		print_forces();
 	}
+	
+	timerEnd(TIME_SSB);
 
 	for (i=0;i<nn;i++) {
 		if (burial_flag && res_info[i]==LOCAL)
@@ -3222,6 +3458,8 @@ void FixBackbone::compute_backbone()
 		fprintf(dout, "Burial_Energy: %f\n\n", energy[ET_BURIAL]);
 		print_forces();
 	}
+	
+	timerEnd(TIME_BURIAL);
 
 	for (i=0;i<nn;i++) {
 		i_resno = res_no[i]-1;
@@ -3238,6 +3476,8 @@ void FixBackbone::compute_backbone()
 		print_forces();
 	}
 	
+	timerEnd(TIME_HELIX);
+	
 	for (i=0;i<nn;i++) {
 		if (frag_mem_flag && res_info[i]==LOCAL)
     		compute_fragment_memory_potential(i);
@@ -3249,6 +3489,8 @@ void FixBackbone::compute_backbone()
 		print_forces();
 	}
 	
+	timerEnd(TIME_FRAGMEM);
+	
 	if (amh_go_flag)
     	compute_amh_go_model();
     	
@@ -3257,6 +3499,8 @@ void FixBackbone::compute_backbone()
 		fprintf(dout, "AMH-Go_Energy: %f\n\n", energy[ET_AMHGO]);
 		print_forces();
 	}
+	
+	timerEnd(TIME_AMHGO);
 
 	if (excluded_flag)
 		compute_excluded_volume();
@@ -3266,6 +3510,8 @@ void FixBackbone::compute_backbone()
 
 	if (r6_excluded_flag)
 		compute_r6_excluded_volume();
+	
+	timerEnd(TIME_VEXCLUDED);
 	
 	if (ntimestep>=sStep && ntimestep<=eStep)
 		fprintf(dout, "\n\n");
@@ -3291,10 +3537,10 @@ void FixBackbone::compute_backbone()
 		for (j=0;j<nn;j++) {
       		j_resno = res_no[j]-1;
       		j_chno = chain_no[j]-1;
-      
+      		
 			if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j]!='P')
 				compute_dssp_hdrgn(i, j);
-
+				
 			// Need to change
 			if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && res_info[j]==LOCAL)
 				compute_P_AP_potential(i, j);
@@ -3320,9 +3566,12 @@ void FixBackbone::compute_backbone()
       if (frag_mem_flag && res_info[i]==LOCAL)
         compute_fragment_memory_potential(i);
 	}
+	
+//	if (frag_mem_tb_flag)
+//		table_fragment_memory(0, 0);
 
 	if (amh_go_flag)
-    compute_amh_go_model();
+	  compute_amh_go_model();
 
 	if (excluded_flag)
 		compute_excluded_volume();
@@ -3334,15 +3583,33 @@ void FixBackbone::compute_backbone()
 	compute_r6_excluded_volume();
 
 #endif
-
 	
 	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
 	
 	if (ntimestep%output->thermo_every==0) {
 		fprintf(efile, "%d ", ntimestep);
 		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
-    fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
+		fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
 	}
+	
+/*	for (i=0; i<n; i++) {
+		for (j=0; j<2; j++) {
+			for (int k=0; k<3; k++) {
+				err = fabs((fm_f[i][j][k]-tfm_f[i][j][k])/fm_f[i][j][k]);
+				if (err>err_max) {
+					err_max = err;
+					
+					fprintf(dout, "i=%d j=%d k=%d fm_f=%.12f tfm_f=%.12f err=%.12f RE\n", i, j, k, fm_f[i][j][k], tfm_f[i][j][k], err);
+				}
+				
+				err = fabs(fm_f[i][j][k]-tfm_f[i][j][k]);
+				if (err>err_max2) {
+					err_max2 = err;
+					fprintf(dout, "i=%d j=%d k=%d fm_f=%.12f tfm_f=%.12f err=%.12f AE\n", i, j, k, fm_f[i][j][k], tfm_f[i][j][k], err);
+				}
+			}
+		}
+	}*/
 }
 
 /* ---------------------------------------------------------------------- */

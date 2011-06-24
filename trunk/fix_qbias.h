@@ -42,7 +42,6 @@ private:
   double epsilon;
   double k_qbias;
 
-  double foriginal[4], foriginal_all[4];
   int force_flag;
   int nlevels_respa;
   bool allocated;
@@ -63,6 +62,9 @@ private:
   int *periodicity;
 
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
+  
+  double energy[5], energy_all[5];
+  enum EnergyTerms{ET_TOTAL=0, ET_QBIAS, nEnergyTerms};
 
 private:
   void compute();
@@ -81,6 +83,7 @@ private:
   int Step;
   int sStep, eStep;
   FILE *fout;
+  FILE *efile;
   void out_xyz_and_force(int coord=0);
 };
 

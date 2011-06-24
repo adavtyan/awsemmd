@@ -16,6 +16,7 @@ Last Update: 12/01/2010
 #include "update.h"
 #include "respa.h"
 #include "error.h"
+#include "output.h"
 #include "group.h"
 #include "domain.h"
 
@@ -40,20 +41,26 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
 	if (narg != 4) error->all("Illegal fix qbias command");
+	
+	efile = fopen("energyQ.log", "w");
+	
+	char eheader[] = "Step\tQBias\tVTotal\n";
+	fprintf(efile, "%s", eheader);
 
 	char force_file_name[] = "forcesQ.dat";
 	fout = fopen(force_file_name,"w");
 	
 	scalar_flag = 1;
 	vector_flag = 1;
-	size_vector = 3;
-//	scalar_vector_freq = 1;
+	thermo_energy = 1;
+	size_vector = nEnergyTerms;
+	global_freq = 1;
 	extscalar = 1;
 	extvector = 1;
 
 	force_flag = 0;
 	n = (int)(group->count(igroup)+1e-12);
-	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
+	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 
 	allocated = false;
 	allocate();
@@ -96,7 +103,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 	in_rnative.close();
 
 	for (i=0;i<n;i++) sigma_sq[i] = Sigma(i)*Sigma(i);
-	for (i=0;i<n;i++) fprintf(fout, "sigma_sq[%d]=%f:\n",i, sigma_sq[i]);
+//	for (i=0;i<n;i++) fprintf(fout, "sigma_sq[%d]=%f:\n",i, sigma_sq[i]);
 
 	x = atom->x;
 	f = atom->f;
@@ -411,8 +418,8 @@ void FixQBias::compute_qbias()
 
 	dql1 = pow(qsum-q0, l-1);
 	dql = dql1*(qsum-q0);
-
-	foriginal[0] += epsilon*k_qbias*dql;
+	
+	energy[ET_QBIAS] += epsilon*k_qbias*dql;
 
 	force = epsilon*k_qbias*dql1*l*a;
 
@@ -444,7 +451,7 @@ void FixQBias::out_xyz_and_force(int coord)
 	fprintf(fout, "%d\n", Step);
 	fprintf(fout, "%d%d\n", qbias_flag, qbias_exp_flag);
 	fprintf(fout, "Number of atoms %d\n", n);
-	fprintf(fout, "Energy: %d\n\n", foriginal[0]);
+	fprintf(fout, "Energy: %d\n\n", energy[ET_TOTAL]);
 
 	int index;	
 
@@ -484,22 +491,16 @@ void FixQBias::compute()
 	Construct_Computational_Arrays();
 
 	x = atom->x;
-        f = atom->f;
-        image = atom->image;
+    f = atom->f;
+    image = atom->image;
 
 	int i, j, xbox, ybox, zbox;
 	int i_resno, j_resno;
 	
-	foriginal[0] = foriginal[1] = foriginal[2] = foriginal[3] = 0.0;
+	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 	force_flag = 0;
 
 	for (i=0;i<nn;++i) {
-		if (res_info[i]==LOCAL) {
-			foriginal[1] += f[alpha_carbons[i]][0];
-			foriginal[2] += f[alpha_carbons[i]][1];
-			foriginal[3] += f[alpha_carbons[i]][2];
-		}
-
 		// Calculating xca Ca atoms coordinates array
 		if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {
 			if (domain->xperiodic) {
@@ -527,12 +528,12 @@ void FixQBias::compute()
 		out_xyz_and_force(1);
 	}
 
-	tmp = foriginal[0];
+	tmp = energy[ET_QBIAS];
 	if (qbias_flag || qbias_exp_flag)
 		compute_qbias();
 	if ((qbias_flag || qbias_exp_flag) && Step>=sStep && Step<=eStep) {
 		fprintf(fout, "Qbias %d:\n", nn);
-		fprintf(fout, "Qbias_Energy: %.12f\n", foriginal[0]-tmp);
+		fprintf(fout, "Qbias_Energy: %.12f\n", energy[ET_QBIAS]-tmp);
 		out_xyz_and_force();
 	}
 
@@ -540,6 +541,14 @@ void FixQBias::compute()
 		fprintf(fout, "All:\n");
 		out_xyz_and_force(1);
 		fprintf(fout, "\n\n\n");
+	}
+	
+	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
+	
+	if (ntimestep%output->thermo_every==0) {
+		fprintf(efile, "%d ", ntimestep);
+		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
+			fprintf(efile, "\t%.6f\n", energy[ET_TOTAL]);
 	}
 }
 
@@ -565,7 +574,7 @@ void FixQBias::min_post_force(int vflag)
 }
 
 /* ----------------------------------------------------------------------
-	 potential energy of added force
+	 return total potential energy
 ------------------------------------------------------------------------- */
 
 double FixQBias::compute_scalar()
@@ -573,23 +582,23 @@ double FixQBias::compute_scalar()
 	// only sum across procs one time
 
 	if (force_flag == 0) {
-		MPI_Allreduce(foriginal,foriginal_all,4,MPI_DOUBLE,MPI_SUM,world);
+		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
 		force_flag = 1;
 	}
-	return foriginal_all[0];
+	return energy_all[ET_TOTAL];
 }
 
 /* ----------------------------------------------------------------------
-	 return components of total force on fix group before force was changed
+	 return potential energies of terms computed in this fix
 ------------------------------------------------------------------------- */
 
-double FixQBias::compute_vector(int n)
+double FixQBias::compute_vector(int nv)
 {
 	// only sum across procs one time
 
 	if (force_flag == 0) {
-		MPI_Allreduce(foriginal,foriginal_all,4,MPI_DOUBLE,MPI_SUM,world);
+		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
 		force_flag = 1;
 	}
-	return foriginal_all[n+1];
+	return energy_all[nv+1];
 }

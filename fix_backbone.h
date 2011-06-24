@@ -150,6 +150,10 @@ public:
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
                     ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_SSB, nEnergyTerms};
   
+  double ctime[15], previous_time;
+  enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
+  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_SSB, TIME_N};
+  
  private:
   void compute_backbone();
   void compute_chain_potential(int i);
@@ -187,6 +191,9 @@ public:
   inline void print_log(char *line);
   Fragment_Memory **read_mems(char *mems_file, int &n_mems);
   bool isEmptyString(char *str);
+  
+  void timerBegin();
+  void timerEnd(int which);
 
   cP_AP<double, FixBackbone> *p_ap;
   cR<double, FixBackbone> *R;

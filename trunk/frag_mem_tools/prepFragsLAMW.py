@@ -52,13 +52,15 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 
 		                is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 				res_id = res.get_id()[0]
-		                if not ((res_id ==' ' or res_id =='H_MSE') and is_regular_res):
+		                if not ((res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L') and is_regular_res):
 					print 'Discard Fragment: Non-regular residue:', res.get_id()[0], 'at position', res_index,  'in pdb:', pdbID
 					return False
 				res_name = res.get_resname()
 				#convert to 1-letter code
 				if res_name == 'MSE':
 					res_code = 'M'
+				if res_name == 'M3L':
+					res_code = 'K'
 				else:
 					res_code = three_to_one(res_name)
 
@@ -105,9 +107,9 @@ inseq=SeqIO.read(inFASTA,'fasta')
 print "processing: ",inseq.name
 query=str(inseq.name)[0:4]
 
-myhome = os.environ.get("HOME")
-pdbDir = myhome + "/opt/script/PDBs/"
-fLibDir = "./fraglib/"
+myhome  = os.environ.get("HOME")
+pdbDir  = myhome + "/opt/script/PDBs/"
+fLibDir = myhome + "/opt/script/fraglib/"
 
 fragmentLength=9 #needs to be an odd number
 memoriesPerPosition=N_mem  #can be any integer > 0
@@ -194,9 +196,9 @@ LAMWmatch.write('[Target]'+"\n")
 LAMWmatch.write(query+"\n\n"+'[Memories]'+"\n")
 
 log_match=open('log.mem','w')
-log_match.write('**********for debugging purpose*************'+"\n")
-log_match.write('[Target]'+"\n")
-log_match.write(query+"\n\n"+'[Memories]'+"\n")
+#log_match.write('**********for debugging purpose*************'+"\n")
+#log_match.write('[Target]'+"\n")
+#log_match.write(query+"\n\n"+'[Memories]'+"\n")
 
 ##get pdbs
 matchlines=list()
@@ -278,6 +280,7 @@ for line in matchlines:
         pdbIDthird=pdbfull[2:3].lower()
         chainID=pdbfull[4:5].lower()
 	groFile=fLibDir+pdbID+chainID+".gro"
+	groName=pdbID+chainID+".gro"
 	pdbFile=pdbDir+pdbID.upper()+".pdb"
 
 	if failed_pdb[pdbID]:#failed-downloaded ones are still in matchlines, need to be ignored
@@ -313,7 +316,8 @@ for line in matchlines:
 		    #out1 = out
 		    out1 = windows_index_str 
 		    out1 += ' '+str(count[windows_index_str])
-		    out1 += ' '+entries[9]+' '+entries[10]+out #output scores
+		    out1 += ' '+entries[9]+' '+entries[10]+' '+groName
+		    out1 += ' '+entries[1]+' '+entries[3]+' '+str(length)+' '+str(weight)+"\n"
 		    log_match.write(out1)
 		else:
 		    print pdbFile, "does not exist! Go figure..."

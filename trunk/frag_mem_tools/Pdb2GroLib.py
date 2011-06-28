@@ -67,7 +67,8 @@ def Pdb2Gro(pdb_file, gro_file, ch_name):
 			atoms = []
 			for res in chain:
 				is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
-				if (res.get_id()[0]==' ' or res.get_id()[0]=='H_MSE') and is_regular_res:
+				res_id = res.get_id()[0]
+		                if not ((res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L') and is_regular_res):
 					ires = ires + 1
 					res_name = res.get_resname()
 					residue_no = res.get_id()[1]

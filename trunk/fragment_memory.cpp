@@ -72,8 +72,6 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
   fscanf(file, "%d",&nAtoms);
   for (i=0;i<nAtoms;++i) {
     fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
-//	fscanf(file, "%5d%5s%5s%5d%8.3lf%8.3lf%8.3lf", &ires,resty,atomty,&iatom,&x,&y,&z);
-//	fscanf(file, "%5d%5s%5s%5d%lf%lf%lf", &ires,resty,atomty,&iatom,&x,&y,&z);
     if (ires>fpos && ires<=fpos+len) {
       ires -= fpos + 1;
       x *= 10; y *= 10; z *= 10;
@@ -118,6 +116,8 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
   }
   delete [] xca;
   delete [] xcb;
+  
+  fclose(dout);
 }
 
 Fragment_Memory::~Fragment_Memory()

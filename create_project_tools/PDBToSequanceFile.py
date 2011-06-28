@@ -25,7 +25,8 @@ def three2one(prot):
             "ARG" : "R", "LYS" : "K", "MET" : "M", "CYS" : "C",
             "TYR" : "Y", "THR" : "T", "PRO" : "P", "SER" : "S",
             "TRP" : "W", "ASP" : "D", "GLU" : "E", "ASN" : "N",
-	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V"}
+	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V", 
+            "M3L" : "K", "MSE" : "M" }
     
     newprot = ""
     for a in prot:
@@ -77,11 +78,14 @@ for ch in chains:
     two_res = [None, None]
     for res in ch:
         is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
-        if res.get_id()[0]==' ' and is_regular_res:
+        #if res.get_id()[0]==' ' and is_regular_res:
+        res_id = res.get_id()[0]
+        if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L') and is_regular_res:
             two_res.append(res)
             p_res = two_res.pop(0)
             if p_res:
                 sequance.append(p_res.get_resname())
+		print p_res.get_resname()
             if two_res[0] and two_res[1]:
                 if two_res[0].get_id()[1]+1!=two_res[1].get_id()[1]:
                     print "Error: Wrong residue order"

@@ -109,7 +109,8 @@ query=str(inseq.name)[0:4]
 
 myhome  = os.environ.get("HOME")
 pdbDir  = myhome + "/opt/script/PDBs/"
-fLibDir = myhome + "/opt/script/fraglib/"
+fLibDir = "./fraglib/"
+#fLibDir = myhome + "/opt/script/fraglib/"
 
 fragmentLength=9 #needs to be an odd number
 memoriesPerPosition=N_mem  #can be any integer > 0

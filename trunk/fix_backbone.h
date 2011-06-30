@@ -189,6 +189,7 @@ public:
   inline double para_one(int res);
   inline double anti_one(int res);
   inline void print_log(char *line);
+  void final_log_output();
   Fragment_Memory **read_mems(char *mems_file, int &n_mems);
   bool isEmptyString(char *str);
   

@@ -534,13 +534,35 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   in_rs.close();
 }
 
+void FixBackbone::final_log_output()
+{
+	double time, tmp;
+	char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "SSB"};
+	int me,nprocs;
+
+	MPI_Comm_rank(world,&me);
+	MPI_Comm_size(world,&nprocs);
+
+	fprintf(dout, "\n");
+	for (int i=0;i<TIME_N;++i) {
+		time = ctime[i];
+    	MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
+	    time = tmp/nprocs;
+    	if (me == 0) {
+    		fprintf(dout, "%s time = %g\n", txt_timer[i], time); 
+	    }
+	}
+	fprintf(dout, "\n");
+}
+
 /* ---------------------------------------------------------------------- */
 FixBackbone::~FixBackbone()
 {
-    fprintf(dout, "\nChain\tShake\tChi\tRama\tVexcluded\tDSSP\tPAP\tWater\tBurial\tHelix\tAHM-Go\tFrag_Mem\tSSB\n");
+	final_log_output();
+/*    fprintf(dout, "\nChain\tShake\tChi\tRama\tVexcluded\tDSSP\tPAP\tWater\tBurial\tHelix\tAHM-Go\tFrag_Mem\tSSB\n");
 	for (int i=0;i<TIME_N;++i)
 		fprintf(dout, "%f\t", ctime[i]);
-	fprintf(dout, "\n");
+	fprintf(dout, "\n");*/
 	
 //	fprintf(dout, "\n\nerr_max=%f\n\n", err_max);
 //	fprintf(dout, "\n\nerr_max2=%f\n\n", err_max2);

@@ -123,7 +123,8 @@ chains = s[0].get_list()
 chain = chains[0]
 for res in chain:
 	is_regular_res = res.has_id('CA') and res.has_id('O')
-        if res.get_id()[0]==' ' and is_regular_res:
+	res_id = res.get_id()[0]
+        if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L') and is_regular_res:
 		ca_atoms_pdb.append(res['CA'].get_coord())
 
 for i in range( 0, len(ca_atoms_pdb) ):

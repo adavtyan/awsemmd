@@ -59,7 +59,7 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 				#convert to 1-letter code
 				if res_name == 'MSE':
 					res_code = 'M'
-				if res_name == 'M3L':
+				elif res_name == 'M3L':
 					res_code = 'K'
 				else:
 					res_code = three_to_one(res_name)

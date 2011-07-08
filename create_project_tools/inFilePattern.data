@@ -33,7 +33,7 @@ fix		  1 all nvt temp 300.0 300.0 100.0
 fix		  ``main_fix
 
 thermo		1000
-dump		1 all atom 100 dump.lammpstrj
+dump		1 all atom 1000 dump.lammpstrj
 
 dump_modify	1 sort id
 

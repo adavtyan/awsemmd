@@ -418,7 +418,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			pos = frag_mems[k]->pos;
 			len = frag_mems[k]->len;
       
-      		if (pos+len>n) error->all("Fragment_Memory: Incorrectly defined memory fragment");
+      		if (pos+len>n) {
+        		fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
+			error->all("Fragment_Memory: Incorrectly defined memory fragment");
+		}
       
       		for (i=pos; i<pos+len-min_sep; ++i) {
         		ilen_fm_map[i]++;
@@ -1099,8 +1102,8 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
       if (mems_array[n_mems-1]->pos+mems_array[n_mems-1]->len>n) {
       	if (screen) fprintf(screen, "Error reading %s file!\n", str[0]);
         if (logfile) fprintf(logfile, "Error reading %s file!\n", str[0]);
-        
-      	error->all("Fragment_Memory: Incorrectly defined memory fragment");
+        fprintf(stderr, "pos %d len %d n %d\n", mems_array[n_mems-1]->pos, mems_array[n_mems-1]->len, n); 
+      	error->all("read_mems: Fragment_Memory: Incorrectly defined memory fragment");
       }
         
       break;
@@ -2393,6 +2396,7 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	double pair_theta_gamma, sigmma_gamma, V;
 	double force;
 	double *xi, *xj, *xk;
+	double hp1, hp2;
 	int iatom, jatom, katom, k;
 	int k_resno, k_chno;
 
@@ -2415,8 +2419,17 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	xHO[0] = xo[i][0] - xh[j][0];
 	xHO[1] = xo[i][1] - xh[j][1];
 	xHO[2] = xo[i][2] - xh[j][2];
-	
-	prob_sum = h4prob[ires_type] + h4prob[jres_type]; // sequence-identity weight
+
+	if (se[i_resno]!='P'){
+		hp1 = h4prob[ires_type];
+	}
+	else {
+		hp1 = -0.4;
+	}
+
+	//prob_sum = h4prob[ires_type] + h4prob[jres_type]; // sequence-identity weight
+	prob_sum = hp1 + h4prob[jres_type];
+
 	pair_theta = prob_sum*exp( - pow(R_NO - helix_NO_zero, 2)/(2.0*pow(helix_sigma_NO, 2)) - pow(R_HO - helix_HO_zero, 2)/(2.0*pow(helix_sigma_HO, 2)) );
 
 	prd_pair_theta[0] = - (R_NO - helix_NO_zero)/(pow(helix_sigma_NO, 2)*R_NO);

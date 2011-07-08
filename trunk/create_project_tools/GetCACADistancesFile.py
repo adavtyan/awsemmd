@@ -14,7 +14,8 @@ def three2one(prot):
             "ARG" : "R", "LYS" : "K", "MET" : "M", "CYS" : "C",
             "TYR" : "Y", "THR" : "T", "PRO" : "P", "SER" : "S",
             "TRP" : "W", "ASP" : "D", "GLU" : "E", "ASN" : "N",
-	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V"}
+	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V"
+	    "M3L" : "K", "MSE" : "M", "CAS" : "C" }
     
     newprot = ""
     for a in prot:
@@ -81,9 +82,9 @@ for ch in chains:
     four_res = [None, None, None, None]
     all_res = []
     for res in ch:
-#        is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 	is_regular_res = res.has_id('CA') and res.has_id('O')
-        if res.get_id()[0]==' ' and is_regular_res:
+	res_id = res.get_id()[0]
+        if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
             all_res.append(res)
             sequance.append(res.get_resname())
 

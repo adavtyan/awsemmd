@@ -124,6 +124,7 @@ p = PDBParser(PERMISSIVE=1)
 def computeQ():
 	if len(ca_atoms)!=len(ca_atoms_pdb):
 		print "Error. Length mismatch!"
+		print "Pdb: ", len(ca_atoms_pdb), "trj: ", len(ca_atoms)
 		exit()
 	Q = 0
 	N = len(ca_atoms)
@@ -142,8 +143,10 @@ chain = chains[0]
 for res in chain:
 	is_regular_res = res.has_id('CA') and res.has_id('O')
 	res_id = res.get_id()[0]
-        if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L') and is_regular_res:
+        if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
 		ca_atoms_pdb.append(res['CA'].get_coord())
+	else:
+		print "PDB res_id: ", res_id, " is_regular_res: ", is_regular_res
 
 for i in range(0, len(ca_atoms_pdb)+1):
 	sigma.append( (1+i)**sigma_exp )

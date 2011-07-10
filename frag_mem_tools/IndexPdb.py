@@ -155,6 +155,10 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 		print "Same length"
 		answer = "INDEXED"
 		for i in range(0, len(fasta_seq)):
+			if i!=0 && pdb_indexes[i]<= pdb_indexes[i-1]:
+				answer = "SKIP"
+				index_list = []
+				break
 			index_list.append([ i, pdb_indexes[i], fasta_seq[i] ])
 	else:
 		print "Need an index file"

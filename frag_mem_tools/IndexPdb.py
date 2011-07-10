@@ -7,8 +7,8 @@
 #	exit()
 
 #from Bio import pairwise2
-#from Bio.PDB.PDBParser import PDBParser
-#from Bio import SeqIO
+from Bio.PDB.PDBParser import PDBParser
+from Bio import SeqIO
 
 def three2one(prot): 
     """ translate a protein sequence from 3 to 1 letter code"""
@@ -67,6 +67,7 @@ def getPdbSequance(pdb_file, chain_id):
 
 	p = PDBParser(PERMISSIVE=1)
 	s = p.get_structure("",  pdb_file)
+	pdb_id = pdb_file[0:-4]
 	
 	if not s[0].has_id(chain_id):
 		print "PDB "+pdb_id+" doesn't have chain with id "+chain_id
@@ -144,7 +145,7 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 	print
 
 	if len(fasta_seq)==len(pdb_seq) and pdb_indexes[0]==1 and pdb_indexes[-1]==len(pdb_seq):
-		print "No need for index file"
+		print "FULLMATCH"
 		answer = "FULLMATCH"
 	elif len(fasta_seq)==len(pdb_seq) and pdb_indexes[-1]-pdb_indexes[0]+1==len(pdb_seq):
 		print "Indexes are simply shifted by " + str(pdb_indexes[0]-1)
@@ -155,48 +156,48 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 		print "Same length"
 		answer = "INDEXED"
 		for i in range(0, len(fasta_seq)):
-			if i!=0 && pdb_indexes[i]<= pdb_indexes[i-1]:
+			if i!=0 and pdb_indexes[i]<= pdb_indexes[i-1]:
 				answer = "SKIP"
 				index_list = []
 				break
 			index_list.append([ i, pdb_indexes[i], fasta_seq[i] ])
 	else:
-		print "Need an index file"
+		#print "Need an index file"
 		alignments = pairwise2.align.globalms(fasta_seq, pdb_seq, 2, -1, -0.5, -0.1)
-		print alignments
-		print len(alignments)
-		print
+		#print alignments
+		#print len(alignments)
+		#print
 	
 		alist = getListOfValidAlignments(alignments, pdb_indexes)
-		print len(alist), alist
+		#print len(alist), alist
 
 		if len(alist)==1:
-			print "Problem solved"
+			#print "Problem solved"
 			answer = "INDEXED"
 			index_list = getIndexArray(alignments[alist[0]], pdb_indexes)
 		elif len(alist)>1:
-			print "There is more when one answer"
+			#print "There is more when one answer"
 			answer = "SKIP"
 		elif len(alist)==0:
-			print "Need to look deeper"
+			#print "Need to look deeper"
 			alignments = pairwise2.align.globalxx(fasta_seq, pdb_seq)
-			print
-			print alignments
-		        print len(alignments)
-			print
+			#print
+			#print alignments
+		        #print len(alignments)
+			#print
 		
 			alist2 = getListOfValidAlignments(alignments, pdb_indexes)
-		        print len(alist2), alist2
+		        #print len(alist2), alist2
 		
 			if len(alist2)==1:
-				print "Problem solved"
+			#	print "Problem solved"
 				answer = "INDEXED"
 				index_list = getIndexArray(alignments[alist[0]], pdb_indexes)
 			elif len(alist2)>1:
-				print "There is more when one answer"
+			#	print "There is more when one answer"
 				answer = "SKIP"
 			elif len(alist2)==0:
-				print "No answer found"
+			#	print "No answer found"
 				answer = "SKIP"
 
 	out = open(index_file, 'w')
@@ -207,7 +208,7 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 	elif answer=="INDEXED":
 		for ind in index_list:
 			out.write("\n")
-			out.write(str(ind[0]))
+			out.write(str(ind[0]+1))
 			out.write(" ")
 			out.write(str(ind[1]))
 			out.write(" ")

@@ -6,7 +6,7 @@
 #	print
 #	exit()
 
-#from Bio import pairwise2
+from Bio import pairwise2
 from Bio.PDB.PDBParser import PDBParser
 from Bio import SeqIO
 
@@ -112,9 +112,9 @@ def getIndexArray(alignment, pdb_indexes):
 	return index_array
 
 def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
-	from Bio import pairwise2
-	from Bio.PDB.PDBParser import PDBParser
-	from Bio import SeqIO
+#	from Bio import pairwise2
+#	from Bio.PDB.PDBParser import PDBParser
+#	from Bio import SeqIO
 
 	pdb_id = pdb_file[0:-4]
 
@@ -214,3 +214,12 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 			out.write(" ")
 			out.write(ind[2])
 	out.close()
+
+
+#fasta_file = sys.argv[1]
+#pdb_id = sys.argv[2]
+#pdb_file = pdb_id+".pdb"
+#index_file = sys.argv[3]
+#chain_id = sys.argv[4]
+
+#writeIndexFile(fasta_file, pdb_file, index_file, chain_id)

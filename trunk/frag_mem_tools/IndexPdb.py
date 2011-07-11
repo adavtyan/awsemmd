@@ -192,7 +192,7 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 			if len(alist2)==1:
 			#	print "Problem solved"
 				answer = "INDEXED"
-				index_list = getIndexArray(alignments[alist[0]], pdb_indexes)
+				index_list = getIndexArray(alignments[alist2[0]], pdb_indexes)
 			elif len(alist2)>1:
 			#	print "There is more when one answer"
 				answer = "SKIP"

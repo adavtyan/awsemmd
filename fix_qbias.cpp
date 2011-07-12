@@ -97,6 +97,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 	print_log("\n");
 
 	ifstream in_rnative("rnative.dat");
+	if (!in_rnative) error->all("File rnative.dat can't be read");
 	for (i=0;i<n;++i)
 		for (j=0;j<n;++j)
 			in_rnative >> rN[i][j];

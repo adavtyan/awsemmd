@@ -106,6 +106,18 @@
 1r69.mem
 1r69.gamma
 
+#[Fragment_Memory_Table]
+scaling_factor
+mem_file
+gamma_file
+rmin rmax dr
+
+[Fragment_Memory_Table]-
+1.0
+1r69.mem
+1r69.gamma
+0 50 0.1
+
 #[Solvent_Barrier]
 K (the height of the barrier)
 Kappa

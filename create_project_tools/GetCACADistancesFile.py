@@ -53,7 +53,7 @@ for av in sys.argv:
 
 output_fn = ""
 if len(sys.argv)>2: output_fn = sys.argv[2]
-if output_fn[-5:]==".data": output_fn = output_fn[:-5]
+if output_fn[-5:]==".dat": output_fn = output_fn[:-5]
 
 if output_fn!="" and not splite:
     out = open( (output_fn+".data"), 'w' )

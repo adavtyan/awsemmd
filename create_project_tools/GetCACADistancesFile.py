@@ -56,7 +56,7 @@ if len(sys.argv)>2: output_fn = sys.argv[2]
 if output_fn[-5:]==".dat": output_fn = output_fn[:-5]
 
 if output_fn!="" and not splite:
-    out = open( (output_fn+".data"), 'w' )
+    out = open( (output_fn+".dat"), 'w' )
 
 k_bond = 100
 k_angle = 20
@@ -102,9 +102,9 @@ for ch in chains:
         if splite and len(sequance)==0: continue
         if splite:
 	    if len(chains)==1:
-		file_name = output_fn+".data"
+		file_name = output_fn+".dat"
 	    else:
-		file_name = output_fn+"_"+ch.get_id()+".data"
+		file_name = output_fn+"_"+ch.get_id()+".dat"
             out = open( file_name, 'w' )
 	
 	for ri in dis:

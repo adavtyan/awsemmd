@@ -181,7 +181,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		} else if (strcmp(varsection, "[Dssp_Hdrgn]")==0) {
 			dssp_hdrgn_flag = 1;
 			print_log("Dssp_Hdrgn flag on\n");
-			in >> hbscl[0][0] >> hbscl[0][1];
+      in >> k_dssp
+      in >> hbscl[0][0] >> hbscl[0][1];
 			for (int j=0;j<7;++j) in >> hbscl[1][j];
 			for (int j=0;j<9;++j) in >> hbscl[2][j];
 			for (int j=0;j<9;++j) in >> hbscl[3][j];
@@ -2049,17 +2050,17 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     + lambda[2]*theta[0]*theta[2] 
     + lambda[3]*theta[0]*theta[3];
 
-	V[0] = epsilon*lambda[0]*theta[0]*nu[0]*nu[1];
-	V[1] = epsilon*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];
-	V[2] = epsilon*lambda[2]*theta[0]*theta[2]*nu[0]*nu[1];
-	V[3] = epsilon*lambda[3]*theta[0]*theta[3]*nu[0]*nu[1];
+	V[0] = k_dssp*epsilon*lambda[0]*theta[0]*nu[0]*nu[1];
+	V[1] = k_dssp*epsilon*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];
+	V[2] = k_dssp*epsilon*lambda[2]*theta[0]*theta[2]*nu[0]*nu[1];
+	V[3] = k_dssp*epsilon*lambda[3]*theta[0]*theta[3]*nu[0]*nu[1];
 
 	VTotal = V[0] + V[1] + V[2] + V[3];
 
 	energy[ET_DSSP] +=  epsilon*VTotal;
 
 	if (i-2 > 0 && !isFirst(i-1) && !isFirst(i-2) && i+2 < nn && !isLast(i+1) && hb_class!=2) {
-		force = epsilon*theta_sum*prdnu[0]*nu[1];
+		force = k_dssp*epsilon*theta_sum*prdnu[0]*nu[1];
 		f[alpha_carbons[i-2]][0] -= -force*dxnu[0][0];
 		f[alpha_carbons[i-2]][1] -= -force*dxnu[0][1];
 		f[alpha_carbons[i-2]][2] -= -force*dxnu[0][2];
@@ -2070,7 +2071,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 	}
 
 	if (j-2 > 0 && !isFirst(j-1) && !isFirst(j-2) && j+2 < nn && !isLast(j+1) && hb_class!=2) {
-		force = epsilon*theta_sum*nu[0]*prdnu[1];
+		force = k_dssp*epsilon*theta_sum*nu[0]*prdnu[1];
 		f[alpha_carbons[j-2]][0] -= -force*dxnu[1][0];
 		f[alpha_carbons[j-2]][1] -= -force*dxnu[1][1];
 		f[alpha_carbons[j-2]][2] -= -force*dxnu[1][2];

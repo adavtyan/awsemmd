@@ -60,7 +60,7 @@ public:
   
   // Hydrogen bonding parameters
   double hbscl[4][9], sigma_NO, sigma_HO, NO_zero, HO_zero;
-  double dssp_hdrgn_cut, pref[2], d_nu0;
+  double k_dssp, dssp_hdrgn_cut, pref[2], d_nu0;
   
   // P_AP Liquid Crystal potential parameters
   double k_P_AP[3], P_AP_pref, P_AP_cut;

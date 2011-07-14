@@ -181,7 +181,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		} else if (strcmp(varsection, "[Dssp_Hdrgn]")==0) {
 			dssp_hdrgn_flag = 1;
 			print_log("Dssp_Hdrgn flag on\n");
-      in >> k_dssp
+      in >> k_dssp;
       in >> hbscl[0][0] >> hbscl[0][1];
 			for (int j=0;j<7;++j) in >> hbscl[1][j];
 			for (int j=0;j<9;++j) in >> hbscl[2][j];

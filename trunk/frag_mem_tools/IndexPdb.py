@@ -22,7 +22,7 @@ def three2one(prot):
     
     newprot = ""
     for a in prot:
-        newprot += code.get(a, "?")
+        newprot += code.get(a, "X")
 
     return newprot
 
@@ -162,7 +162,6 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 				break
 			index_list.append([ i, pdb_indexes[i], fasta_seq[i] ])
 	else:
-		#print "Need an index file"
 		alignments = pairwise2.align.globalms(fasta_seq, pdb_seq, 2, -1, -0.5, -0.1)
 		#print alignments
 		#print len(alignments)
@@ -172,33 +171,28 @@ def writeIndexFile(fasta_file, pdb_file, index_file, chain_id):
 		#print len(alist), alist
 
 		if len(alist)==1:
-			#print "Problem solved"
 			answer = "INDEXED"
 			index_list = getIndexArray(alignments[alist[0]], pdb_indexes)
 		elif len(alist)>1:
-			#print "There is more when one answer"
 			answer = "SKIP"
 		elif len(alist)==0:
-			#print "Need to look deeper"
-			alignments = pairwise2.align.globalxx(fasta_seq, pdb_seq)
+			answer = "SKIP"
+			#alignments = pairwise2.align.globalxx(fasta_seq, pdb_seq)
 			#print
 			#print alignments
 		        #print len(alignments)
 			#print
 		
-			alist2 = getListOfValidAlignments(alignments, pdb_indexes)
+			#alist2 = getListOfValidAlignments(alignments, pdb_indexes)
 		        #print len(alist2), alist2
 		
-			if len(alist2)==1:
-			#	print "Problem solved"
-				answer = "INDEXED"
-				index_list = getIndexArray(alignments[alist2[0]], pdb_indexes)
-			elif len(alist2)>1:
-			#	print "There is more when one answer"
-				answer = "SKIP"
-			elif len(alist2)==0:
-			#	print "No answer found"
-				answer = "SKIP"
+			#if len(alist2)==1:
+			#	answer = "INDEXED"
+			#	index_list = getIndexArray(alignments[alist2[0]], pdb_indexes)
+			#elif len(alist2)>1:
+			#	answer = "SKIP"
+			#elif len(alist2)==0:
+			#	answer = "SKIP"
 
 	out = open(index_file, 'w')
 	out.write(answer)

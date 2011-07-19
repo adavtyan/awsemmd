@@ -63,7 +63,7 @@ public:
   double k_dssp, dssp_hdrgn_cut, pref[2], d_nu0;
   
   // P_AP Liquid Crystal potential parameters
-  double k_P_AP[3], P_AP_pref, P_AP_cut;
+  double k_global_P_AP, k_P_AP[3], P_AP_pref, P_AP_cut;
   int i_diff_P_AP, i_med_max, i_med_min;
   
   // Water mediated interactions parameters

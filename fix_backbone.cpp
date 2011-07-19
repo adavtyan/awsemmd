@@ -194,6 +194,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		} else if (strcmp(varsection, "[P_AP]")==0) {
 			p_ap_flag = 1;
 			print_log("P_AP flag on\n");
+      in >> k_global_P_AP;
 			in >> k_P_AP[0] >> k_P_AP[1] >> k_P_AP[2];
 			in >> P_AP_cut;
 			in >> P_AP_pref;
@@ -2169,70 +2170,138 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 	i_P = i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
 
 	if (i_AP_med || i_AP_long) {
-		K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1] : 0.0);
-	
-		energy[ET_PAP] += -epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
-	
-		dx[0][0] = xca[i][0] - xca[j][0];
-		dx[0][1] = xca[i][1] - xca[j][1];
-		dx[0][2] = xca[i][2] - xca[j][2];
-	
-		dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j-i_diff_P_AP][0];
-		dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j-i_diff_P_AP][1];
-		dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j-i_diff_P_AP][2];
-	
-		force[0] = epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
-		force[1] = epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j-i_diff_P_AP);
-	
-		f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
-		f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
-		f[alpha_carbons[i]][2] -= force[0]*dx[0][2];
-	
-		f[alpha_carbons[j]][0] -= -force[0]*dx[0][0];
-		f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
-		f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
-	
-		f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
-		f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
-		f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
-	
-		f[alpha_carbons[j-i_diff_P_AP]][0] -= -force[1]*dx[1][0];
-		f[alpha_carbons[j-i_diff_P_AP]][1] -= -force[1]*dx[1][1];
-		f[alpha_carbons[j-i_diff_P_AP]][2] -= -force[1]*dx[1][2];
-	}
+    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0 && aps[n_rama_par-1][i_resno+i_diff_P_AP]==1.0 && aps[n_rama_par-1][j_resno-i_diff_P_AP]==1.0) {
+      K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1]*1.5 : 0.0);
+      
+      energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
 
+      dx[0][0] = xca[i][0] - xca[j][0];
+      dx[0][1] = xca[i][1] - xca[j][1];
+      dx[0][2] = xca[i][2] - xca[j][2];
+
+      dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j-i_diff_P_AP][0];
+      dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j-i_diff_P_AP][1];
+      dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j-i_diff_P_AP][2];
+
+      force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
+      force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j-i_diff_P_AP);
+	
+		  f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
+		  f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
+		  f[alpha_carbons[i]][2] -= force[0]*dx[0][2];
+	
+		  f[alpha_carbons[j]][0] -= -force[0]*dx[0][0];
+		  f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
+		  f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
+	
+		  f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
+		  f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
+		  f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+	
+		  f[alpha_carbons[j-i_diff_P_AP]][0] -= -force[1]*dx[1][0];
+		  f[alpha_carbons[j-i_diff_P_AP]][1] -= -force[1]*dx[1][1];
+		  f[alpha_carbons[j-i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+      
+    } else {
+      
+      K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1] : 0.0);
+      energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
+
+      dx[0][0] = xca[i][0] - xca[j][0];
+      dx[0][1] = xca[i][1] - xca[j][1];
+      dx[0][2] = xca[i][2] - xca[j][2];
+
+      dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j-i_diff_P_AP][0];
+      dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j-i_diff_P_AP][1];
+      dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j-i_diff_P_AP][2];
+
+      force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
+      force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j-i_diff_P_AP);
+	
+		  f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
+		  f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
+		  f[alpha_carbons[i]][2] -= force[0]*dx[0][2];
+	
+		  f[alpha_carbons[j]][0] -= -force[0]*dx[0][0];
+		  f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
+		  f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
+	
+		  f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
+		  f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
+		  f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+	
+		  f[alpha_carbons[j-i_diff_P_AP]][0] -= -force[1]*dx[1][0];
+		  f[alpha_carbons[j-i_diff_P_AP]][1] -= -force[1]*dx[1][1];
+		  f[alpha_carbons[j-i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+
+    }
+  }
+    
 	if (i_P) {
-		K = k_P_AP[2];
-
-		energy[ET_PAP] += -epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
+    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0 && aps[n_rama_par-1][i_resno+i_diff_P_AP]==1.0 && aps[n_rama_par-1][j_resno-i_diff_P_AP]==1.0) {
+      K = k_P_AP[2]*1.5;
+      energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
 	
-		dx[0][0] = xca[i][0] - xca[j][0];
-		dx[0][1] = xca[i][1] - xca[j][1];
-		dx[0][2] = xca[i][2] - xca[j][2];
+		  dx[0][0] = xca[i][0] - xca[j][0];
+		  dx[0][1] = xca[i][1] - xca[j][1];
+		  dx[0][2] = xca[i][2] - xca[j][2];
 	
-		dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j+i_diff_P_AP][0];
-		dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j+i_diff_P_AP][1];
-		dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j+i_diff_P_AP][2];
+		  dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j+i_diff_P_AP][0];
+		  dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j+i_diff_P_AP][1];
+		  dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j+i_diff_P_AP][2];
 	
-		force[0] = epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
-		force[1] = epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j+i_diff_P_AP);
+		  force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
+		  force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j+i_diff_P_AP);
 	
-		f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
-		f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
-		f[alpha_carbons[i]][2] -= force[0]*dx[0][2];
+		  f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
+		  f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
+		  f[alpha_carbons[i]][2] -= force[0]*dx[0][2];
 	
-		f[alpha_carbons[j]][0] -= -force[0]*dx[0][0];
-		f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
-		f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
+		  f[alpha_carbons[j]][0] -= -force[0]*dx[0][0];
+		  f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
+		  f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
 	
-		f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
-		f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
-		f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+		  f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
+		  f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
+		  f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
 	
-		f[alpha_carbons[j+i_diff_P_AP]][0] -= -force[1]*dx[1][0];
-		f[alpha_carbons[j+i_diff_P_AP]][1] -= -force[1]*dx[1][1];
-		f[alpha_carbons[j+i_diff_P_AP]][2] -= -force[1]*dx[1][2];
-	}
+		  f[alpha_carbons[j+i_diff_P_AP]][0] -= -force[1]*dx[1][0];
+		  f[alpha_carbons[j+i_diff_P_AP]][1] -= -force[1]*dx[1][1];
+		  f[alpha_carbons[j+i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+    
+    } else {
+    
+      K = k_P_AP[2];
+      energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
+	
+		  dx[0][0] = xca[i][0] - xca[j][0];
+		  dx[0][1] = xca[i][1] - xca[j][1];
+		  dx[0][2] = xca[i][2] - xca[j][2];
+	
+		  dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j+i_diff_P_AP][0];
+		  dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j+i_diff_P_AP][1];
+		  dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j+i_diff_P_AP][2];
+	
+		  force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
+		  force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j+i_diff_P_AP);
+	
+		  f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
+		  f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
+		  f[alpha_carbons[i]][2] -= force[0]*dx[0][2];
+	
+		  f[alpha_carbons[j]][0] -= -force[0]*dx[0][0];
+		  f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
+		  f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
+	
+		  f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
+		  f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
+		  f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+	
+		  f[alpha_carbons[j+i_diff_P_AP]][0] -= -force[1]*dx[1][0];
+		  f[alpha_carbons[j+i_diff_P_AP]][1] -= -force[1]*dx[1][1];
+		  f[alpha_carbons[j+i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+    }
+  }
 }
 
 void FixBackbone::compute_water_potential(int i, int j)

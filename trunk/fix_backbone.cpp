@@ -2170,7 +2170,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 	i_P = i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
 
 	if (i_AP_med || i_AP_long) {
-    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0 && aps[n_rama_par-1][i_resno+i_diff_P_AP]==1.0 && aps[n_rama_par-1][j_resno-i_diff_P_AP]==1.0) {
+    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1]*1.5 : 0.0);
       
       energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
@@ -2238,7 +2238,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   }
     
 	if (i_P) {
-    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0 && aps[n_rama_par-1][i_resno+i_diff_P_AP]==1.0 && aps[n_rama_par-1][j_resno-i_diff_P_AP]==1.0) {
+    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = k_P_AP[2]*1.5;
       energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
 	

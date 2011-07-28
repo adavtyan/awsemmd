@@ -2490,15 +2490,7 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	xHO[1] = xo[i][1] - xh[j][1];
 	xHO[2] = xo[i][2] - xh[j][2];
 
-	if (se[i_resno]!='P'){
-		hp1 = h4prob[ires_type];
-	}
-	else {
-		hp1 = -0.4;
-	}
-
-	//prob_sum = h4prob[ires_type] + h4prob[jres_type]; // sequence-identity weight
-	prob_sum = hp1 + h4prob[jres_type];
+	prob_sum = h4prob[ires_type] + h4prob[jres_type]; // sequence-identity weight
 
 	pair_theta = prob_sum*exp( - pow(R_NO - helix_NO_zero, 2)/(2.0*pow(helix_sigma_NO, 2)) - pow(R_HO - helix_HO_zero, 2)/(2.0*pow(helix_sigma_HO, 2)) );
 

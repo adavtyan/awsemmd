@@ -145,8 +145,6 @@ for res in chain:
 	res_id = res.get_id()[0]
         if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
 		ca_atoms_pdb.append(res['CA'].get_coord())
-	else:
-		print "PDB res_id: ", res_id, " is_regular_res: ", is_regular_res
 
 for i in range(0, len(ca_atoms_pdb)+1):
 	sigma.append( (1+i)**sigma_exp )

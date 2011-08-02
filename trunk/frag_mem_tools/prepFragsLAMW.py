@@ -5,7 +5,8 @@
 
 ######################################
 #USAGE: prepFragsLAMW.py database-prefix file.fasta > logfile
-#Originally written by Ryan Hoffmann
+#Originally written by Ryan Hoffmann from Wolynes group
+
 #Modified by Weihua Zheng 06/01/2011
 
 #######################################################################
@@ -44,9 +45,11 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 			i = 0
 			for res in chain:
 		                res_index = res.get_id()[1]
-
 		                if (res_index < res_Start ):
 		                    continue
+		                if (res_index > res_End and i == 0 ):
+				   print "Residue index shifted: ", res_index, "mismatch: ", res_Start
+		                   return False
 		                if (res_index > res_End   ):
 		                    break
 
@@ -61,6 +64,9 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 					res_code = 'M'
 				elif res_name == 'M3L':
 					res_code = 'K'
+				elif res_name == 'CAS':
+					res_code = 'C'
+
 				else:
 					res_code = three_to_one(res_name)
 
@@ -70,7 +76,6 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 					return False
 
 				i += 1
-
 			        
 				keys = {}
 				if res_name == 'GLY':  #GLY has no CB atoms  
@@ -90,6 +95,10 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 	if len(keys_res) == res_End - res_Start + 1:
 		return True
 	else:
+		print "Missing CA or CB in the residues for PDB ", pdbID, ch_name
+		print "Good residues: "
+		for j in keys_res:
+			print j
 		return False
 ## NoMissingAtoms function
 ################################################################
@@ -115,21 +124,17 @@ fLibDir = "./fraglib/"
 fragmentLength=9 #needs to be an odd number
 memoriesPerPosition=N_mem  #can be any integer > 0
 EvalueThreshold=10000 #needs to be large enough that PSI-BLAST returns at least memoriesPerPosition
-#
-##
+
 ##SANITY CHECKING
-#is length greater than 9 residues?
+#is length greater than fragmentLength?
 if(len(inseq.seq) < fragmentLength):
     print "Exception::query sequence is smaller than "+str(fragmentLength)+" residues"
     print "This version has no means to handle smaller queries"
     sys.exit()
 
-
-
 ##Create necessary directories
 if not os.path.exists(pdbDir): os.makedirs(pdbDir)
 if not os.path.exists(fLibDir): os.makedirs(fLibDir)
-
 if not os.path.exists(pdbDir) or not os.path.exists(fLibDir):
 	print "Can't create necessary directories"
 	sys.exit()
@@ -197,9 +202,6 @@ LAMWmatch.write('[Target]'+"\n")
 LAMWmatch.write(query+"\n\n"+'[Memories]'+"\n")
 
 log_match=open('log.mem','w')
-#log_match.write('**********for debugging purpose*************'+"\n")
-#log_match.write('[Target]'+"\n")
-#log_match.write(query+"\n\n"+'[Memories]'+"\n")
 
 ##get pdbs
 matchlines=list()
@@ -215,7 +217,6 @@ from Bio.PDB.PDBParser import PDBParser
 pdbparse=PDBParser(PERMISSIVE=1)
 
 #atomLine=re.compile('\AATOM')
-
 #Finding homologs
 print inseq.seq
 fragment=open('fragment.fasta','w')
@@ -243,8 +244,7 @@ for pdbfull in unique:
 	
         
 if brain_damage == 1:
-# blast the whole sequence to identify homologs
-# Evalue 0.01 
+# blast the whole sequence to identify homologs Evalue 0.005 
     exeline="psiblast -num_iterations 1 -word_size 2 -evalue 0.005"
     exeline+=" -outfmt '6 sseqid slen bitscore score evalue' -matrix BLOSUM62 -db "
     exeline+=database+" -query fragment.fasta"
@@ -274,7 +274,6 @@ for line in matchlines:
         entries=line.split()
 
 	windows_index_str = entries[11]
-
         pdbfull=str(entries[0])
         pdbID=pdbfull[0:4].lower()
         pdbIDsecond=pdbfull[1:2].lower()
@@ -298,10 +297,8 @@ for line in matchlines:
 
 	#check missing atoms
 	##have to check residue list, not residue index.
-
 	if count[windows_index_str] >= N_mem:
 		continue
-
 	if NoMissingAtoms(atoms_list, residue_list, res_Start, pdbID, chainID.upper(), pdbFile):
 	        if os.path.isfile(pdbFile): 
 		    if not os.path.isfile(groFile) :

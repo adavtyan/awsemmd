@@ -73,12 +73,12 @@ else:
 
 cg = True
 
-xlo = -1000.0
-xhi = 1000.0
-ylo = -1000.0
-yhi = 1000.0
-zlo = -1000.0
-zhi = 1000.0
+xlo = -200.0
+xhi = 200.0
+ylo = -200.0
+yhi = 200.0
+zlo = -200.0
+zhi = 200.0
 masses = [12.0, 14.0, 16.0, 12.0, 1.0]
 if cg and not go:
 	masses = [27.0, 14.0, 28.0, 60.0, 60.0]
@@ -89,6 +89,7 @@ if cg:
 else: n_bond_types = 7
 
 last_nos = { 'N' : 0, 'C-Alpha' : 0, 'C-Prime' : 0, 'O' : 0 }
+last_chno = { 'N' : 0, 'C-Alpha' : 0, 'C-Prime' : 0, 'O' : 0 }
 
 n_atoms = 0
 n_bonds = 0
@@ -127,42 +128,46 @@ for l in inp:
     if not go:
         if desc == 'N0' or desc == 'N':
             atom_type = 2
-            if last_nos['C-Prime']!=0 and not cg:
+            if last_nos['C-Prime']!=0 and last_chno['C-Prime']==chain_no and not cg:
                 n_bonds += 1
                 bonds.append( Bond(n_bonds, 3, last_nos['C-Prime'], n_atoms) )
             desc = 'N'
             last_nos[desc] = n_atoms
+            last_chno[desc] = chain_no
             n_res += 1
         elif desc == 'C-Alpha':
-            if last_nos['N']!=0 and not cg:
+            if last_nos['N']!=0 and last_chno['N']==chain_no and not cg:
                 n_bonds += 1
                 bonds.append( Bond(n_bonds, 1, last_nos['N'], n_atoms) )
             if cg and cg_bonds:
-                if last_nos['C-Alpha']!=0:
+                if last_nos['C-Alpha']!=0 and last_chno['C-Alpha']==chain_no:
                     n_bonds += 1
                     bonds.append( Bond(n_bonds, 1, last_nos['C-Alpha'], n_atoms) )
-                if last_nos['O']!=0:
+                if last_nos['O']!=0 and last_chno['O']==chain_no:
                     n_bonds += 1
                     bonds.append( Bond(n_bonds, 3, last_nos['O'], n_atoms) )
             atom_type = 1
             last_nos[desc] = n_atoms
+            last_chno[desc] = chain_no
             group_id = 1
         elif desc == 'C-Prime':
-            if last_nos['C-Alpha']!=0 and not cg:
+            if last_nos['C-Alpha']!=0 and last_chno['C-Alpha']==chain_no and not cg:
                 n_bonds += 1
                 bonds.append( Bond(n_bonds, 2, last_nos['C-Alpha'], n_atoms) )
             atom_type = 1
             last_nos[desc] = n_atoms
+            last_chno[desc] = chain_no
         elif desc == 'O':
-            if last_nos['C-Prime']!=0 and not cg:
+            if last_nos['C-Prime']!=0 and last_chno['C-Prime']==chain_no and not cg:
                 n_bonds += 1
                 bonds.append( Bond(n_bonds, 6, last_nos['C-Prime'], n_atoms) )
             if cg and cg_bonds:
-                    if last_nos['C-Alpha']!=0:
+                    if last_nos['C-Alpha']!=0 and last_chno['C-Alpha']==chain_no:
                         n_bonds += 1
                         bonds.append( Bond(n_bonds, 2, last_nos['C-Alpha'], n_atoms) )
             atom_type = 3
             last_nos[desc] = n_atoms
+            last_chno[desc] = chain_no
             group_id = 3
         elif desc == 'C-Beta':
             if last_nos['C-Alpha']!=0 and (not cg or cg_bonds):

@@ -3335,6 +3335,16 @@ void FixBackbone::compute_backbone()
 	}
 	xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
 
+/*	if (ntimestep==0 || ntimestep==10000) {
+		fprintf(dout, "\n\n");
+		for (int i=0;i<nn;++i) {
+			fprintf(dout, "%d %d %d %f %f %f %f %f %f %f %f %f\n", 
+				i, res_no[i], chain_no[i], xca[i][0], xca[i][1], xca[i][2], 
+				xcb[i][0], xcb[i][1], xcb[i][2], xo[i][0], xo[i][1], xo[i][2]);
+		}
+		fprintf(dout, "\n\n");
+	}*/
+
 #ifdef DEBUGFORCES
 
 	if (ntimestep>=sStep && ntimestep<=eStep) {

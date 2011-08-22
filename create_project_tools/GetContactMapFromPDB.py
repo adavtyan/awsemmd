@@ -25,7 +25,7 @@ def three2one(prot):
             "ARG" : "R", "LYS" : "K", "MET" : "M", "CYS" : "C",
             "TYR" : "Y", "THR" : "T", "PRO" : "P", "SER" : "S",
             "TRP" : "W", "ASP" : "D", "GLU" : "E", "ASN" : "N",
-	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V"
+	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V",
             "M3L" : "K", "MSE" : "M", "CAS" : "C" }
     
     newprot = ""

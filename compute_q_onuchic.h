@@ -29,9 +29,11 @@ class ComputeQOnuchic : public Compute {
 //  void init_list(int, class NeighList *);
   void allocate();
   double compute_scalar();
+  void createContactArrays();
 
  private:
   int nAtoms;
+  int type;
   int igroup,groupbit;
   bool allocated;
   bool **is_native;
@@ -39,7 +41,9 @@ class ComputeQOnuchic : public Compute {
   double **x_native;
   double **rsq_native;
   double qnorm;
-  char *filename;
+  char *filename, *datafile;
+  
+  enum type{T_CUTOFF=0, T_SHADOW=1};
   
   FILE *fout;
   

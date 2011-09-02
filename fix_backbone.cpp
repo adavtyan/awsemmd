@@ -3512,7 +3512,7 @@ void FixBackbone::compute_backbone()
 	for (i=0;i<nn;i++) {
 		i_resno = res_no[i]-1;
 		i_chno = chain_no[i]-1;
-		if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff && 
+		if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff-1 && 
     		i_chno==chain_no[i+helix_i_diff]-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff-1 && res_info[i]==LOCAL)
 //		if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
 			compute_helix_potential(i, i+helix_i_diff);
@@ -3607,7 +3607,7 @@ void FixBackbone::compute_backbone()
         compute_burial_potential(i);
     	
 //    if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
-      if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff && 
+      if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff-1 && 
           i_chno==chain_no[i+helix_i_diff]-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff-1 && res_info[i]==LOCAL)
 			compute_helix_potential(i, i+helix_i_diff);
 			

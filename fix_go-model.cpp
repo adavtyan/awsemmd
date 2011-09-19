@@ -74,11 +74,13 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	n = (int)(group->count(igroup)+1e-12);
 	
 	seed = time(NULL);
+	seed = 1;
 
 	allocated = false;
 	allocate();
 
-	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = contacts_sin_dev_flag = lj_contacts_flag = gaussian_contacts_flag = 0;
+	bonds_flag = angles_flag = dihedrals_flag = contacts_flag = contacts_dev_flag = lj_contacts_flag = gaussian_contacts_flag = 0;
+	dev_type = DT_NONE;
 	epsilon = epsilon2 = 1.0;
 	n_basins = 1;
 	rmin_cutoff = 4.0 ;
@@ -163,23 +165,30 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			}
 		} else if (strcmp(varsection, "[Contacts_Deviation]")==0) {
 			contacts_dev_flag = 1;
+			dev_type = DT_CORR;
 			print_log("Contacts_Deviation flag on\n");
 			in >> sdivf; // Standart deviation in epsilon fractions
 			in >> tcorr; // Correlation time in femtoseconds
 			in >> dev0;  // Deviation on t=0
 		} else if (strcmp(varsection, "[Harmonic_Contacts_Deviation]")==0) {
-			contacts_sin_dev_flag = 1;
+			contacts_dev_flag = 1;
+			dev_type = DT_SIN;
 			print_log("Harmonic_Contacts_Deviation flag on\n");
 			in >> sdivf; // Amplitud
 			in >> tcorr; // Period
 			in >> dev0;  // Phase on t=0 in half periods
+		} else if (strcmp(varsection, "[Constant_Contacts_Deviation]")==0) {
+			contacts_dev_flag = 1;
+			dev_type = DT_CONST;
+			print_log("Constant_Contacts_Deviation flag on\n");
+			in >> sdivf; // Deviation in epsilon fractions
 		}
 		varsection[0]='\0';
 	}
 	in.close();
 	print_log("\n");
 
-	if (contacts_dev_flag) {
+	if (dev_type==DT_CORR) {
 		xi = 1/tcorr;
 		w = sqrt(xi)*epsilon*sdivf;
 		dev = dev0;
@@ -187,12 +196,14 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		devA = w*sqrt(2*update->dt);
 		devB = xi*update->dt;
 		devC = (1 - xi*update->dt/2);
-	} else if (contacts_sin_dev_flag) {	
+	} else if (dev_type==DT_SIN) {	
 		devA = epsilon*sdivf/sqrt(0.5);
 		devB = 2*M_PI*update->dt/tcorr;
 		devC = M_PI*dev0;
 		
 		dev = devA*sin(devC);
+	} else if (dev_type==DT_CONST) {
+		dev = devA = epsilon*sdivf;
 	}
 	
 	x = atom->x;
@@ -231,6 +242,7 @@ FixGoModel::~FixGoModel()
 		delete [] alpha_carbons;
 		delete [] xca;
 		delete [] res_no;
+		delete [] chain_no;
 		delete [] res_info;
 
 		delete random;
@@ -293,83 +305,88 @@ int FixGoModel::Tag(int index) {
 
 inline void FixGoModel::Construct_Computational_Arrays()
 {
-        int *mask = atom->mask;
-        int nlocal = atom->nlocal;
-        int nall = atom->nlocal + atom->nghost;
-        int *mol_tag = atom->molecule;
+	int *mask = atom->mask;
+	int nlocal = atom->nlocal;
+	int nall = atom->nlocal + atom->nghost;
+	int *mol_tag = atom->molecule;
+	int *res_tag = atom->residue;
 
-        int i, j, js;
+	int i, j, js;
 
-        // Creating index arrays for Alpha_Carbons
-        nn = 0;
-        int last = 0;
-        for (i = 0; i < n; ++i) {
-                int min = -1, jm = -1;
-                for (int j = 0; j < nall; ++j) {
-                        if (i==0 && mol_tag[j]<=0)
-                                error->all("Molecular tag must be positive in fix go-model");
-                        
-                        if ( (mask[j] & groupbit) && mol_tag[j]>last ) {
-                                if (mol_tag[j]<min || min==-1) {
-                                        min = mol_tag[j];
-                                        jm = j;
-                                }
-                        }
-                }
-                
-                if (min==-1) break;
+	// Creating index arrays for Alpha_Carbons
+	nn = 0;
+	int last = 0;
+	for (i = 0; i < n; ++i) {
+		int min = -1, jm = -1;
+		for (int j = 0; j < nall; ++j) {
+			if (i==0 && res_tag[j]<=0)
+				error->all("Residue index must be positive in fix go-model");
+			
+			if ( (mask[j] & groupbit) && res_tag[j]>last ) {
+				if (res_tag[j]<min || min==-1) {
+					min = res_tag[j];
+					jm = j;
+				}
+			}
+		}
+		
+		if (min==-1) break;
 
-                alpha_carbons[nn] = jm;
-                res_no[nn] = min;
-                last = min;
-                nn++;   
-        }
+		alpha_carbons[nn] = jm;
+		res_no[nn] = min;
+		last = min;
+		nn++;
+	}
 
-        int nMinNeighbours = 3;
-        int iLastLocal = -1;
-        int lastResNo = -1;
-        int lastResType = NONE;
-        int nlastType = 0;
+	int nMinNeighbours = 3;
+	int iLastLocal = -1;
+	int lastResNo = -1;
+	int lastResType = NONE;
+	int nlastType = 0;
 
-        // Checking sequance and marking residues
-        for (i = 0; i < nn; ++i) {
-                if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
-                        if (lastResType==LOCAL && res_no[i]!=n)
-                                error->all("Missing neighbor atoms in fix go-model (code: 001)");
-                        if (lastResType==GHOST) {
-                                if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
-                                        error->all("Missing neighbor atoms in fix go-model (code: 002)");
-                        }
-                        
-                        iLastLocal = -1;
-                        lastResNo = -1;
-                        lastResType = NONE;
-                        nlastType = 0;
-                }
+	// Checking sequance and marking residues
+	for (i = 0; i < nn; ++i) {
+		chain_no[i] = -1;
+	
+		if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
+			if (lastResType==LOCAL && res_no[i]!=n)
+				error->all("Missing neighbor atoms in fix go-model (code: 001)");
+			if (lastResType==GHOST) {
+				if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
+					error->all("Missing neighbor atoms in fix go-model (code: 002)");
+			}
+			
+			iLastLocal = -1;
+			lastResNo = -1;
+			lastResType = NONE;
+			nlastType = 0;
+		}
 
-                if (alpha_carbons[i]!=-1) {
-                        if (alpha_carbons[i]<nlocal) {
-                                if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
-                                        error->all("Missing neighbor atoms in fix go-model  (code: 003)");
-                                }
-                                iLastLocal = i;
-                                res_info[i] = LOCAL;
-                        } else {
-                                res_info[i] = GHOST;
-                        }
-                } else res_info[i] = OFF;
+		if (alpha_carbons[i]!=-1) {
+			chain_no[i] = mol_tag[alpha_carbons[i]];
+			
+			if (alpha_carbons[i]<nlocal) {
+				if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
+					error->all("Missing neighbor atoms in fix go-model  (code: 003)");
+				}
+				iLastLocal = i;
+				res_info[i] = LOCAL;
+			} else {
+				res_info[i] = GHOST;
+			}
+		} else res_info[i] = OFF;
 
-                if (lastResNo == res_no[i]) nlastType++; else nlastType = 0;
+		if (lastResNo == res_no[i]) nlastType++; else nlastType = 0;
 
-                lastResNo = res_no[i];
-                lastResType = res_info[i];
-        }
-        if (lastResType==LOCAL && res_no[nn-1]!=n)
-                error->all("Missing neighbor atoms in fix go-model  (code: 004)");
-        if (lastResType==GHOST) {
-                if (iLastLocal!=-1 && nn-nMinNeighbours<=iLastLocal)
-                        error->all("Missing neighbor atoms in fix go-model  (code: 005)");
-        }
+		lastResNo = res_no[i];
+		lastResType = res_info[i];
+	}
+	if (lastResType==LOCAL && res_no[nn-1]!=n)
+		error->all("Missing neighbor atoms in fix go-model  (code: 004)");
+	if (lastResType==GHOST) {
+		if (iLastLocal!=-1 && nn-nMinNeighbours<=iLastLocal)
+			error->all("Missing neighbor atoms in fix go-model  (code: 005)");
+	}
 }
 
 void FixGoModel::allocate()
@@ -377,6 +394,7 @@ void FixGoModel::allocate()
 	alpha_carbons = new int[n];
 	xca = new double*[n];
 	res_no = new int[n];
+	chain_no = new int[n];
 	res_info = new int[n];
 
 	r0 = new double[n-1];
@@ -645,8 +663,7 @@ void FixGoModel::compute_dihedral(int i)
 		x_slope[1][l] = dAngle_x*(h1 - h2);
 		x_slope[2][l] = dAngle_x*(h2 - h3);
 		x_slope[3][l] = dAngle_x*h3;
-	}
-	//fprintf(screen, "phi = %f\n", phi);	
+	}	
 	for (j=0;j<2;j++) { 
 		dphi = (2*j+1)*(phi - phi0[i_resno]);
 		V = epsilon*k_dihedrals[j]*(1-cos(dphi));
@@ -654,37 +671,6 @@ void FixGoModel::compute_dihedral(int i)
 		force = (2*j+1)*epsilon*k_dihedrals[j]*sin(dphi);
 
 		energy[ET_DIHEDRAL] += V;
-		
-		if (Step>=sStep && Step<=eStep) {
-			if (i==24) {
-				fprintf(fout, "i=%d\tj=%d\n", i, j);
-				fprintf(fout, "V=%f\n", V);
-				fprintf(fout, "f=%f\n", force*(y_slope[3][0] + x_slope[3][0]));
-			}
-			if (i==25) {
-				fprintf(fout, "i=%d\tj=%d\n", i, j);
-				fprintf(fout, "V=%f\n", V);
-				fprintf(fout, "f=%f\n", force*(y_slope[2][0] + x_slope[2][0]));
-				fprintf(fout, "phi=%f\n", phi);
-				fprintf(fout, "phi0[i_resno]=%f\n", phi0[i_resno]);
-				fprintf(fout, "dphi=%f\n", dphi);
-				fprintf(fout, "force=%f\n", force);
-				fprintf(fout, "y_slope[2][l]=%f\n", y_slope[2][l]);
-				fprintf(fout, "x_slope[2][l]=%f\n", x_slope[2][l]);
-				fprintf(fout, "X=%f\n", X);
-				fprintf(fout, "Y=%f\n", Y);
-			}
-			if (i==26) {
-				fprintf(fout, "i=%d\tj=%d\n", i, j);
-				fprintf(fout, "V=%f\n", V);
-				fprintf(fout, "f=%f\n", force*(y_slope[1][0] + x_slope[1][0]));
-			}
-			if (i==27) {
-				fprintf(fout, "i=%d\tj=%d\n", i, j);
-				fprintf(fout, "V=%f\n", V);
-				fprintf(fout, "f=%f\n", force*(y_slope[0][0] + x_slope[0][0]));
-			}
-		}
 
 		for (l=0; l<3; l++) {
 			f[alpha_carbons[i]][l] -= force*(y_slope[0][l] + x_slope[0][l]);
@@ -695,6 +681,7 @@ void FixGoModel::compute_dihedral(int i)
 	}
 	
 }
+
 
 /*  Correlated noise generator for contact potential
     dev(t+dt) = dev(t) - 0.5*xi*(dev(t) + devp(t))*dt + w*sqrt(2*dt)*rand
@@ -711,11 +698,15 @@ void FixGoModel::compute_dihedral(int i)
 */
 void FixGoModel::compute_contact_deviation()
 {
-  if (contacts_dev_flag) {
-    rand = random->gaussian();
-    dev += (devA*rand - devB*dev)*devC;
-  } else if (contacts_sin_dev_flag) {
+  if (dev_type==DT_CORR) {
+    if (ntimestep!=0) {
+		rand = random->gaussian();
+		dev += (devA*rand - devB*dev)*devC;
+	}
+  } else if (dev_type==DT_SIN) {
     dev = devA*sin(devB*ntimestep + devC);
+  } else if (dev_type==DT_CONST) {
+    dev = devA;
   }
 }
 
@@ -744,7 +735,7 @@ void FixGoModel::compute_contact(int i, int j)
 
 	if (isNative[i_resno][j_resno-4]) {
 		contact_epsilon = epsilon;
-		if (contacts_dev_flag || contacts_sin_dev_flag) contact_epsilon = epsilon + dev;
+		if (contacts_dev_flag) contact_epsilon = epsilon + dev;
 
 		V = contact_epsilon*(5*sgrinv12 - 6*sgrinv10);
 		force = -60*contact_epsilon*(sgrinv12 - sgrinv10)/rsq;
@@ -914,10 +905,12 @@ void FixGoModel::compute_goModel()
 		}
 	}
 	
-	if (contacts_dev_flag || contacts_sin_dev_flag)
+//	seed = random->state();
+	
+/*	if (contacts_dev_flag)
 		compute_contact_deviation();
 
-/*	for (i=0;i<nn;++i) {
+	for (i=0;i<nn;++i) {
 		if (res_info[i]!=LOCAL) continue;
 
 		if (bonds_flag && res_no[i]<=n-1)
@@ -952,7 +945,7 @@ void FixGoModel::compute_goModel()
 		out_xyz_and_force(1);
 	}
 	
-	if (contacts_dev_flag || contacts_sin_dev_flag)
+	if (contacts_dev_flag)
 		compute_contact_deviation();
 
 	tmp = energy[ET_BOND];
@@ -991,7 +984,7 @@ void FixGoModel::compute_goModel()
 		out_xyz_and_force();
 	}
 	
-//	fprintf(efout, "%f\n", dev);
+//	fprintf(efout, "%.15f\n", epsilon + dev);
 
 	tmp = energy[ET_CONTACTS];
 //	if (contacts_flag && Step>=sStep && Step<=eStep) fprintf(fout, "\n{");
@@ -1077,7 +1070,7 @@ double FixGoModel::compute_vector(int nv)
 {
 	// contact_epsilon output
 	if (nv==nEnergyTerms-1) {
-		if (contacts_dev_flag || contacts_sin_dev_flag) return epsilon + dev; 
+		if (contacts_dev_flag) return epsilon + dev;
 		else return epsilon;
 	}
 	
@@ -1095,23 +1088,27 @@ double FixGoModel::compute_vector(int nv)
    pack entire state of Fix into one write
 ------------------------------------------------------------------------- */
 
+
 void FixGoModel::write_restart(FILE *fp)
 {
   int n = 0;
   double list[6];
-  list[n++] = contacts_dev_flag;
-  list[n++] = contacts_sin_dev_flag;
+
+  list[n++] = dev_type;
   list[n++] = random->state();
-  if (contacts_dev_flag) {
+//  list[n++] = seed;
+  if (dev_type==DT_CORR) {
     list[n++] = sdivf;
     list[n++] = tcorr;
     list[n++] = dev0;
     list[n++] = dev;
-  }
-  if (contacts_sin_dev_flag) {
+  } else if (dev_type==DT_SIN) {
     list[n++] = sdivf;
     list[n++] = tcorr;
     list[n++] = devB*ntimestep + devC;
+    list[n++] = dev;
+  } else if (dev_type==DT_CONST) {
+    list[n++] = sdivf;
     list[n++] = dev;
   }
 
@@ -1130,34 +1127,31 @@ void FixGoModel::restart(char *buf)
 {	
   int n = 0;
   double *list = (double *) buf;
-  bool r_cont_dev_flag, r_cont_sin_dev_flag;
+  int r_dev_type = DT_NONE;
   double r_sdivf, r_tcorr, r_dev0, r_dev;
 
-  r_cont_dev_flag = static_cast<bool> (list[n++]);
-  r_cont_sin_dev_flag = static_cast<bool> (list[n++]);
+  r_dev_type = static_cast<int> (list[n++]);
   seed = static_cast<int> (list[n++]);
   
-  if (r_cont_dev_flag) {
+  if (r_dev_type==DT_CORR || r_dev_type==DT_SIN) {
     r_sdivf = static_cast<double> (list[n++]);
     r_tcorr = static_cast<double> (list[n++]);
     r_dev0 = static_cast<double> (list[n++]);
     r_dev = static_cast<double> (list[n++]);
-  }
-  
-  if (contacts_dev_flag && r_cont_dev_flag) {
-    dev = r_dev;
-  }
-  
-  if (r_cont_sin_dev_flag) {
+  } else if (r_dev_type==DT_CONST) {
     r_sdivf = static_cast<double> (list[n++]);
-    r_tcorr = static_cast<double> (list[n++]);
-    r_dev0 = static_cast<double> (list[n++]);
     r_dev = static_cast<double> (list[n++]);
   }
   
-  if (contacts_sin_dev_flag && r_cont_sin_dev_flag) {
-    devC = r_dev0;
-    dev = devA*sin(devC);
+  if (contacts_dev_flag && r_dev_type==dev_type) {
+  	if (r_dev_type==DT_CORR) {
+    	dev = r_dev;
+  	} else if (r_dev_type==DT_SIN) {
+  		devC = r_dev0;
+    	dev = devA*sin(devC);
+  	} else if (r_dev_type==DT_CONST) {
+  		// Nothing need to be done
+  	}
   }
   
   random->reset(seed);

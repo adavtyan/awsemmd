@@ -198,7 +198,7 @@ inline void FixQBias::Construct_Computational_Arrays()
 		int min = -1, jm = -1;
 		for (int j = 0; j < nall; ++j) {
 			if (i==0 && res_tag[j]<=0)
-				error->all("Molecular tag must be positive in fix qbias");
+				error->all("Residue index must be positive in fix qbias");
 			
 			if ( (mask[j] & groupbit) && res_tag[j]>last ) {
 				if (res_tag[j]<min || min==-1) {
@@ -213,7 +213,7 @@ inline void FixQBias::Construct_Computational_Arrays()
 		alpha_carbons[nn] = jm;
 		res_no[nn] = min;
 		last = min;
-		nn++;	
+		nn++;
 	}
 
 	int nMinNeighbours = 3;
@@ -232,11 +232,6 @@ inline void FixQBias::Construct_Computational_Arrays()
 			if (lastResType==GHOST) {
 				if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
 					error->all("Missing neighbor atoms in fix qbias (code: 002)");
-//				else {
-//					js = i - nlastType;
-//					if (iLastLocal!=-1) js = MAX(js, iLastLocal + nMinNeighbours + 1);
-//					for (j=js;j<i;++j) res_info[j] = OFF;
-//				}
 			}
 			
 			iLastLocal = -1;
@@ -255,11 +250,6 @@ inline void FixQBias::Construct_Computational_Arrays()
 				iLastLocal = i;
 				res_info[i] = LOCAL;
 			} else {
-//				if ( lastResType==GHOST && nlastType>=nMinNeighbours && (iLastLocal==-1 || i-2*nMinNeighbours-iLastLocal>=0) ) {
-//					res_info[i-nMinNeighbours] = OFF;
-//					nlastType = nMinNeighbours-1;
-//				}
-
 				res_info[i] = GHOST;
 			}
 		} else res_info[i] = OFF;
@@ -274,11 +264,6 @@ inline void FixQBias::Construct_Computational_Arrays()
 	if (lastResType==GHOST) {
 		if (iLastLocal!=-1 && nn-nMinNeighbours<=iLastLocal)
 			error->all("Missing neighbor atoms in fix qbias  (code: 005)");
-//		else {
-//			js = nn - nlastType;
-//			if (iLastLocal!=-1) js = MAX(js, iLastLocal + nMinNeighbours + 1);
-//			for (j=js;j<nn;++j) res_info[j] = OFF;
-//		}
 	}
 }
 

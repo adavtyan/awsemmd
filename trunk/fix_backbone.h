@@ -85,6 +85,8 @@ public:
   double helix_well_r_min[5], helix_well_r_max[5];
   double helix_sigma_HO, helix_sigma_NO, helix_HO_zero, helix_NO_zero;
   int helix_well_flag[5], n_helix_wells, helix_i_diff;
+  bool pro_accepter_flag;
+  int h4prob_pro_accepter;
   
   // Non-additive AMH-Go parameters
   double k_amh_go, amh_go_rc;

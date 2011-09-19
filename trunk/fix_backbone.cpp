@@ -233,6 +233,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 			in >> helix_well_r_min[0] >> helix_well_r_max[0];
 			for (int j=0;j<20;++j)
 				in >> h4prob[j];
+			// h4prob coefficent for proline if it is aceptor
+			// It will be used only if pro_accepter_flag=1
+			in >> pro_accepter_flag >> h4prob_pro_accepter;
 			in >> helix_sigma_HO >> helix_sigma_NO;
 			in >> helix_HO_zero >> helix_NO_zero;
 		} else if (strcmp(varsection, "[AMH-Go]")==0) {
@@ -2430,8 +2433,11 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	xHO[0] = xo[i][0] - xh[j][0];
 	xHO[1] = xo[i][1] - xh[j][1];
 	xHO[2] = xo[i][2] - xh[j][2];
-
-	prob_sum = h4prob[ires_type] + h4prob[jres_type]; // sequence-identity weight
+	
+	int h4probi = h4prob[ires_type];
+	if (se[i_resno]=='P' && pro_accepter_flag) h4probi = h4prob_pro_accepter;
+	
+	prob_sum = h4probi + h4prob[jres_type]; // sequence-identity weight
 
 	pair_theta = prob_sum*exp( - pow(R_NO - helix_NO_zero, 2)/(2.0*pow(helix_sigma_NO, 2)) - pow(R_HO - helix_HO_zero, 2)/(2.0*pow(helix_sigma_HO, 2)) );
 

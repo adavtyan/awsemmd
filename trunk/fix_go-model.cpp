@@ -74,7 +74,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	n = (int)(group->count(igroup)+1e-12);
 	
 	seed = time(NULL);
-	seed = 1;
+//	seed = 1;
 
 	allocated = false;
 	allocate();

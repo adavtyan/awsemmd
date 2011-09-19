@@ -21,6 +21,7 @@ PDB_type = {'1' : 'CA', '2' : 'N', '3' : 'O', '4' : 'CB', '5' : 'HB', '6' : 'C' 
 class PDB_Atom:
 	no = 0
 	ty = ''
+	mol = 0
 	res = 'UNK'
 	res_no = 0
 	x = 0.0
@@ -28,9 +29,10 @@ class PDB_Atom:
 	z = 0.0
 	atm = 'C'
 	
-	def __init__(self, no, ty, res, res_no, x, y, z, atm):
+	def __init__(self, no, ty, mol, res, res_no, x, y, z, atm):
 		self.no = no
 		self.ty = ty
+		self.mol = mol
 		self.res = res
 		self.res_no = res_no
 		self.x = x
@@ -41,6 +43,8 @@ class PDB_Atom:
 	def write_(self, f):
 		f.write('ATOM')
 		f.write(('       '+str(self.no))[-7:])
+		f.write('  ')
+		f.write(self.mol)
 		f.write('  ')
 		f.write((self.ty+'    ')[:4])
 		f.write(self.res)
@@ -87,8 +91,17 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=5 and len(sys.argv)!=4:
-	print "\nCalcQValue.py PDB_Id Input_file Output_file [sigma_exp]\n"
+	print "\nCalcQValue.py PDB_Id Input_file Output_file [sigma_exp] [-i]\n"
+	print
+	print "\t\t-i\tcalculate individual q values for each chain"
+	print
 	exit()
+
+splitq = False
+for iarg in range(0, len(sys.argv)):
+	if sys.argv[iarg]=="-i":
+		splitq = True
+		sys.argv.pop(iarg)
 
 struct_id = sys.argv[1]
 if struct_id[-4:].lower()==".pdb":
@@ -109,11 +122,13 @@ i_atom = 0
 item = ''
 step = 0
 ca_atoms_pdb = []
+pdb_chain_id = []
 ca_atoms = []
 box = []
 A = []
 sigma = []
 sigma_sq = []
+
 
 out = open(output_file, 'w')
 
@@ -126,26 +141,38 @@ def computeQ():
 		print "Error. Length mismatch!"
 		print "Pdb: ", len(ca_atoms_pdb), "trj: ", len(ca_atoms)
 		exit()
-	Q = 0
+	Q = {}
+	norm = {}
 	N = len(ca_atoms)
 	for ia in range(0, N):
 		for ja in range(ia+3, N):
-			r = vabs(vector(ca_atoms[ia], ca_atoms[ja]))
-			rn = vabs(vector(ca_atoms_pdb[ia], ca_atoms_pdb[ja]))
-			dr = r - rn
-			Q = Q + exp(-dr*dr/(2*sigma_sq[ja-ia]));
-	Q = 2*Q/((N-2)*(N-3))
+			if (splitq and pdb_chain_id[ia]==pdb_chain_id[ja]) or not splitq:
+				r = vabs(vector(ca_atoms[ia], ca_atoms[ja]))
+				rn = vabs(vector(ca_atoms_pdb[ia], ca_atoms_pdb[ja]))
+				dr = r - rn
+				if splitq: index = pdb_chain_id[ia]
+				else: index = 1
+				if not Q.has_key(index):
+					Q[index] = 0.0
+					norm[index] = 0
+				Q[index] = Q[index] + exp(-dr*dr/(2*sigma_sq[ja-ia]))
+				norm[index] = norm[index] + 1
+	for key in Q:
+		Q[key] = Q[key]/norm[key]
 	return Q
 
 s = p.get_structure(struct_id, pdb_file)
 chains = s[0].get_list()
 #chain = chains[0]
+ichain = 0
 for chain in chains:
+	ichain = ichain + 1
 	for res in chain:
 		is_regular_res = res.has_id('CA') and res.has_id('O')
 		res_id = res.get_id()[0]
 	        if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
 			ca_atoms_pdb.append(res['CA'].get_coord())
+			pdb_chain_id.append(ichain)
 
 for i in range(0, len(ca_atoms_pdb)+1):
 	sigma.append( (1+i)**sigma_exp )
@@ -160,8 +187,10 @@ for l in lfile:
 		if item == "TIMESTEP":
 			if len(ca_atoms)>0:
 				q = computeQ()
-				out.write(str(round(q,3)))
-				out.write(' ')
+				for key in q:
+					out.write(str(round(q[key],3)))
+					out.write(' ')
+				out.write('\n')
 				n_atoms = len(ca_atoms)
 			step = int(l)
 			ca_atoms = []
@@ -191,8 +220,10 @@ lfile.close()
 
 if len(ca_atoms)>0:
 	q = computeQ()
-	out.write(str(round(q,3)))
-	out.write(' ')
+	for key in q:
+		out.write(str(round(q[key],3)))
+		out.write(' ')
+	out.write('\n')
 	n_atoms = len(ca_atoms)
 
 out.close()

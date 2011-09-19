@@ -44,7 +44,7 @@ private:
   int ntimestep;
   int n, nn;
   int *alpha_carbons;
-  int *res_no, *res_info;
+  int *res_no, *res_info, *chain_no;
   int *image;
   int *periodicity;
   int seed;
@@ -58,8 +58,8 @@ private:
   double **x, **f;
   double **xca;
   double prd[3], half_prd[3];
-  double rand;
-  
+  double rand;  
+
    //Gaussian contacts, for multi-basin
   int n_basins;
   double R, *G, *A, ***sigma_mb;
@@ -68,8 +68,9 @@ private:
   double rmin_cutoff;
 
   bool allocated, contacts_allocated;
-  bool bonds_flag, angles_flag, dihedrals_flag, contacts_flag, contacts_dev_flag, contacts_sin_dev_flag, lj_contacts_flag, gaussian_contacts_flag;
+  bool bonds_flag, angles_flag, dihedrals_flag, contacts_flag, contacts_dev_flag, lj_contacts_flag, gaussian_contacts_flag;
   bool **isNative, ***isNative_mb; 
+  int dev_type;
 
   RanPark *random;
 
@@ -77,6 +78,8 @@ private:
   
   double energy[5], energy_all[5];
   enum EnergyTerms{ET_TOTAL=0, ET_BOND, ET_ANGLE, ET_DIHEDRAL, ET_CONTACTS, nEnergyTerms};
+  
+  enum ContactsDevType{DT_NONE=0, DT_CORR, DT_SIN, DT_CONST};
 
 private:
   void compute_goModel();

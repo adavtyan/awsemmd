@@ -25,6 +25,10 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
+// Possible use of Compute QOnuchic
+// compute 	1 alpha_carbons qonuchic qonuchic.dat cutoff r_cutoff ca_xyz_native.dat tolerance_factor
+// compute 	1 alpha_carbons qonuchic qonuchic.dat shadow shadow_map_file tolerance_factor
+
 ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
@@ -219,6 +223,7 @@ double ComputeQOnuchic::compute_scalar()
   int *mask = atom->mask;
   int *type = atom->type;
   int *tag = atom->tag;
+  int *res = atom->residue;
   int nlocal = atom->nlocal;
   int nall = atom->nlocal + atom->nghost;
   
@@ -226,7 +231,7 @@ double ComputeQOnuchic::compute_scalar()
     if (!(mask[i] & groupbit)) continue;
     
   	itype = type[i];
-    ires = tag[i]-1;
+    ires = res[i]-1;
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
@@ -235,7 +240,7 @@ double ComputeQOnuchic::compute_scalar()
       if (!(mask[j] & groupbit)) continue;
       
       jtype = type[j];
-      jres = tag[j]-1;
+      jres = res[j]-1;
       
       if (is_native[ires][jres] && abs(jres-ires)>3) {
         delx = xtmp - x[j][0];

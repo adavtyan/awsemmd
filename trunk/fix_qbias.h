@@ -26,8 +26,6 @@ class FixQBias : public Fix {
  public:
   FixQBias(class LAMMPS *, int, char **);
   ~FixQBias();
-//  FixBackbone(class LAMMPS *, int, char **);
-//  ~FixBackbone();
   int setmask();
   void init();
   void setup(int);

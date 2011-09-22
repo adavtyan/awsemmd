@@ -541,10 +541,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   ifstream in_rs("record_steps");
   in_rs >> sStep >> eStep;
   in_rs.close();
-  
-//  fprintf(dout, "\n%d %f %f %f %f %f %f %d %f %f %f %d %f %f %f %f %f\n\n", helix_flag, k_helix, helix_gamma_p, helix_gamma_w, helix_kappa, helix_kappa_sigma, 
-//  			helix_treshold, helix_i_diff, helix_cutoff, helix_well_r_min[0], helix_well_r_max[0], pro_accepter_flag, h4prob_pro_accepter, 
-//  			helix_sigma_HO, helix_sigma_NO, helix_HO_zero, helix_NO_zero);
 }
 
 void FixBackbone::final_log_output()
@@ -3718,4 +3714,5 @@ double FixBackbone::compute_vector(int nv)
                 MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
                 force_flag = 1;
         }
-        return energy_all[nv+1]
+        return energy_all[nv+1];
+}

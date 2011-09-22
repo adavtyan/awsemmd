@@ -424,10 +424,11 @@ for line in matchlines:
 	else:
 		    print pdbFile, "does not exist! Go figure..."
 
-for line in homoOut:
-  entries=line.split()
-  print "HOMOLOGS:::"
-  print entries
+if brain_damage == 1:
+  for line in homoOut:
+    entries=line.split()
+    print "HOMOLOGS:::"
+    print entries
 print "memories per position that is fewer than expected:"  
 for i in count:
   if count[i] < N_mem:

@@ -26,11 +26,11 @@ using namespace LAMMPS_NS;
    This routine can be used to compute the total number of contacts.
 
    To output this compute to a file:
-   compute 	1 alpha_carbons totalcontacts 12.0 2
+   compute 	1 beta_atoms totalcontacts 6.5 2
    variable	tc equal c_1
-   fix		tc all print 100 "${tc}" file tc.dat screen no
+   fix  		 tc all print 100 "${tc}" file tc.dat screen no
 
-   Note that 12.0 and 2 above are examples of the distance threshold
+   Note that 6.5 and 2 above are examples of the distance threshold
    and sequence separation, respectively.
 
    ---------------------------------------------------------------------- */

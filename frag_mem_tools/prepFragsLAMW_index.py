@@ -124,6 +124,13 @@ fLibDir = "./fraglib/"
 indexDir = myhome + "/opt/script/Indices/"
 #fLibDir = myhome + "/opt/script/fraglib/"
 pdbSeqres= myhome + "/opt/script/pdb_seqres.txt"
+fasta_database = database+".fasta"
+
+# Index database fasta file
+if not os.path.isfile(fasta_database):
+	print "Can't find database fasta file"
+        exit()
+seq_records = SeqIO.index(fasta_database, "fasta")
 
 fragmentLength=9 #needs to be an odd number
 memoriesPerPosition=N_mem  #can be any integer > 0
@@ -318,14 +325,20 @@ for line in matchlines:
 	#No, write it
 	if not os.path.isfile(indexFile):
 		#generate fasta file
-		if not os.path.isfile(pdbSeqres):
-			print "Need to download pdb_seqres.txt from PDB!"
-			print "ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"
-			print "Copy to $HOME/opt/script/"
-			exit()
-		fastaFile=pdbID+'_'+chainID.upper()
-		exeline="grep -A1 "+fastaFile+" "+pdbSeqres+" > ./tmp.fasta"
-		os.popen(exeline)
+		seq_id = pdbID.upper() + chainID.upper()
+		handle = open(fastFile, "w")
+		SeqIO.write(seq_records[seq_id], handle, "fasta")
+		handle.close()
+#		print str(seq_records[seq_id].seq)
+
+#		if not os.path.isfile(pdbSeqres):
+#			print "Need to download pdb_seqres.txt from PDB!"
+#			print "ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"
+#			print "Copy to $HOME/opt/script/"
+#			exit()
+#		fastaFile=pdbID+'_'+chainID.upper()
+#		exeline="grep -A1 "+fastaFile+" "+pdbSeqres+" > ./tmp.fasta"
+#		os.popen(exeline)
 
 		#write index file
 		writeIndexFile(fastFile, pdbFile, indexFile, chainID.upper())

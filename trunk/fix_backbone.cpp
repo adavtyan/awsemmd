@@ -2251,7 +2251,8 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 void FixBackbone::compute_water_potential(int i, int j)
 {
 	if (chain_no[i]==chain_no[j] && res_no[j]-res_no[i]<contact_cutoff) return;
-	
+	if (chain_no[i]!=chain_no[j] && res_no[j] < res_no[i]) return;
+
 	double dx[3], sigma_gamma, theta_gamma, force;
 	double *xi, *xj, *xk;
 	int iatom, jatom, katom, i_well, k;

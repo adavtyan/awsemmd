@@ -3450,8 +3450,9 @@ void FixBackbone::compute_backbone()
 		for (j=0;j<nn;j++) {
 			j_resno = res_no[j]-1;
 			j_chno = chain_no[j]-1;
-			if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
-//			if (water_flag && j_resno-i_resno>=contact_cutoff && res_info[i]==LOCAL)
+			//if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
+			//if (water_flag && j_resno-i_resno>=contact_cutoff && res_info[i]==LOCAL)
+			if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL)
 				compute_water_potential(i, j);
 		}
 	}
@@ -3600,7 +3601,8 @@ void FixBackbone::compute_backbone()
 			if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && res_info[j]==LOCAL)
 				compute_P_AP_potential(i, j);
 
-			if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
+			//if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
+			if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL)
 			  compute_water_potential(i, j);
 			  
 			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL)

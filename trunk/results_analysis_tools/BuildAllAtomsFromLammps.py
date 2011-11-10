@@ -17,6 +17,11 @@ atom_type = {'1' : 'C', '2' : 'N', '3' : 'O', '4' : 'C', '5' : 'H', '6' : 'C'}
 atom_desc = {'1' : 'C-Alpha', '2' : 'N', '3' : 'O', '4' : 'C-Beta', '5' : 'H-Beta', '6' : 'C-Prime'}
 PDB_type = {'1' : 'CA', '2' : 'N', '3' : 'O', '4' : 'CB', '5' : 'HB', '6' : 'C' }
 
+d_res = {"C" : "CYS", "I" : "ILE", "S" : "SER", "Q" : "GLN", "K" : "LYS", 
+	 "N" : "ASN", "P" : "PRO", "T" : "THR", "F" : "PHE", "A" : "ALA", 
+	 "H" : "HIS", "G" : "GLY", "D" : "ASP", "L" : "LEU", "R" : "ARG", 
+	 "W" : "TRP", "V" : "VAL", "E" : "GLU", "Y" : "TYR", "M" : "MET"}
+
 class PDB_Atom:
 	no = 0
 	ty = ''
@@ -85,9 +90,32 @@ class Atom:
 		f.write(self.desc)
 		f.write('\n')
 
-if len(sys.argv)!=3 and len(sys.argv)!=4:
-	print "\n" + sys.argv[0] + " Input_file Output_file [snapshot]\n"
+def One2ThreeLetters(txt):
+	seq_array = []
+	for s in txt:
+		seq_array.append( d_res.get(s,"ALA") )
+	return seq_array
+
+
+if len(sys.argv)<3 or len(sys.argv)>6:
+	print "\n" + sys.argv[0] + " Input_file Output_file [snapshot] [-seq sequance_file]\n"
 	exit()
+
+
+del_list=[]
+seq_file = ""
+sequance = []
+seq_txt = ""
+bseq = False
+for iarg in range(3, len(sys.argv)):
+        if sys.argv[iarg]=="-seq":
+                bseq = True
+                seq_file = sys.argv[iarg+1]
+		del_list.insert(0, iarg)
+		del_list.insert(0, iarg+1)
+for idel in del_list:
+	sys.argv.pop(idel)
+
 
 lammps_file = sys.argv[1]
 
@@ -102,6 +130,12 @@ if psf_file[-4:]!=".psf": psf_file = psf_file + ".psf"
 
 snapshot = -1
 if len(sys.argv)>3: snapshot = int(sys.argv[3])
+
+if seq_file!="":
+	fseq = open(seq_file)
+	seq_txt = fseq.read().strip()
+	sequance = One2ThreeLetters(seq_txt)
+	fseq.close()
 
 an = 0.4831806
 bn = 0.7032820
@@ -128,7 +162,9 @@ def convertToPDB():
 	ires = 1
 	for ia in atoms2:
 		if ia.desc == 'N': ires = ires + 1
-		atom = PDB_Atom(ia.No, PDB_type[ia.No_m], "ALA", ires, ia.x, ia.y, ia.z, ia.ty)
+		res_ty="ALA"
+		if bseq: res_ty = sequance[ires-1]
+		atom = PDB_Atom(ia.No, PDB_type[ia.No_m], res_ty, ires, ia.x, ia.y, ia.z, ia.ty)
 		atoms3.append(atom)
 
 def buildAllAtoms():

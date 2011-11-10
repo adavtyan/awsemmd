@@ -133,7 +133,7 @@ if len(sys.argv)>3: snapshot = int(sys.argv[3])
 
 if seq_file!="":
 	fseq = open(seq_file)
-	seq_txt = fseq.read().strip()
+	seq_txt = fseq.read().strip().replace("\n","")
 	sequance = One2ThreeLetters(seq_txt)
 	fseq.close()
 

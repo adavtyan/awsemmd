@@ -708,6 +708,7 @@ void FixBackbone::allocate()
 		for (int i=0;i<3*n;i++) {
 		  amh_go_force[i] = new double[3];
 		}
+		amh_go_norm = new double[nch];
 	}
 	
 	allocated = true;
@@ -2518,6 +2519,49 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	}
 }
 
+
+void FixBackbone::compute_amhgo_normalization()
+{
+	// compute normalization constant for the amhgo potential
+	// the constant is called "a" and is given in Eqn. 8 in 
+	// Eastwood and Wolynes 2000 "Role of explicitly..."
+	// a = 1/(8N) \sum_i abs(\sum_(j in native contact) gamma_ij)^p
+	
+	int i, j;
+	double normi, ;
+	
+	// Loop over chains
+	for (ich=0;ich<nch;++ich) {
+		res0 = ch_pos[ich]-1;
+		resn = ch_pos[ich]+ch_len[ich]-2;
+	
+		// Double loop over all residue pairs
+		for (i=res0;i<resn;++i) {
+			ires_type = se_map[se[i]-'A'];
+			
+			for (iatom==Fragment_Memory::FM_CA; iatom<=Fragment_Memory::FM_CB - (se[i]=='G' ? 1 : 0); ++iatom) {
+				normi = 0.0;
+			
+				for (j=res0;j<resn;++j) {
+					jres_type = se_map[se[j]-'A'];
+					
+					for (jatom==Fragment_Memory::FM_CA; jatom<=Fragment_Memory::FM_CB - (se[j]=='G' ? 1 : 0); ++jatom) {
+						if (abs(i-j)<amh_go_gamma->minSep()) continue;
+						
+						rnative = m_amh_go->Rf(i, iatom, j, jatom);
+						if (rnative<amh_go_rc) {
+							amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, i, j);
+							normi +=amhgo_gamma;
+						}
+					}
+				}
+				amh_go_norm[ich] += pow(fabs(normi), amh_go_p);
+			}
+		}
+		amh_go_norm[ich] /= 8*n;
+	}	
+}
+
 void FixBackbone::compute_amh_go_model()
 {
   int i, j, k, ii, jj, inum, jnum, ires, jres, iatom, jatom, ires_type, jres_type;
@@ -2628,7 +2672,7 @@ void FixBackbone::compute_amh_go_model()
         f[amh_go_force_map[k]][2] += factor*amh_go_force[k][2];
       }
       
-      E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p);
+      E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[imol];
     }
   }
   

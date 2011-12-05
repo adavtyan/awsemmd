@@ -95,6 +95,7 @@ public:
   Gamma_Array *amh_go_gamma;
   double **amh_go_force;
   int *amh_go_force_map;
+  double *amh_go_norm;
   
   // Fragment Memory parameters
   double k_frag_mem;
@@ -175,6 +176,7 @@ public:
   void compute_solvent_barrier(int i, int j);
   void compute_fragment_memory_table();
   void table_fragment_memory(int i, int j);
+  void compute_amhgo_normalization();
 
   void allocate();
   inline void Construct_Computational_Arrays();

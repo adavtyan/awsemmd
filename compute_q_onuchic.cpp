@@ -216,7 +216,8 @@ double ComputeQOnuchic::compute_scalar()
   invoked_scalar = update->ntimestep;
   
   int i, j, itype, jtype, ires, jres;
-  double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
+  double xi[3],xj[3],delx,dely,delz,rsq;
+  int xbox, ybox, zbox;
   double q=0.0;
 
   double **x = atom->x;
@@ -224,17 +225,38 @@ double ComputeQOnuchic::compute_scalar()
   int *type = atom->type;
   int *tag = atom->tag;
   int *res = atom->residue;
+  int *image = atom->image;
   int nlocal = atom->nlocal;
   int nall = atom->nlocal + atom->nghost;
+  double prd[3];
+  
+  prd[0] = domain->xprd;
+  prd[1] = domain->yprd;
+  prd[2] = domain->zprd;
   
   for (i=0;i<nlocal;i++) {
     if (!(mask[i] & groupbit)) continue;
     
   	itype = type[i];
     ires = res[i]-1;
-    xtmp = x[i][0];
-    ytmp = x[i][1];
-    ztmp = x[i][2];
+
+    xi[0] = x[i][0];
+    xi[1] = x[i][1];
+    xi[2] = x[i][2];
+    
+    if (domain->xperiodic) {
+    	xbox = (image[i] & 1023) - 512;
+		xi[0] += xbox*prd[0];
+	}
+	if (domain->yperiodic) {
+		ybox = (image[i] >> 10 & 1023) - 512;
+		xi[1] += ybox*prd[1];
+	}
+	if (domain->zperiodic) {
+		zbox = (image[i] >> 20) - 512;
+		xi[2] += zbox*prd[2];
+	}
+	
     
     for (j=i+1;j<nall;j++) {
       if (!(mask[j] & groupbit)) continue;
@@ -243,9 +265,26 @@ double ComputeQOnuchic::compute_scalar()
       jres = res[j]-1;
       
       if (is_native[ires][jres] && abs(jres-ires)>3) {
-        delx = xtmp - x[j][0];
-		dely = ytmp - x[j][1];
-		delz = ztmp - x[j][2];
+      	xj[0] = x[j][0];
+      	xj[1] = x[j][1];
+      	xj[2] = x[j][2];
+      	
+      	if (domain->xperiodic) {
+			xbox = (image[j] & 1023) - 512;
+			xj[0] += xbox*prd[0];
+		}
+		if (domain->yperiodic) {
+			ybox = (image[j] >> 10 & 1023) - 512;
+			xj[1] += ybox*prd[1];
+		}
+		if (domain->zperiodic) {
+			zbox = (image[j] >> 20) - 512;
+			xj[2] += zbox*prd[2];
+		}
+      
+        delx = xi[0] - xj[0];
+		dely = xi[1] - xj[1];
+		delz = xi[2] - xj[2];
 		rsq = delx*delx + dely*dely + delz*delz;
 		  
 		if (rsq<rsq_native[ires][jres]) q += 1.0;

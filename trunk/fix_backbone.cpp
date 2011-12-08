@@ -2527,8 +2527,10 @@ void FixBackbone::compute_amhgo_normalization()
 	// Eastwood and Wolynes 2000 "Role of explicitly..."
 	// a = 1/(8N) \sum_i abs(\sum_(j in native contact) gamma_ij)^p
 	
-	int i, j;
-	double normi, ;
+	int i, j, ich, res0, resn, iatom, jatom;
+	int ires_type, jres_type;
+	double amhgo_gamma, rnative;
+	double normi;
 	
 	// Loop over chains
 	for (ich=0;ich<nch;++ich) {

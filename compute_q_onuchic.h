@@ -33,7 +33,7 @@ class ComputeQOnuchic : public Compute {
 
  private:
   int nAtoms;
-  int type;
+  int cp_type;
   int igroup,groupbit;
   bool allocated;
   bool **is_native;
@@ -41,11 +41,10 @@ class ComputeQOnuchic : public Compute {
   double **x_native;
   double **rsq_native;
   double qnorm;
-  char *filename, *datafile;
+  double sigmaexp;
+  char *datafile;
   
-  enum type{T_CUTOFF=0, T_SHADOW=1};
-  
-  FILE *fout;
+  enum type{T_CUTOFF=0, T_SHADOW=1, T_CUTOFF_GAUSS=2, T_SHADOW_GAUSS=3};
   
   class NeighList *list;
 };

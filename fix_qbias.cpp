@@ -67,6 +67,8 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 
 	qbias_flag = 0;
 	qbias_exp_flag = 0;
+	qobias_flag = 0;
+	qobias_exp_flag = 0;
 	epsilon = 1.0;
 
 	int i, j;
@@ -91,6 +93,22 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 			in >> q0;
 			in >> l;
 			in >> sigma_exp;
+		} else if (strcmp(varsection, "[QOBias]")==0) {
+			qobias_flag = 1;
+			print_log("QOBias flag on\n");
+			in >> k_qbias;
+			in >> q0;
+			in >> l;
+			in >> sigma;
+			in >> cutoff;
+		}  else if (strcmp(varsection, "[QOBias_Exp]")==0) {
+			qobias_exp_flag = 1;
+			print_log("QOBias_Exp flag on\n");
+			in >> k_qbias;
+			in >> q0;
+			in >> l;
+			in >> sigma_exp;
+			in >> cutoff;
 		}
 	}
 	in.close();
@@ -385,9 +403,11 @@ void FixQBias::compute_qbias()
 	int i, j;
 
 	qsum = 0;
-	a = 2.0/((n-2)*(n-3));
+//	a = 2.0/((n-2)*(n-3));
 	for (i=0;i<n;++i) {
 		for (j=i+3;j<n;++j) {
+			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>cutoff ) continue;
+		
 			dx[0] = xca[i][0] - xca[j][0];
 			dx[1] = xca[i][1] - xca[j][1];
 			dx[2] = xca[i][2] - xca[j][2];
@@ -396,9 +416,10 @@ void FixQBias::compute_qbias()
 			dr = r[i][j] - rN[i][j];
 			q[i][j] = exp(-dr*dr/(2*sigma_sq[j-i]));
 			qsum += q[i][j];
+			a +=1.0;
 		}
 	}
-	qsum = a*qsum;
+	qsum = qsum/a;
 
 //	fprintf(fout, "Q%d=%f:\n",Step, qsum);
 
@@ -411,6 +432,8 @@ void FixQBias::compute_qbias()
 
 	for (i=0;i<n;++i) {
 		for (j=i+3;j<n;++j) {
+			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>cutoff ) continue;
+		
 			dx[0] = xca[i][0] - xca[j][0];
 			dx[1] = xca[i][1] - xca[j][1];
 			dx[2] = xca[i][2] - xca[j][2];
@@ -435,7 +458,7 @@ void FixQBias::out_xyz_and_force(int coord)
 //	out.precision(12);
 	
 	fprintf(fout, "%d\n", Step);
-	fprintf(fout, "%d%d\n", qbias_flag, qbias_exp_flag);
+	fprintf(fout, "%d%d\n", qbias_flag, qbias_exp_flag, qobias_flag, qobias_exp_flag);
 	fprintf(fout, "Number of atoms %d\n", n);
 	fprintf(fout, "Energy: %d\n\n", energy[ET_TOTAL]);
 
@@ -515,9 +538,9 @@ void FixQBias::compute()
 	}
 
 	tmp = energy[ET_QBIAS];
-	if (qbias_flag || qbias_exp_flag)
+	if (qbias_flag || qbias_exp_flag || qobias_flag || qobias_exp_flag)
 		compute_qbias();
-	if ((qbias_flag || qbias_exp_flag) && Step>=sStep && Step<=eStep) {
+	if ((qbias_flag || qbias_exp_flag || qobias_flag || qobias_exp_flag) && Step>=sStep && Step<=eStep) {
 		fprintf(fout, "Qbias %d:\n", nn);
 		fprintf(fout, "Qbias_Energy: %.12f\n", energy[ET_QBIAS]-tmp);
 		out_xyz_and_force();

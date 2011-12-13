@@ -26,8 +26,10 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 // Possible use of Compute QOnuchic
-// compute 	1 alpha_carbons qonuchic qonuchic.dat cutoff r_cutoff ca_xyz_native.dat tolerance_factor
-// compute 	1 alpha_carbons qonuchic qonuchic.dat shadow shadow_map_file tolerance_factor
+// compute 	1 alpha_carbons qonuchic cutoff r_cutoff ca_xyz_native.dat tolerance_factor
+// compute 	1 alpha_carbons qonuchic shadow shadow_map_file tolerance_factor
+// compute 	1 alpha_carbons qonuchic cutoff/gauss r_cutoff ca_xyz_native.dat tolerance_factor
+// compute 	1 alpha_carbons qonuchic shadow/gauss shadow_map_file tolerance_factor
 
 ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
@@ -47,16 +49,19 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   if (igroup == -1) 
 		error->all("Could not find compute qonuchic group ID"); 
   
-  len = strlen(arg[3]) + 1;
-  filename = new char[len];
-  strcpy(filename,arg[3]);
+//  len = strlen(arg[3]) + 1;
+//  filename = new char[len];
+//  strcpy(filename,arg[3]);
   
   len = strlen(arg[4]) + 1;
   ctype = new char[len];
   strcpy(ctype,arg[4]);
   
-  if (strcmp(ctype, "cutoff")==0) {
-  	type = T_CUTOFF;
+  if (strcmp(ctype, "cutoff")==0 || strcmp(ctype, "cutoff/gauss")==0) {
+  	if (strcmp(ctype, "cutoff")==0)
+	  	cp_type = T_CUTOFF;
+	else
+		cp_type = T_CUTOFF_GAUSS;
   	
   	if (narg != 8) error->all("Illegal compute qonuchic command");
 
@@ -68,8 +73,11 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   	strcpy(datafile,arg[6]);
   	
  	factor = atof(arg[7]);
-  } else if (strcmp(ctype, "shadow")==0) {
-  	type = T_SHADOW;
+  } else if (strcmp(ctype, "shadow")==0 || strcmp(ctype, "shadow/gauss")==0) {
+  	if (strcmp(ctype, "shadow")==0)
+  		cp_type = T_SHADOW;
+  	else
+  		cp_type = T_SHADOW_GAUSS;
   	
   	if (narg != 7) error->all("Illegal compute qonuchic command");
   	
@@ -82,9 +90,11 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   	error->all("Wrong type for compute qonuchic"); 
   }
   
+  sigmaexp = 0.15;
+  
   createContactArrays();
   
-  fout = fopen(filename, "w");
+//  fout = fopen(filename, "w");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -92,11 +102,11 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
 void ComputeQOnuchic::allocate()
 {
 	int i;
-	if (type==T_CUTOFF) x_native = new double*[nAtoms];
+	if (cp_type==T_CUTOFF || cp_type==T_CUTOFF_GAUSS) x_native = new double*[nAtoms];
 	rsq_native = new double*[nAtoms];
 	is_native = new bool*[nAtoms];
 	for (i=0; i<nAtoms; ++i) {
-		if (type==T_CUTOFF) x_native[i] = new double[3];
+		if (cp_type==T_CUTOFF || cp_type==T_CUTOFF_GAUSS) x_native[i] = new double[3];
 		rsq_native[i] = new double[nAtoms];
 		is_native[i] = new bool[nAtoms];
 	}
@@ -111,17 +121,17 @@ ComputeQOnuchic::~ComputeQOnuchic()
 	if (allocated) {
 		int i;
 		for (i=0;i<nAtoms;++i) {
-			if (type==T_CUTOFF) delete [] x_native[i];
+			if (cp_type==T_CUTOFF || cp_type==T_CUTOFF_GAUSS) delete [] x_native[i];
 			delete [] rsq_native[i];
 			delete [] is_native[i];
 		}
 
-		if (type==T_CUTOFF) delete [] x_native;
+		if (cp_type==T_CUTOFF || cp_type==T_CUTOFF_GAUSS) delete [] x_native;
 		delete [] rsq_native;
 		delete [] is_native;
 	}
 	
-	fclose(fout);
+//	fclose(fout);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -138,7 +148,7 @@ void ComputeQOnuchic::createContactArrays()
 {
   int i, j;
 
-  if (type==T_CUTOFF) {
+  if (cp_type==T_CUTOFF || cp_type==T_CUTOFF_GAUSS) {
 	  FILE *fnative;
 	  
 	  fnative = fopen(datafile, "r");
@@ -172,7 +182,7 @@ void ComputeQOnuchic::createContactArrays()
 		}
 	  }
 	  qnorm = 1/qnorm;
-  } else if (type==T_SHADOW) {
+  } else if (cp_type==T_SHADOW || cp_type==T_SHADOW_GAUSS) {
   	FILE *fshadow;
   	int ires, jres;
   	double rn;
@@ -218,7 +228,7 @@ double ComputeQOnuchic::compute_scalar()
   int i, j, itype, jtype, ires, jres;
   double xi[3],xj[3],delx,dely,delz,rsq;
   int xbox, ybox, zbox;
-  double q=0.0;
+  double q=0.0, sigma_sq;
 
   double **x = atom->x;
   int *mask = atom->mask;
@@ -287,7 +297,14 @@ double ComputeQOnuchic::compute_scalar()
 		delz = xi[2] - xj[2];
 		rsq = delx*delx + dely*dely + delz*delz;
 		  
-		if (rsq<rsq_native[ires][jres]) q += 1.0;
+		if (rsq<rsq_native[ires][jres]) {
+		  if (cp_type==T_CUTOFF || cp_type==T_SHADOW) {
+		  	q += 1.0;
+		  } else {
+		    sigma_sq = pow(abs(ires-jres),2.0*sigmaexp);
+		    q += exp(-pow(sqrt(rsq) - sqrt(rsq_native[ires][jres]), 2)/(2.0*sigma_sq));
+		  }
+		}
       }
     }
   }
@@ -295,7 +312,7 @@ double ComputeQOnuchic::compute_scalar()
   MPI_Allreduce(&q,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
   scalar *= qnorm;
   
-  fprintf(fout, "%d %f\n", invoked_scalar, scalar);
+//  fprintf(fout, "%d %f\n", invoked_scalar, scalar);
   
   return scalar;
 }

@@ -147,23 +147,28 @@ void ComputeQWolynes::readNativeDistances()
 
 double ComputeQWolynes::compute_scalar()
 {
-  // loop variables and residue numbers
-  int i, j, ires, jres;
-  // instantaneous distance of atoms i and j
-  double rij;
-  // native distance of atoms i and j
-  double rijn;
-  // sigma for atoms i and j
-  double sigmaij;
-  // q_wolynes
-  double q=0.0;
+  int i, j, ires, jres; // loop variables and residue numbers
+  double rij; 			// instantaneous distance of atoms i and j
+  double rijn;			// native distance of atoms i and j
+  double sigmaij; 		// sigma for atoms i and j
+  double q=0.0; 		// q_wolynes
+  double xi[3], xj[3]; 	// temporary coordinates
+  double xbox, ybox, zbox; // instantaneous periodic box indexes 
+  double prd[3];		// periodic box sizes
 
   double **x = atom->x; // atom positions
   int *mask = atom->mask; // atom mask (?)
+  int *image = atom->image; // atom image
   int *tag = atom->tag; // atom index
   int *residue = atom->residue; // atom's residue index
   int nlocal = atom->nlocal; // number of atoms on this processor
   int nall = atom->nlocal + atom->nghost; // total number of atoms
+  
+  // Get simulation box sizes
+  prd[0] = domain->xprd;
+  prd[1] = domain->yprd;
+  prd[2] = domain->zprd;
+  
   
   // loop over all atoms
   for (i=0;i<nlocal;i++) {
@@ -183,9 +188,36 @@ double ComputeQWolynes::compute_scalar()
 	sigmaij=pow(abs(ires-jres),sigmaexp);
 	// get the native distance
 	rijn=r_native[ires][jres];
+	
+	// taking into account periodicity
+	if (domain->xperiodic) {
+    	xbox = (image[i] & 1023) - 512;
+		xi[0] = x[i][0] + xbox*prd[0];
+	} xi[0] = x[i][0];
+	if (domain->yperiodic) {
+		ybox = (image[i] >> 10 & 1023) - 512;
+		xi[1] = x[i][1] + ybox*prd[1];
+	} xi[1] = x[i][1];
+	if (domain->zperiodic) {
+		zbox = (image[i] >> 20) - 512;
+		xi[2] = x[i][2] + zbox*prd[2];
+	} xi[2] = x[i][2];
+	
+	if (domain->xperiodic) {
+    	xbox = (image[j] & 1023) - 512;
+		xj[0] = x[j][0] + xbox*prd[0];
+	} xj[0] = x[j][0];
+	if (domain->yperiodic) {
+		ybox = (image[j] >> 10 & 1023) - 512;
+		xj[1] = x[j][1] + ybox*prd[1];
+	} xj[1] = x[j][1];
+	if (domain->zperiodic) {
+		zbox = (image[j] >> 20) - 512;
+		xj[2] = x[j][2] + zbox*prd[2];
+	} xj[2] = x[j][2];
+	
 	// get the instantaneous distance
-	rij=sqrt(pow(x[i][0]-x[j][0],2)+pow(x[i][1]-x[j][1],2)+pow(x[i][2]-x[j][2],2));
-	// cout << rij-rijn << '\n';
+	rij=sqrt(pow(xi[0]-xj[0],2)+pow(xi[1]-xj[1],2)+pow(xi[2]-xj[2],2));
 	// add the contribution to q
 	q += exp(-pow(rij-rijn,2)/(2.0*pow(sigmaij,2)));
       }

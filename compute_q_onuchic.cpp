@@ -53,9 +53,9 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
 //  filename = new char[len];
 //  strcpy(filename,arg[3]);
   
-  len = strlen(arg[4]) + 1;
+  len = strlen(arg[3]) + 1;
   ctype = new char[len];
-  strcpy(ctype,arg[4]);
+  strcpy(ctype,arg[3]);
   
   if (strcmp(ctype, "cutoff")==0 || strcmp(ctype, "cutoff/gauss")==0) {
   	if (strcmp(ctype, "cutoff")==0)
@@ -63,29 +63,29 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
 	else
 		cp_type = T_CUTOFF_GAUSS;
   	
-  	if (narg != 8) error->all("Illegal compute qonuchic command");
+  	if (narg != 7) error->all("Illegal compute qonuchic command");
 
-  	r_contact = atof(arg[5]);
+  	r_contact = atof(arg[4]);
   	r_consq = r_contact*r_contact;
  	
-  	len = strlen(arg[6]) + 1;
+  	len = strlen(arg[5]) + 1;
   	datafile = new char[len];
-  	strcpy(datafile,arg[6]);
+  	strcpy(datafile,arg[5]);
   	
- 	factor = atof(arg[7]);
+ 	factor = atof(arg[6]);
   } else if (strcmp(ctype, "shadow")==0 || strcmp(ctype, "shadow/gauss")==0) {
   	if (strcmp(ctype, "shadow")==0)
   		cp_type = T_SHADOW;
   	else
   		cp_type = T_SHADOW_GAUSS;
   	
-  	if (narg != 7) error->all("Illegal compute qonuchic command");
+  	if (narg != 6) error->all("Illegal compute qonuchic command");
   	
-  	len = strlen(arg[5]) + 1;
+  	len = strlen(arg[4]) + 1;
   	datafile = new char[len];
-  	strcpy(datafile,arg[5]);
+  	strcpy(datafile,arg[4]);
   	
- 	factor = atof(arg[6]);
+ 	factor = atof(arg[5]);
   } else {
   	error->all("Wrong type for compute qonuchic"); 
   }

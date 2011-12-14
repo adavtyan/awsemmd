@@ -110,6 +110,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 			in >> sigma_exp;
 			in >> cutoff;
 		}
+		varsection[0]='\0';
 	}
 	in.close();
 	print_log("\n");
@@ -120,9 +121,12 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 		for (j=0;j<n;++j)
 			in_rnative >> rN[i][j];
 	in_rnative.close();
+	
+	// Minimal sequence separation
+	sep = 3;
+	if (qobias_flag || qobias_exp_flag) sep=4;
 
 	for (i=0;i<n;i++) sigma_sq[i] = Sigma(i)*Sigma(i);
-//	for (i=0;i<n;i++) fprintf(fout, "sigma_sq[%d]=%f:\n",i, sigma_sq[i]);
 
 	x = atom->x;
 	f = atom->f;
@@ -390,7 +394,7 @@ inline double FixQBias::PeriodicityCorrection(double d, int i)
 
 double FixQBias::Sigma(int sep)
 {
-	if (qbias_exp_flag)
+	if (qbias_exp_flag || qobias_exp_flag)
 		return pow(1+sep, sigma_exp);
 
 	return sigma;
@@ -402,11 +406,12 @@ void FixQBias::compute_qbias()
 	double force, force1;
 	int i, j;
 
-	qsum = 0;
+	qsum = 0.0;
+	a = 0.0;
 //	a = 2.0/((n-2)*(n-3));
 	for (i=0;i<n;++i) {
-		for (j=i+3;j<n;++j) {
-			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>cutoff ) continue;
+		for (j=i+sep;j<n;++j) {
+			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>=cutoff ) continue;
 		
 			dx[0] = xca[i][0] - xca[j][0];
 			dx[1] = xca[i][1] - xca[j][1];
@@ -421,18 +426,18 @@ void FixQBias::compute_qbias()
 	}
 	qsum = qsum/a;
 
-//	fprintf(fout, "Q%d=%f:\n",Step, qsum);
+//	fprintf(fout, "Q%d=%f,  norm=%f\n",Step, qsum, a);
 
 	dql1 = pow(qsum-q0, l-1);
 	dql = dql1*(qsum-q0);
 	
 	energy[ET_QBIAS] += epsilon*k_qbias*dql;
 
-	force = epsilon*k_qbias*dql1*l*a;
+	force = epsilon*k_qbias*dql1*l/a;
 
 	for (i=0;i<n;++i) {
-		for (j=i+3;j<n;++j) {
-			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>cutoff ) continue;
+		for (j=i+sep;j<n;++j) {
+			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>=cutoff ) continue;
 		
 			dx[0] = xca[i][0] - xca[j][0];
 			dx[1] = xca[i][1] - xca[j][1];

@@ -177,8 +177,8 @@ void ComputeQOnuchic::createContactArrays()
 				is_native[i][j] = true;
 				qnorm += 1.0;
 			} else is_native[i][j] = false;
-					
-			if (is_native[i][j]) rsq_native[i][j] *= factor*factor;
+			
+			if (cp_type==T_CUTOFF && is_native[i][j]) rsq_native[i][j] *= factor*factor;
 		}
 	  }
 	  qnorm = 1/qnorm;
@@ -210,7 +210,7 @@ void ComputeQOnuchic::createContactArrays()
   		
 //  		fprintf(screen, "|%d %d %f|\n", ires, jres, rn);
   		is_native[ires][jres] = true;
-  		rsq_native[ires][jres] = factor*factor*rn*rn;
+  		if (cp_type==T_SHADOW) rsq_native[ires][jres] = factor*factor*rn*rn;
   		qnorm += 1.0;
   	}
   	fprintf(screen, "qnorm=%f\n", qnorm);
@@ -297,14 +297,12 @@ double ComputeQOnuchic::compute_scalar()
 		delz = xi[2] - xj[2];
 		rsq = delx*delx + dely*dely + delz*delz;
 		  
-		if (rsq<rsq_native[ires][jres]) {
-		  if (cp_type==T_CUTOFF || cp_type==T_SHADOW) {
-		  	q += 1.0;
-		  } else {
-		    sigma_sq = pow(abs(ires-jres),2.0*sigmaexp);
-		    q += exp(-pow(sqrt(rsq) - sqrt(rsq_native[ires][jres]), 2)/(2.0*sigma_sq));
-		  }
-		}
+	    if (cp_type==T_CUTOFF || cp_type==T_SHADOW) {
+		  if (rsq<rsq_native[ires][jres]) q += 1.0;
+	    } else {
+		  sigma_sq = pow(abs(ires-jres),2.0*sigmaexp);
+		  q += exp(-pow(sqrt(rsq) - sqrt(rsq_native[ires][jres]), 2)/(2.0*sigma_sq));
+	    }
       }
     }
   }

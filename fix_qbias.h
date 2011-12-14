@@ -49,7 +49,7 @@ private:
   int *alpha_carbons;
   bool qbias_flag, qbias_exp_flag, qobias_flag, qobias_exp_flag;
   double q0, sigma, sigma_exp;
-  double cutoff, sep;
+  double cutoff, min_sep;
   double *sigma_sq;
   int l;
   double **rN, **r, **q;

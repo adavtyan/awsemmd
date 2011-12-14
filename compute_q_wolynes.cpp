@@ -185,7 +185,7 @@ double ComputeQWolynes::compute_scalar()
       // check to make sure the atoms are separated by sep residues
       if (abs(jres-ires)>sep) {
 	// set sigma
-	sigmaij=pow(abs(ires-jres),sigmaexp);
+	sigmaij=pow(1+abs(ires-jres),sigmaexp);
 	// get the native distance
 	rijn=r_native[ires][jres];
 	

@@ -123,8 +123,8 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 	in_rnative.close();
 	
 	// Minimal sequence separation
-	sep = 3;
-	if (qobias_flag || qobias_exp_flag) sep=4;
+	min_sep = 3;
+	if (qobias_flag || qobias_exp_flag) min_sep=4;
 
 	for (i=0;i<n;i++) sigma_sq[i] = Sigma(i)*Sigma(i);
 
@@ -410,7 +410,7 @@ void FixQBias::compute_qbias()
 	a = 0.0;
 //	a = 2.0/((n-2)*(n-3));
 	for (i=0;i<n;++i) {
-		for (j=i+sep;j<n;++j) {
+		for (j=i+min_sep;j<n;++j) {
 			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>=cutoff ) continue;
 		
 			dx[0] = xca[i][0] - xca[j][0];
@@ -420,13 +420,12 @@ void FixQBias::compute_qbias()
 			r[i][j] = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 			dr = r[i][j] - rN[i][j];
 			q[i][j] = exp(-dr*dr/(2*sigma_sq[j-i]));
+
 			qsum += q[i][j];
 			a +=1.0;
 		}
 	}
 	qsum = qsum/a;
-
-//	fprintf(fout, "Q%d=%f,  norm=%f\n",Step, qsum, a);
 
 	dql1 = pow(qsum-q0, l-1);
 	dql = dql1*(qsum-q0);
@@ -436,7 +435,7 @@ void FixQBias::compute_qbias()
 	force = epsilon*k_qbias*dql1*l/a;
 
 	for (i=0;i<n;++i) {
-		for (j=i+sep;j<n;++j) {
+		for (j=i+min_sep;j<n;++j) {
 			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>=cutoff ) continue;
 		
 			dx[0] = xca[i][0] - xca[j][0];

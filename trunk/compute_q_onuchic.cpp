@@ -208,12 +208,10 @@ void ComputeQOnuchic::createContactArrays()
   		if (ires>=nAtoms || jres>=nAtoms || ires<0 || jres<0 || abs(jres-ires)<=3)
   			error->all("Compute qonuchic: wrong residue index in shadow contact map file");
   		
-//  		fprintf(screen, "|%d %d %f|\n", ires, jres, rn);
   		is_native[ires][jres] = true;
   		if (cp_type==T_SHADOW) rsq_native[ires][jres] = factor*factor*rn*rn;
   		qnorm += 1.0;
   	}
-  	fprintf(screen, "qnorm=%f\n", qnorm);
   	qnorm = 1/qnorm;
   	fclose(fshadow);
   }
@@ -300,7 +298,7 @@ double ComputeQOnuchic::compute_scalar()
 	    if (cp_type==T_CUTOFF || cp_type==T_SHADOW) {
 		  if (rsq<rsq_native[ires][jres]) q += 1.0;
 	    } else {
-		  sigma_sq = pow(abs(ires-jres),2.0*sigmaexp);
+		  sigma_sq = pow(1+abs(ires-jres),2.0*sigmaexp);
 		  q += exp(-pow(sqrt(rsq) - sqrt(rsq_native[ires][jres]), 2)/(2.0*sigma_sq));
 	    }
       }
@@ -309,8 +307,6 @@ double ComputeQOnuchic::compute_scalar()
   
   MPI_Allreduce(&q,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
   scalar *= qnorm;
-  
-//  fprintf(fout, "%d %f\n", invoked_scalar, scalar);
   
   return scalar;
 }

@@ -1,3 +1,12 @@
+# ----------------------------------------------------------------------
+# Copyright (2010) Aram Davtyan and Garegin Papoian
+#
+# Papoian's Group, University of Maryland at Collage Park
+# http://papoian.chem.umd.edu/
+#
+# Last Update: 08/18/2011
+# -------------------------------------------------------------------------
+
 import sys
 
 class Atom:

@@ -50,9 +50,9 @@ for ch in chains:
 out.write( str(len(xyz_CA)) )
 out.write('\n')
 for ixyz in xyz_CA:
-	out.write( str(round(ixyz[0], 6)) )
+	out.write( str(round(ixyz[0], 5)) )
 	out.write('\t')
-	out.write( str(round(ixyz[1], 6)) )
+	out.write( str(round(ixyz[1], 5)) )
 	out.write('\t')
-	out.write( str(round(ixyz[2], 6)) )
+	out.write( str(round(ixyz[2], 5)) )
 	out.write('\n')

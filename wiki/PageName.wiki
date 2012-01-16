@@ -14,7 +14,7 @@
   * Download and unzip FFTW 2.1.5
   * Install FFTW 2.1.5 somewhere locally using _./conﬁgure –preﬁx=/your_home_directory/local; make; make install_
   * Download and unzip LAMMPS source code
-  * Copy all .cpp and .h file from awsemmd directory to LAMMPS_DIR/src/
+  * Copy all _.cpp_ and _.h_ file from awsemmd directory to LAMMPS_DIR/src/
   * Go to LAMMPSDIR/src/STUBS/ and execute make command to compile a dummy MPI library
   * Copy awsemmd/Makefiles/Makefile.serial file to LAMMPS_DIR/src/MAKE/ and adjust the paths according to FFTW installation above
   * Go back to LAMMPS_DIR/src/ directory and execute _make clean-all_; _make serial_
@@ -25,8 +25,14 @@ http://lammps.sandia.gov/doc/Section_start.html#start_2
 
 = Generating project =
 
-The easiest way to generate a LAMMPS-AWSEM project is to do that using a pdb file which contains the structure of interest
+=== The easiest way to generate a LAMMPS-AWSEM project is to do that using a pdb file which contains the structure of interest ===
   * First of all go to awsemmd/create_project_tool/ and execute _install_tools.sh_ script. This will copy all necessary scripts in /your_home_directory/opt/script/.
   * Add /your_home_directory/opt/script/ to PATH variable (call _echo $PATH_ to make sure that you did it right)
   * Copy lmp_serial and the pdb file to a same directory
-  * From that directory call _PdbCoords2Lammdps\.sh pdb_id project_name_
+  * From that directory call _PdbCoords2Lammps\.sh pdb_id project_name_
+
+After this you should find the following files in your simulation (current) directory
+  # _data._ file which contains atom and bond description
+  # _.seq_ file with protein sequance
+  # _.coord_ with all atom backbone description and which is not needed for LAMMPS-AWSEM simulations
+  # _.in_ which contains an input script

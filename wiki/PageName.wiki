@@ -29,4 +29,4 @@ The easiest way to generate a LAMMPS-AWSEM project is to do that using a pdb fil
   * First of all go to awsemmd/create_project_tool/ and execute _install_tools.sh_ script. This will copy all necessary scripts in /your_home_directory/opt/script/.
   * Add /your_home_directory/opt/script/ to PATH variable (call _echo $PATH_ to make sure that you did it right)
   * Copy lmp_serial and the pdb file to a same directory
-  * From that directory call _PdbCoords2Lammps.sh pdb_id project_name_
+  * From that directory call _PdbCoords2Lammps\.sh pdb_id project_name_

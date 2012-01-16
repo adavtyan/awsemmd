@@ -52,6 +52,6 @@ To run a simulation you will also need several parameter files. Most of those fi
   * *amh-go.gamma* - example of gamma file used by AMH-Go term
   * *uniform.gamma, alpha.gamma* - sample gamma files for Fragment Memory term
 
-You may also need _ssweight_ file if `[SSWeight]` section in _fix_backbone_coeff.data_ in on. This file is typically used to apply a secondary structure bias based on prediction.
+You may also need _ssweight_ file if `[SSWeight]` section in _fix_backbone_coeff.data_ in on. This file is typically used to apply a secondary structure bias based on prediction. This file should contain two columns of float numbers; one line for each residue indicating a probability of the residue forming alpha-helix or beta-sheet. _!GenSswight.py_ script from awsemmd/create_project_tools/ can be used to convert a prediction from JPRED online server (http://www.compbio.dundee.ac.uk/www-jpred/) to the desired format.
 
-After obtaining all necessary parameter files you can use _lmp_serial < your_project.in_ command to run LAMMPS-AWSEM-MD simulation.
+After obtaining all necessary parameter files you can use _lmp_serial < your_project.in_ command to run a LAMMPS-AWSEM-MD simulation.

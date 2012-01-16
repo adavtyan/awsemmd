@@ -1,5 +1,5 @@
 #summary Getting started with AWSEM
-#labels Gettingstarted,compile,build,building,generateproject
+#labels Getting,started,generate,project,compile,build,building
 
 = Building LAMMPS with AWSEM =
 

@@ -45,7 +45,7 @@ http://lammps.sandia.gov/doc/Section_commands.html
 = Running simulations =
 
 To run a simulation you will also need several parameter files. Most of those files you can find in awsemmd/parameters/ directory. Bellow is a short description of the files located there
-  * *fix_backbone_coeff.data* - main parameter file for AWSEM potential. Each term has its own section within fix_backbone_coeff.data entitled with a term name enclosed in [] brackets. To switch any of the terms off put a "-" after [] brackets (or alternat its title in any other way). [Epsilon] and [ABC] sections must be always on. [Epsilon] sets general energy scale of AWSEM potential. [ABC] coefficients are used to calculate the positions of implicit backbone atoms from CA and O coordinates.
+  * *fix_backbone_coeff.data* - main parameter file for AWSEM potential. Each term has its own section within fix_backbone_coeff.data entitled with a term name enclosed in [] brackets. To switch any of the terms off put a "-" after "[]" brackets (or alternat its title in any other way). [Epsilon] and [ABC] sections must be always on. [Epsilon] sets general energy scale of AWSEM potential. [ABC] coefficients are used to calculate the positions of implicit backbone atoms from CA and O coordinates.
   * gamma.dat - contains gamma parameters for direct or protein/water mediated potential ([Water])
   * burial_gamma.dat - contains gammas for burial potential
   * para_one, para_HB, anti_one, anti_HB, anti_NHB - coefficients for beta hydrogen bonding potential ([Dssp_Hdrgn])

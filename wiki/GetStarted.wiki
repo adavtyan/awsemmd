@@ -26,7 +26,7 @@ http://lammps.sandia.gov/doc/Section_start.html#start_2
 = Generating project =
 
 
-The easiest way to generate a LAMMPS-AWSEM project is to do that using a pdb file which contains the structure of interest
+The easiest way to generate a LAMMPS-AWSEM project is to do that using a pdb file which contains the structure of interest. You will need to have python and biopython installed on your computer.
   * First of all go to awsemmd/create_project_tool/ and execute _install_tools.sh_ script. This will copy all necessary scripts in /your_home_directory/opt/script/.
   * Add /your_home_directory/opt/script/ to PATH variable (call _echo $PATH_ to make sure that you did it right)
   * Copy lmp_serial and the pdb file to a same directory

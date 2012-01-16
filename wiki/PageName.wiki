@@ -3,16 +3,23 @@
 
 = Building LAMMPS with AWSEM =
 
-== ASSS ==
-=== dsadfs ===
 
-What do you need:
+=== What do you need: ===
   * June 3rd, 2011 version of LAMMPS: http://lammps.sandia.gov/tars/lammps-3Jun11.tar.gz
   * FFTW 2.1.5: http://www.fftw.org/fftw-2.1.5.tar.gz
   * AWSEM code (see Source->Checkout)
 
-What to do:
-  *
+
+=== Step by step guide ===
+  * Download and unzip FFTW 2.1.5
+  * Install FFTW 2.1.5 somewhere locally using _./conﬁgure –preﬁx=/your_home_dir/local; make; make install_
+  * Download and unzip LAMMPS source code
+  * Copy all *.cpp and *.h file from awsemmd directory to LAMMPS_DIR/src
+  * Go to LAMMPSDIR/src/STUBS and execute make command to compile a dummy MPI library
+  * Copy awsemmd/Makefiles/Makefile.serial file to LAMMPS_DIR/src/MAKE and adjust the paths according to FFTW installation above
+  * Go back to LAMMPS_DIR/src directory and execute _make clean-all_; _make serial_
+For more information on LAMMPS compilation and inclusion of optional packages see the following link
+http://lammps.sandia.gov/doc/Section_start.html#start_2
 
 
 = Details =

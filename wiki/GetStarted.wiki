@@ -1,5 +1,5 @@
 #summary Getting started with AWSEM
-#labels CreateProject,Build,Compile
+#labels CreateProject,Build,Compile,Featured,Phase-Deploy
 
 = Building LAMMPS with AWSEM =
 

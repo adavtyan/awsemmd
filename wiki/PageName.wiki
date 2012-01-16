@@ -30,7 +30,7 @@ The easiest way to generate a LAMMPS-AWSEM project is to do that using a pdb fil
   * First of all go to awsemmd/create_project_tool/ and execute _install_tools.sh_ script. This will copy all necessary scripts in /your_home_directory/opt/script/.
   * Add /your_home_directory/opt/script/ to PATH variable (call _echo $PATH_ to make sure that you did it right)
   * Copy lmp_serial and the pdb file to a same directory
-  * From that directory call _PdbCoords2Lammps.sh pdb_id project_name_
+  * From that directory call _!PdbCoords2Lammps.sh pdb_id project_name_
 
 After this you should find the following files in your simulation (current) directory
   # _data._ file which contains atom and bond description
@@ -45,13 +45,13 @@ http://lammps.sandia.gov/doc/Section_commands.html
 = Running simulations =
 
 To run a simulation you will also need several parameter files. Most of those files you can find in awsemmd/parameters/ directory. Bellow is a short description of the files located there
-  * *fix_backbone_coeff.data* - main parameter file for AWSEM potential. Each term has its own section within _fix_backbone_coeff.data_ entitled with a term name enclosed in [] brackets. To switch any of the terms off put a "-" after "[]" brackets (or alternat its title in any other way). [Epsilon] and [ABC] sections must be always on. [Epsilon] sets general energy scale of AWSEM potential. [ABC] coefficients are used to calculate the positions of implicit backbone atoms from CA and O coordinates.
-  * *gamma.dat* - contains gamma parameters for direct or protein/water mediated potential ([Water])
+  * *fix_backbone_coeff.data* - main parameter file for AWSEM potential. Each term has its own section within _fix_backbone_coeff.data_ entitled with a term name enclosed in `[]` brackets. To switch any of the terms off put a "-" after `[]` brackets (or alternat its title in any other way). `[Epsilon]` and `[ABC]` sections must be always on. `[Epsilon]` sets general energy scale of AWSEM potential. `[ABC]` coefficients are used to calculate the positions of implicit backbone atoms from CA and O coordinates.
+  * *gamma.dat* - contains gamma parameters for direct or protein/water mediated potential (`[Water]`)
   * *burial_gamma.dat* - contains gammas for burial potential
-  * *para_one, para_HB, anti_one, anti_HB, anti_NHB* - coefficients for beta hydrogen bonding potential ([Dssp_Hdrgn])
+  * *para_one, para_HB, anti_one, anti_HB, anti_NHB* - coefficients for beta hydrogen bonding potential (`[Dssp_Hdrgn]`)
   * *amh-go.gamma* - example of gamma file used by AMH-Go term
   * *uniform.gamma, alpha.gamma* - sample gamma files for Fragment Memory term
 
-You may also need _ssweight_ file if [SSWeight] section in _fix_backbone_coeff.data_ in on. This file is typically used to apply a secondary structure bias based on prediction.
+You may also need _ssweight_ file if `[SSWeight]` section in _fix_backbone_coeff.data_ in on. This file is typically used to apply a secondary structure bias based on prediction.
 
 After obtaining all necessary parameter files you can use _lmp_serial < your_project.in_ command to run LAMMPS-AWSEM-MD simulation.

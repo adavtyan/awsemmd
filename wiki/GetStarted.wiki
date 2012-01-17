@@ -1,57 +1,79 @@
-#summary Getting started with AWSEM
+#summary Generating Fragment Library and using Fragment Memory term
 #labels CreateProject,Build,Compile,Featured,Phase-Deploy
 
-= Building LAMMPS with AWSEM =
+<wiki:toc max_depth="3" />
+
+= Introduction =
+
+AWSEM employes experimentally available knowledge of resolved structures to bias local interactions in a protein. One particular way to do it is to use short (with length of 9 or shorter) overlapping fragments called memories. Those memories can be chosen based on sequence similarity or any other desirable criterion. 
+
+The corresponding energy term is called Fragment Memory. To include Fragment Memory term in your simulations you will first need to generate a Fragment Library for each protein of interest. 
+
+This document explains how to generate Fragment Library based on sequence alignment method using python tools located in frag_mem_tools directory, and how to use Fragment Memory term.
+
+= Generating Fragment Library =
+
+== What do you need ==
+  * Scripts from awsemmd/frag_mem_tools/ directory
+  * Sequence of interest in FASTA format. Can contain multiple sequences
+  * Protein database in BLASTable format and the conjugate FASTA file (see bellow)
+  * psiblast executable (ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)
+  * wget package (http://www.gnu.org/software/wget/)
+
+== Obtaining and preparing protein database ==
+To generate Fragment Library you need a database of well defined structures in BLASTable format and a FASTA file which contains the sequences of those structures. The FASTA file should have the same prefix as the database. If you already have a FASTA file you can convert it to BLASTable format using _makeblastdb_ executable, which comes with _psiblast_. 
+{{{
+makeblastdb -in database_name.fasta -out database_name
+}}}
+This should generate 3 files; _database_name.phr_, _database_name.pin_ and _database_name.psq_.
 
 
-=== What do you need: ===
-  * June 3rd, 2011 version of LAMMPS: http://lammps.sandia.gov/tars/lammps-3Jun11.tar.gz
-  * FFTW 2.1.5: http://www.fftw.org/fftw-2.1.5.tar.gz
-  * AWSEM code (see Source->Checkout)
+To obtain your own database of structures with desirable resolution and maximum mutual sequence identity you can use PISCES Protein Sequence Culling Server (http://dunbrack.fccc.edu/PISCES.php). This server allows to cull sequences from the entire PDB. Here is the list of parameters you will need to input.
+  * *Maximum percentage identity* - choose according to your problem, recommend value 80
+  * *Minimum resolution* - should be 0.0
+  * *Maximum resolution* - typically 2.0 or 3.0
+  * *Maximum R-value* - typically 0.25
+  * *Minimum chain length* - typically 40 
+  * *Maximum chain length* - typically 10000
+  * *Skip non-X-ray entries?* - must answer Yes
+  * *Skip CA-only entries?* - must answer Yes
+  * *How do you want to cull PDB?* - must answer By chains
 
 
-=== Step by step guide ===
-  * Download and unzip FFTW 2.1.5
-  * Install FFTW 2.1.5 somewhere locally using _./conﬁgure –preﬁx=/your_home_directory/local; make; make install_
-  * Download and unzip LAMMPS source code
-  * Copy all _.cpp_ and _.h_ file from awsemmd directory to LAMMPS_DIR/src/
-  * Go to LAMMPSDIR/src/STUBS/ and execute make command to compile a dummy MPI library
-  * Copy awsemmd/Makefiles/Makefile.serial file to LAMMPS_DIR/src/MAKE/ and adjust the paths according to FFTW installation above
-  * Go back to LAMMPS_DIR/src/ directory and execute _make clean-all_; _make serial_
-  * If everything goes well, you must find lmp_serial executable in src directory.
-For more information on LAMMPS compilation and inclusion of optional packages see the following link
-http://lammps.sandia.gov/doc/Section_start.html#start_2
+== Running scripts ==
+Now when you have everything necessary you can run either _prepFragsLAMW_index.py_ or _!MultCha_prepFrags_index.py_ scripts to generate Fragment Library. The later one should be used for multi-chain simulations. In single-chain case it is more optimal to use the first script. They both take the same arguments and should be called in the following way.
+{{{
+python prepFragsLAMW_index.py database-prefix file.fasta n_mem homologs_excluded (1/0)
+}}}
+where N_mem sets the desirable number of memories per position (typically 20). If homologs_excluded flag is 1, all sequence homologs will be excluded from the search.
 
+IMPORTANT: Always make sure that the fasta file contains only the sequence that have coordinates in the PDB file. Or in other words, the sequence in the fasta file must match the one in _.seq_ file.
 
-= Generating project =
+== Running simulations ==
+The scripts mentioned above will generate a _fragsLAMW.mem_ file which contains `[Memories]` section with one line description of memories found. 
+{{{
+[Memories]
+./fraglib/3c3pa.gro 1 78 6 1
+./fraglib/2vsoe.gro 2 832 8 1
+./fraglib/3rota.gro 2 194 7 1
+./fraglib/2hn1a.gro 1 151 8 1
+./fraglib/1knza.gro 1 41 9 1
+./fraglib/3hr6a.gro 3 349 7 1
+.............................
+}}}
+Each line indicates 
+  # a coordinate file name of the sequence aligned towards the fragment 
+  # memory position in the sequence of interest
+  # memory position in the aligned sequence
+  # memory fragment length
+  # fragment weight
 
+The coordinate files (with _.gro_ extensions) are also generated by the scripts and can be found in ./fraglib/ directory.
 
-The easiest way to generate a LAMMPS-AWSEM project is to do that using a pdb file which contains the structure of interest. You will need to have python and biopython installed on your computer.
-  * First of all go to awsemmd/create_project_tool/ and execute _install_tools.sh_ script. This will copy all necessary scripts in /your_home_directory/opt/script/.
-  * Add /your_home_directory/opt/script/ to PATH variable (call _echo $PATH_ to make sure that you did it right)
-  * Copy lmp_serial and the pdb file to a same directory
-  * From that directory call _!PdbCoords2Lammps.sh pdb_id project_name_
+To include Fragment Memory term in your simulations
+  * copy the fraglib directory and the _fragsLAMW.mem_ file (you can rename it if you want) into your simulation directory
+  * turn on (see [GetStarted#Running_simulations Getting Started with AWSEM]) Fragment_Memory or Fragment_Memory_Table term in _fix_backbone_coeff.data_
+  * substitute the name of the mem file
+  * make sure you have the desired gamma file and a right strength for the term (the first parameter in the section, typically 0.02 in case of 20 memories per position)
 
-After this you should find the following files in your simulation (current) directory
-  # _data._ file which contains atom and bond description
-  # _.seq_ file with protein sequance
-  # _.coord_ with all atom backbone description and which is not needed for LAMMPS-AWSEM simulations
-  # _.in_ which contains an input script
-
-You can modify the _.in_ according your needs. To learn more about the commands you will find there or perhaps some other ones you may use refer to LAMMPS documentation.
-http://lammps.sandia.gov/doc/Section_commands.html
-
-
-= Running simulations =
-
-To run a simulation you will also need several parameter files. Most of those files you can find in awsemmd/parameters/ directory. Bellow is a short description of the files located there
-  * *fix_backbone_coeff.data* - main parameter file for AWSEM potential. Each term has its own section within _fix_backbone_coeff.data_ entitled with a term name enclosed in `[]` brackets. To switch any of the terms off put a "-" after `[]` brackets (or alternat its title in any other way). `[Epsilon]` and `[ABC]` sections must be always on. `[Epsilon]` sets general energy scale of AWSEM potential. `[ABC]` coefficients are used to calculate the positions of implicit backbone atoms from CA and O coordinates.
-  * *gamma.dat* - contains gamma parameters for direct or protein/water mediated potential (`[Water]`)
-  * *burial_gamma.dat* - contains gammas for burial potential
-  * *para_one, para_HB, anti_one, anti_HB, anti_NHB* - coefficients for beta hydrogen bonding potential (`[Dssp_Hdrgn]`)
-  * *amh-go.gamma* - example of gamma file used by AMH-Go term
-  * *uniform.gamma, alpha.gamma* - sample gamma files for Fragment Memory term
-
-You may also need _ssweight_ file if `[SSWeight]` section in _fix_backbone_coeff.data_ in on. This file is typically used to apply a secondary structure bias based on prediction. This file should contain two columns of float numbers; one line for each residue indicating a probability of the residue forming alpha-helix or beta-sheet. _!GenSswight.py_ script from awsemmd/create_project_tools/ can be used to convert a prediction from JPRED online server (http://www.compbio.dundee.ac.uk/www-jpred/) to the desired format.
-
-After obtaining all necessary parameter files you can use _lmp_serial < your_project.in_ command to run a LAMMPS-AWSEM-MD simulation.
+The difference between `[Fragment_Memory]` and `[Fragment_Memory_Table]` is that the later one uses precomputed tables for routine energy and force computations and is much faster compared to `[Fragment_Memory]`. The last line under `[Fragment_Memory_Table]` sets table range (`r0`, `rn`) and grid step (`dr`).

@@ -22,8 +22,9 @@ from Bio import SeqIO
 import operator
 from Bio.PDB.PDBParser import PDBParser
 
-if len(sys.argv)!=6:
-    print "\n prepFragsLAMW.py database-prefix file.fasta N_mem brain_damage_flag (1/0 for yes/no) frag_length > logfile \n\n"
+if len(sys.argv)!=5 and len(sys.argv)!=6:
+    print "\n prepFragsLAMW.py database-prefix file.fasta N_mem brain_damage_flag (1/0 for yes/no) [frag_length] > logfile \n\n"
+    print "frag_length is an optional argument. Default: 9\n\n"
     print "#######################################################################"
     print "#NOTE: Before running this script, please make sure the fasta file "
     print "#contains only the sequences that have coordinates in the PDB file"
@@ -34,7 +35,10 @@ database=sys.argv[1]
 fasta =sys.argv[2]
 N_mem = int(sys.argv[3])
 brain_damage = int(sys.argv[4])
-fragmentLength = int(sys.argv[5])
+
+fragmentLength = 9
+if len(sys.argv)==6:
+	fragmentLength = int(sys.argv[5])
 
 #inFASTA=open(fasta, 'r')
 weight=1 #feature in match file
@@ -45,6 +49,13 @@ pdbDir  = myhome + "/opt/script/PDBs/"
 indexDir = myhome + "/opt/script/Indices/"
 fLibDir = myhome + "/opt/script/fraglib/"
 pdbSeqres= myhome + "/opt/script/pdb_seqres.txt"
+fasta_database = database+".fasta"
+
+# Index database fasta file
+if not os.path.isfile(fasta_database):
+	print "Can't find database fasta file"
+        exit()
+seq_records = SeqIO.index(fasta_database, "fasta")
 
 #from Bio import SeqIO
 #inseq=SeqIO.read(inFASTA,'fasta')
@@ -259,16 +270,21 @@ for record in SeqIO.parse(handle, "fasta"): #loop1
             print pdbFile, "start: ", res_Start, "end: ", res_End    
             #Do I have the index file?  #No, write it
             if not os.path.isfile(indexFile):
-            #generate fasta file
-                if not os.path.isfile(pdbSeqres):
-                    print "Need to download pdb_seqres.txt from PDB!"
-                    print "ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"
-                    print "Copy to $HOME/opt/script/"
-                    exit()
-                fastaFile=pdbID+'_'+chainID.upper()
-                exeline="grep -A1 "+fastaFile+" "+pdbSeqres+" > ./tmp.fasta"
-                print "generating fastaFile: ", fastaFile
-                os.popen(exeline)
+                #generate fasta file
+                seq_id = pdbID.upper() + chainID.upper()
+                handle = open(fastFile, "w")
+                SeqIO.write(seq_records[seq_id], handle, "fasta")
+                handle.close()
+
+#                if not os.path.isfile(pdbSeqres):
+#                    print "Need to download pdb_seqres.txt from PDB!"
+#                    print "ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"
+#                    print "Copy to $HOME/opt/script/"
+#                    exit()
+#                fastaFile=pdbID+'_'+chainID.upper()
+#                exeline="grep -A1 "+fastaFile+" "+pdbSeqres+" > ./tmp.fasta"
+#                print "generating fastaFile: ", fastaFile
+#                os.popen(exeline)
     
                 #write index file
                 if os.path.getsize('tmp.fasta') > 0 :

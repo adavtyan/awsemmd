@@ -34,7 +34,7 @@ using namespace LAMMPS_NS;
 ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
-  if (narg != 7 && narg != 8) error->all("Illegal compute qonuchic command");
+  if (narg != 6 && narg != 7) error->all("Illegal compute qonuchic command");
 
   int len;
   char *ctype;

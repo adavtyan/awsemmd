@@ -341,7 +341,9 @@ for line in matchlines:
 #		os.popen(exeline)
 
 		#write index file
-		writeIndexFile(fastFile, pdbFile, indexFile, chainID.upper())
+		if os.path.getsize('tmp.fasta') > 0 :
+        	print "Writing indexFile: ", indexFile
+			writeIndexFile(fastFile, pdbFile, indexFile, chainID.upper())
 
 	#Read index file
 	if not os.path.isfile(indexFile):

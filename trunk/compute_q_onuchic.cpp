@@ -34,7 +34,7 @@ using namespace LAMMPS_NS;
 ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
-  if (narg != 6 && narg != 7) error->all("Illegal compute qonuchic command");
+  if (narg != 6 && narg != 7) error->all("Illegal compute qonuchic command 1");
 
   int len;
   char *ctype;
@@ -63,7 +63,7 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
 	else
 		cp_type = T_CUTOFF_GAUSS;
   	
-  	if (narg != 7) error->all("Illegal compute qonuchic command");
+  	if (narg != 7) error->all("Illegal compute qonuchic command 2");
 
   	r_contact = atof(arg[4]);
   	r_consq = r_contact*r_contact;
@@ -79,7 +79,7 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   	else
   		cp_type = T_SHADOW_GAUSS;
   	
-  	if (narg != 6) error->all("Illegal compute qonuchic command");
+  	if (narg != 6) error->all("Illegal compute qonuchic command 3");
   	
   	len = strlen(arg[4]) + 1;
   	datafile = new char[len];
@@ -209,7 +209,7 @@ void ComputeQOnuchic::createContactArrays()
   			error->all("Compute qonuchic: wrong residue index in shadow contact map file");
   		
   		is_native[ires][jres] = true;
-  		if (cp_type==T_SHADOW) rsq_native[ires][jres] = factor*factor*rn*rn;
+  		if (cp_type==T_SHADOW || cp_type==T_SHADOW_GAUSS) rsq_native[ires][jres] = factor*factor*rn*rn;
   		qnorm += 1.0;
   	}
   	qnorm = 1/qnorm;

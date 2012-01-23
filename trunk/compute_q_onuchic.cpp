@@ -1,12 +1,12 @@
 /* ----------------------------------------------------------------------
-   Copyright (2010) Aram Davtyan and Garegin Papoian
+Copyright (2010) Aram Davtyan and Garegin Papoian
 
-   Papoian's Group, University of Maryland at Collage Park
-   http://papoian.chem.umd.edu/
+Papoian's Group, University of Maryland at Collage Park
+http://papoian.chem.umd.edu/
 
 
-   Last Update: 08/18/2011
-   ------------------------------------------------------------------------- */
+Last Update: 08/18/2011
+------------------------------------------------------------------------- */
 
 #include "mpi.h"
 #include "math.h"
@@ -28,13 +28,13 @@ using namespace LAMMPS_NS;
 // Possible use of Compute QOnuchic
 // compute 	1 alpha_carbons qonuchic cutoff r_cutoff ca_xyz_native.dat tolerance_factor
 // compute 	1 alpha_carbons qonuchic shadow shadow_map_file tolerance_factor
-// compute 	1 alpha_carbons qonuchic cutoff/gauss r_cutoff ca_xyz_native.dat tolerance_factor
+// compute 	1 alpha_carbons qonuchic cutoff/gauss r_cutoff ca_xyz_native.dat
 // compute 	1 alpha_carbons qonuchic shadow/gauss shadow_map_file
 
 ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
-  if (narg!= 5 && narg != 6 && narg != 7) error->all("Illegal compute qonuchic command 1");
+  if (narg != 5 && narg != 6 && narg != 7) error->all("Illegal compute qonuchic command");
 
   int len;
   char *ctype;
@@ -49,21 +49,18 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   if (igroup == -1) 
 		error->all("Could not find compute qonuchic group ID"); 
   
-  //  len = strlen(arg[3]) + 1;
-  //  filename = new char[len];
-  //  strcpy(filename,arg[3]);
-  
   len = strlen(arg[3]) + 1;
   ctype = new char[len];
   strcpy(ctype,arg[3]);
   
   if (strcmp(ctype, "cutoff")==0 || strcmp(ctype, "cutoff/gauss")==0) {
-  	if (strcmp(ctype, "cutoff")==0)
+  	if (strcmp(ctype, "cutoff")==0) {
 	  	cp_type = T_CUTOFF;
-    else
-      cp_type = T_CUTOFF_GAUSS;
-  	
-  	if (narg != 7) error->all("Illegal compute qonuchic command 2");
+	  	if (narg != 7) error->all("Illegal compute qonuchic command");
+	} else {
+		cp_type = T_CUTOFF_GAUSS;
+		if (narg != 6) error->all("Illegal compute qonuchic command");
+	}
 
   	r_contact = atof(arg[4]);
   	r_consq = r_contact*r_contact;
@@ -72,33 +69,30 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   	datafile = new char[len];
   	strcpy(datafile,arg[5]);
   	
-    factor = atof(arg[6]);
+ 	if (cp_type==T_CUTOFF) factor = atof(arg[6]);
+  } else if (strcmp(ctype, "shadow")==0 || strcmp(ctype, "shadow/gauss")==0) {
+  	if (strcmp(ctype, "shadow")==0) {
+  		cp_type = T_SHADOW;
+  		if (narg != 6) error->all("Illegal compute qonuchic command");
+  	} else {
+  		cp_type = T_SHADOW_GAUSS;
+  		if (narg != 5) error->all("Illegal compute qonuchic command");
+  	}
+  	
+  	len = strlen(arg[4]) + 1;
+  	datafile = new char[len];
+  	strcpy(datafile,arg[4]);
+  	
+ 	if (cp_type==T_SHADOW) factor = atof(arg[5]);
+  } else {
+  	error->all("Wrong type for compute qonuchic"); 
   }
-  else if (strcmp(ctype, "shadow")==0 || strcmp(ctype, "shadow/gauss")==0) {
-    if (strcmp(ctype, "shadow")==0) {
-      cp_type = T_SHADOW;
-      if (narg != 6) {
-        error->all("Illegal compute qonuchic command 3");
-        factor = atof(arg[5]);
-      }
-    }
-    else {
-      cp_type = T_SHADOW_GAUSS;
-      if (narg != 5) error->all("Illegal compute qonuchic command 4");
-    }
-    len = strlen(arg[4]) + 1;
-    datafile = new char[len];
-    strcpy(datafile,arg[4]);
-  }
-  else {
-    error->all("Wrong type for compute qonuchic");
-  } 
-    
+  
   sigmaexp = 0.15;
   
   createContactArrays();
   
-  //  fout = fopen(filename, "w");
+//  fout = fopen(filename, "w");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -135,7 +129,7 @@ ComputeQOnuchic::~ComputeQOnuchic()
 		delete [] is_native;
 	}
 	
-  //	fclose(fout);
+//	fclose(fout);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -151,7 +145,7 @@ void ComputeQOnuchic::init()
 void ComputeQOnuchic::createContactArrays()
 {
   int i, j;
-  
+
   if (cp_type==T_CUTOFF || cp_type==T_CUTOFF_GAUSS) {
 	  FILE *fnative;
 	  
@@ -160,30 +154,30 @@ void ComputeQOnuchic::createContactArrays()
 	  fscanf(fnative, "%d",&nAtoms);
 	  allocate();
 	  for (i=0;i<nAtoms;++i) {
-      fscanf(fnative, "%lf %lf %lf",&x_native[i][0], &x_native[i][1], &x_native[i][2]);
+		fscanf(fnative, "%lf %lf %lf",&x_native[i][0], &x_native[i][1], &x_native[i][2]);
 	  }
 	  fclose(fnative);
 	  
 	  if (group->count(igroup)!=nAtoms)
-      error->all("Compute qonuchic: atom number mismatch");
+		error->all("Compute qonuchic: atom number mismatch");
 	  
 	  double dx[3];
 	  qnorm = 0.0;
 	  for (i=0;i<nAtoms;++i) {
-      for (j=0;j<nAtoms;++j) {
-        dx[0] = x_native[j][0] - x_native[i][0];
-        dx[1] = x_native[j][1] - x_native[i][1];
-        dx[2] = x_native[j][2] - x_native[i][2];
+		for (j=0;j<nAtoms;++j) {
+			dx[0] = x_native[j][0] - x_native[i][0];
+			dx[1] = x_native[j][1] - x_native[i][1];
+			dx[2] = x_native[j][2] - x_native[i][2];
 			
-        rsq_native[i][j] = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+			rsq_native[i][j] = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
 			
-        if (rsq_native[i][j] < r_consq && j-i>3) {
-          is_native[i][j] = true;
-          qnorm += 1.0;
-        } else is_native[i][j] = false;
+			if (rsq_native[i][j] < r_consq && j-i>3) {
+				is_native[i][j] = true;
+				qnorm += 1.0;
+			} else is_native[i][j] = false;
 			
-        if (cp_type==T_CUTOFF && is_native[i][j]) rsq_native[i][j] *= factor*factor;
-      }
+			if (cp_type==T_CUTOFF && is_native[i][j]) rsq_native[i][j] *= factor*factor;
+		}
 	  }
 	  qnorm = 1/qnorm;
   } else if (cp_type==T_SHADOW || cp_type==T_SHADOW_GAUSS) {
@@ -213,14 +207,10 @@ void ComputeQOnuchic::createContactArrays()
   			error->all("Compute qonuchic: wrong residue index in shadow contact map file");
   		
   		is_native[ires][jres] = true;
-  		if (cp_type==T_SHADOW) {
-        rsq_native[ires][jres] = factor*factor*rn*rn;
-      }
-      else if (cp_type==T_SHADOW_GAUSS) {
-        rsq_native[ires][jres] = rn*rn;
-      }
-      qnorm += 1.0;
-    }
+  		rsq_native[ires][jres] = rn*rn;
+  		if (cp_type==T_SHADOW) rsq_native[ires][jres] *= factor*factor;
+  		qnorm += 1.0;
+  	}
   	qnorm = 1/qnorm;
   	fclose(fshadow);
   }
@@ -263,16 +253,16 @@ double ComputeQOnuchic::compute_scalar()
     
     if (domain->xperiodic) {
     	xbox = (image[i] & 1023) - 512;
-      xi[0] += xbox*prd[0];
-    }
-    if (domain->yperiodic) {
-      ybox = (image[i] >> 10 & 1023) - 512;
-      xi[1] += ybox*prd[1];
-    }
-    if (domain->zperiodic) {
-      zbox = (image[i] >> 20) - 512;
-      xi[2] += zbox*prd[2];
-    }
+		xi[0] += xbox*prd[0];
+	}
+	if (domain->yperiodic) {
+		ybox = (image[i] >> 10 & 1023) - 512;
+		xi[1] += ybox*prd[1];
+	}
+	if (domain->zperiodic) {
+		zbox = (image[i] >> 20) - 512;
+		xi[2] += zbox*prd[2];
+	}
 	
     
     for (j=i+1;j<nall;j++) {
@@ -287,34 +277,35 @@ double ComputeQOnuchic::compute_scalar()
       	xj[2] = x[j][2];
       	
       	if (domain->xperiodic) {
-          xbox = (image[j] & 1023) - 512;
-          xj[0] += xbox*prd[0];
-        }
-        if (domain->yperiodic) {
-          ybox = (image[j] >> 10 & 1023) - 512;
-          xj[1] += ybox*prd[1];
-        }
-        if (domain->zperiodic) {
-          zbox = (image[j] >> 20) - 512;
-          xj[2] += zbox*prd[2];
-        }
+			xbox = (image[j] & 1023) - 512;
+			xj[0] += xbox*prd[0];
+		}
+		if (domain->yperiodic) {
+			ybox = (image[j] >> 10 & 1023) - 512;
+			xj[1] += ybox*prd[1];
+		}
+		if (domain->zperiodic) {
+			zbox = (image[j] >> 20) - 512;
+			xj[2] += zbox*prd[2];
+		}
       
         delx = xi[0] - xj[0];
-        dely = xi[1] - xj[1];
-        delz = xi[2] - xj[2];
-        rsq = delx*delx + dely*dely + delz*delz;
+		dely = xi[1] - xj[1];
+		delz = xi[2] - xj[2];
+		rsq = delx*delx + dely*dely + delz*delz;
 		  
-        if (cp_type==T_CUTOFF || cp_type==T_SHADOW) {
-          if (rsq<rsq_native[ires][jres]) q += 1.0;
-        } else {
-          sigma_sq = pow(1+abs(ires-jres),2.0*sigmaexp);
-          q += exp(-pow(sqrt(rsq) - sqrt(rsq_native[ires][jres]), 2)/(2.0*sigma_sq));
-        }
+	    if (cp_type==T_CUTOFF || cp_type==T_SHADOW) {
+		  if (rsq<rsq_native[ires][jres]) q += 1.0;
+	    } else {
+		  sigma_sq = pow(1+abs(ires-jres),2.0*sigmaexp);
+		  q += exp(-pow(sqrt(rsq) - sqrt(rsq_native[ires][jres]), 2)/(2.0*sigma_sq));
+	    }
       }
     }
   }
   
   MPI_Allreduce(&q,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
   scalar *= qnorm;
+  
   return scalar;
 }

@@ -10,6 +10,7 @@ Last Update: 12/01/2010
 #include "math.h"
 #include "stdio.h"
 #include "stdlib.h"
+#include "string.h"
 #include "pair_go-contacts.h"
 #include "atom.h"
 #include "comm.h"
@@ -21,8 +22,6 @@ Last Update: 12/01/2010
 #include "random_park.h"
 
 #include <fstream>
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 
 using std::ifstream;

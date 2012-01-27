@@ -157,6 +157,8 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			if(lj_contacts_flag){
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative[i][j];
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma[i][j];
+				
+				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) sigma_sq[i][j] = sigma[i][j]*sigma[i][j];
 			} else { //gaussian_contacts_flag
 				for(k=0;k<n_basins;++k){
 					for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative_mb[k][i][j];
@@ -252,9 +254,11 @@ FixGoModel::~FixGoModel()
 		if(lj_contacts_flag){
 			for (int i=0;i<n-4;i++) {
 				delete [] sigma[i];
+				delete [] sigma_sq[i];
 				delete [] isNative[i];
 			}
 			delete [] sigma;
+			delete [] sigma_sq;
 			delete [] isNative;
 		} else { //gaussian_contacts_flag
 			delete [] G;
@@ -414,9 +418,11 @@ void FixGoModel::allocate_contact()
 {
 	if(lj_contacts_flag){	
 		sigma = new double*[n-4];
+		sigma_sq = new double*[n-4];
 		isNative = new bool*[n-4];
 		for (int i = 0; i < n-4; ++i) {
 			sigma[i] = new double[n-4];
+			sigma_sq[i] = new double[n-4];
 			isNative[i] = new bool[n-4];
 		}
 	} else { //gaussian_contacts_flag
@@ -717,7 +723,7 @@ void FixGoModel::compute_contact(int i, int j)
 
 	if (i_resno>=n-4 || j_resno<=i_resno+3) error->all("Wrong use of compute_contact() in fix go-model");
 
-	double dx[3], r, rsq, sgrinv, sgrinv12, sgrinv10;
+	double dx[3], rsq, sgrinvsq, sgrinv12, sgrinv10;
 	double V, force, contact_epsilon;
 
 	dx[0] = xca[j][0] - xca[i][0];
@@ -725,13 +731,17 @@ void FixGoModel::compute_contact(int i, int j)
 	dx[2] = xca[j][2] - xca[i][2];
 
 	rsq = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
-	r = sqrt(rsq);
+//	r = sqrt(rsq);
 
-	if (r>sigma[i_resno][j_resno-4]*3) return;
+	if (rsq>sigma_sq[i_resno][j_resno-4]*9) return;
 
-	sgrinv = sigma[i_resno][j_resno-4]/r;
-	sgrinv12 = pow(sgrinv, 12);
-	sgrinv10 = pow(sgrinv, 10);
+	sgrinvsq = sigma_sq[i_resno][j_resno-4]/rsq;
+	sgrinv12 = pow(sgrinvsq, 6);
+	sgrinv10 = pow(sgrinvsq, 5);
+
+//	sgrinv = sigma[i_resno][j_resno-4]/r;
+//	sgrinv12 = pow(sgrinv, 12);
+//	sgrinv10 = pow(sgrinv, 10);
 
 	if (isNative[i_resno][j_resno-4]) {
 		contact_epsilon = epsilon;
@@ -745,6 +755,10 @@ void FixGoModel::compute_contact(int i, int j)
 	}
 
 	energy[ET_CONTACTS] += V;
+	
+	if (update->ntimestep==0) {
+//			fprintf(fout, "COMPUTE %d %d %d %.15f %.15f %.15f %.15f\n", i_resno, j_resno, isNative[i_resno][j_resno-4], rsq, sigma[i_resno][j_resno-4]*sigma[i_resno][j_resno-4], sgrinvsq, V);
+		}
 
 	f[alpha_carbons[j]][0] -= force*dx[0];
 	f[alpha_carbons[j]][1] -= force*dx[1];
@@ -763,7 +777,7 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 
 	if (i_resno>=n-4 || j_resno<=i_resno+3) error->all("Wrong use of compute_contact_gaussian() in fix go-model");
 
-	double dx[3], r, dr, rsq, sgrinv, sgrinv12;
+	double dx[3], r, dr, rsq;
 	double V, force, contact_epsilon;
 	double w_sq_inv, VTotal ;
 	double force_tmp, force_tmp_sum;
@@ -935,7 +949,7 @@ void FixGoModel::compute_goModel()
         	}
 	}*/
 	
-	double tmp, tmp2;
+/*	double tmp, tmp2;
 	double tmp_time;
 	int me,nprocs;
   	MPI_Comm_rank(world,&me);
@@ -1014,6 +1028,37 @@ void FixGoModel::compute_goModel()
 		fprintf(fout, "All:\n");
 		out_xyz_and_force(1);
 		fprintf(fout, "\n\n\n");
+	}
+	
+	*/
+		
+	
+	if (contacts_dev_flag)
+		compute_contact_deviation();
+	
+	for (i=0;i<nn;++i) {
+		if (res_info[i]!=LOCAL) continue;
+		
+		if (bonds_flag && res_no[i]<=n-1)
+			compute_bond(i);
+
+		if (angles_flag && res_no[i]<=n-2)
+    	    compute_angle(i);
+
+		if (dihedrals_flag && res_no[i]<=n-3)
+	        compute_dihedral(i);
+
+	    for (j=i+1;contacts_flag && j<nn;++j) {
+			if (res_info[j]!=LOCAL && res_info[j]!=GHOST) continue;
+			
+			if (res_no[i]<res_no[j]-3){
+				if (lj_contacts_flag)
+					compute_contact(i, j);
+				
+				if (gaussian_contacts_flag)
+					compute_contact_gaussian(i, j);
+			}
+		}
 	}
 	
 	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];

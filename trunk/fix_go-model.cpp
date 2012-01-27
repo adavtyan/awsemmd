@@ -25,8 +25,6 @@ Last Update: 03/23/2011
 #include "random_park.h"
 
 #include <fstream>
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 
 using std::ifstream;

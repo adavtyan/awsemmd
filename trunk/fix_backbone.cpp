@@ -83,7 +83,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	strcat(forcefile, ".dat");
 	dout = fopen(forcefile, "w");
 	
-	char eheader[] = "Step\tChain\tShake\tChi\tRama\tExcluded\tDSSP\tP_AP\tWater\tBurial\tHelix\tAMH-Go\tFrag_Mem\tSSB\tVTotal\n";
+	char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tSSB     \tVTotal\n";
 	fprintf(efile, "%s", eheader);
 
 	scalar_flag = 1;
@@ -3451,8 +3451,8 @@ void FixBackbone::compute_backbone()
 		}
 	
 		fprintf(efile, "%d ", ntimestep);
-		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy_all[i]);
-		fprintf(efile, "\t%.6f\n", energy_all[ET_TOTAL]);
+		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%4.6f", energy_all[i]);
+		fprintf(efile, "\t%4.6f\n", energy_all[ET_TOTAL]);
 	}
 }
 

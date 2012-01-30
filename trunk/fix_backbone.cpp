@@ -2911,7 +2911,7 @@ void FixBackbone::table_fragment_memory(int i, int j)
         f[jatom[k]][1] += -ff*dx[1];
         f[jatom[k]][2] += -ff*dx[2];
     } else {
-    	error->warning("Table Fragment Memory: r is out of computed range.");
+    	error->all("Table Fragment Memory: r is out of computed range.");
     	fprintf(screen, "r=%f\n", r);
     	fprintf(logfile, "r=%f\n", r);
     }	    

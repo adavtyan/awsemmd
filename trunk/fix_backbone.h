@@ -74,6 +74,12 @@ public:
   double water_gamma[5][20][20][2];
   int well_flag[5], n_wells, contact_cutoff;
   
+  // Phosphorylation via hypercharged glutamate interaction
+  double phosph_water_gamma[5][20][20][2];
+  double k_hypercharge;
+  int n_phosph_res;
+  double phosph_res[20];
+  int *phosph_map;
   // Burial potential parameters
   double k_burial;
   double burial_ro_min[3], burial_ro_max[3];
@@ -117,7 +123,7 @@ public:
   int ssb_ij_sep;
   bool ssb_rad_cor;
   double ssb_rshift[20];
-  
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -140,6 +146,7 @@ public:
   int *periodicity;
   bool abc_flag, chain_flag, shake_flag, chi_flag, rama_flag, rama_p_flag, excluded_flag, p_excluded_flag, r6_excluded_flag;
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
+  bool phosph_flag;
   bool frag_mem_tb_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};

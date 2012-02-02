@@ -25,9 +25,7 @@
 #include "domain.h"
 #include "memory.h"
 #include "comm.h"
-
 #include "timer.h"
-
 #include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,6 +45,13 @@ using namespace LAMMPS_NS;
 // {"ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"};
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
 int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 16, 0, 19, 17, 0, 18, 0};
+
+// Four letter classes
+// 1) SHL: Small Hydrophilic (ALA, GLY, PRO, SER THR) or (A, G, P, S, T) or {0, 7, 14, 15, 16}
+// 2) AHL: Acidic Hydrophilic (ASN, ASP, GLN, GLU) or (N, D, Q, E) or {2, 3, 5, 6}
+// 3) BAS: Basic (ARG HIS LYS) or (R, H, K) or {1, 8, 11}
+// 4) HPB: Hydrophobic (CYS, ILE, LEU, MET, PHE, TRP, TYR, VAL) or (C, I, L, M, F, W, Y, V)  or {4, 9, 10, 12, 13, 17, 18, 19}
+int bb_four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4, 4};
 
 void itoa(int a, char *buf, int s)
 {
@@ -96,7 +101,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
 	abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
 	ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = 0;
-	ssb_flag = frag_mem_tb_flag = 0;
+	ssb_flag = frag_mem_tb_flag = phosph_flag = 0;
 	epsilon = 1.0; // general energy scale
 	p = 2; // for excluded volume
 	
@@ -274,9 +279,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> ssb_rad_cor;
       for (int j=0;j<20;++j)
         in >> ssb_rshift[j];
-		} else if (strcmp(varsection, "[Epsilon]")==0)
-			in >> epsilon;
-		varsection[0]='\0'; // Clear buffer
+    } else if (strcmp(varsection, "[Phosphorylation]")==0) {
+      if (!water_flag) error->all("Cannot run phosphorylation without water potential");
+      phosph_flag = 1;
+      if (comm->me==0) print_log("Phosphorylation flag on\n");
+      in >> k_hypercharge;
+      in >> n_phosph_res;
+      if (n_phosph_res > 20) error->all("Number of phosphorylated residues may not exceed 20");
+      for (int i=0;i<n_phosph_res;++i)
+	in >> phosph_res[i];
+      
+    } else if (strcmp(varsection, "[Epsilon]")==0)
+      in >> epsilon;
+    varsection[0]='\0'; // Clear buffer
 	}
 	in.close();
 	if (comm->me==0) print_log("\n");
@@ -377,6 +392,50 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		in_wg.close();
 	}
 	
+	if (phosph_flag) {
+	  ifstream in_wg("gamma.dat");
+	  if (!in_wg) error->all("File gamma.dat doesn't exist");
+	  for (int i_well=0;i_well<n_wells;++i_well) {
+	    for (i=0;i<20;++i) {
+	      for (j=i;j<20;++j) {
+		in_wg >> phosph_water_gamma[i_well][i][j][0] >> phosph_water_gamma[i_well][i][j][1];
+		phosph_water_gamma[i_well][j][i][0] = phosph_water_gamma[i_well][i][j][0];
+		phosph_water_gamma[i_well][j][i][1] = phosph_water_gamma[i_well][i][j][1];
+	      }
+	    }
+	  }
+	  in_wg.close();
+	}
+
+	  //replacing serine interaction gammas with hypercharged glutamate interaction gammas
+	  for (int i_well=0;i_well<n_wells;++i_well) {
+	    for (i=0;i<20;++i) {
+	      if (bb_four_letter_map[i]==1) {
+		phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0]*k_hypercharge;
+		phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1]*k_hypercharge;
+	      }
+	      else if (bb_four_letter_map[i]==2 || bb_four_letter_map[i]==3) {
+		phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0]*pow(k_hypercharge,2);
+		phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1]*pow(k_hypercharge,2);
+	      }
+	      else {
+		phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0];
+		phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1];
+	      }
+	    }
+	  }
+	  //create map of phosphorylated residues
+	  phosph_map = new int[n];
+	  for (int i=0;i<n;++i) {
+	    phosph_map[i]=0;
+	  }  
+	  for (int j=0;j<n_phosph_res;++j) {
+	      if (phosph_res[j]!=0) {
+		int dummy = phosph_res[j]-1;
+		phosph_map[dummy]=1;
+	      }
+	  }	  
+
 	if (burial_flag) {
 		ifstream in_brg("burial_gamma.dat");
 		if (!in_brg) error->all("File burial_gamma.dat doesn't exist");
@@ -2216,8 +2275,21 @@ void FixBackbone::compute_water_potential(int i, int j)
 			theta_gamma = (water_gamma[i_well][ires_type][jres_type][1] - water_gamma[i_well][ires_type][jres_type][0])*well->theta(i, j, i_well);
 		}		
 		
-		energy[ET_WATER] += -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well);
+		// phosphorylation check
+		if (phosph_flag) {
+		  if (phosph_map[i_resno] || phosph_map[j_resno]) {
+		    if (direct_contact) {
+		      sigma_gamma = (phosph_water_gamma[i_well][ires_type][jres_type][0] + phosph_water_gamma[i_well][ires_type][jres_type][1])/2;
+		      theta_gamma = 0;
+		    } else {	
+		      sigma_gamma = (1.0 - well->sigma(i, j))*phosph_water_gamma[i_well][ires_type][jres_type][0] + well->sigma(i, j)*phosph_water_gamma[i_well][ires_type][jres_type][1];
+		      theta_gamma = (phosph_water_gamma[i_well][ires_type][jres_type][1] - phosph_water_gamma[i_well][ires_type][jres_type][0])*well->theta(i, j, i_well);
+		    }
+		  }
+		}
 
+		energy[ET_WATER] += -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well);
+		  
 		force = epsilon*k_water*sigma_gamma*well->prd_theta(i, j, i_well);
 		
 		f[iatom][0] += force*dx[0];
@@ -2276,8 +2348,8 @@ void FixBackbone::compute_water_potential(int i, int j)
 void FixBackbone::compute_burial_potential(int i)
 {
   double t[3][2], dx[3], force[3], force2, *xi, *xk;
+  double burial_gamma_val_0, burial_gamma_val_1, burial_gamma_val_2; 
   int iatom, katom, k, k_resno, k_chno;
-
   int i_resno = res_no[i]-1;
   int i_chno = chain_no[i]-1;
   
@@ -2292,14 +2364,28 @@ void FixBackbone::compute_burial_potential(int i)
   t[1][1] = tanh( burial_kappa*(burial_ro_max[1] - well->ro(i)) );
   t[2][0] = tanh( burial_kappa*(well->ro(i) - burial_ro_min[2]) );
   t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - well->ro(i)) );
+
+  burial_gamma_val_0 = burial_gamma[ires_type][0];
+  burial_gamma_val_1 = burial_gamma[ires_type][1];
+  burial_gamma_val_2 = burial_gamma[ires_type][2];
+
+  //phosphorylation check
+  if (phosph_flag) {
+    if (phosph_map[i_resno]) {
+      //replace burial gammas for ires_type with burial gammas of glutamate 
+      burial_gamma_val_0 = burial_gamma[5][0];
+      burial_gamma_val_1 = burial_gamma[5][1];
+      burial_gamma_val_2 = burial_gamma[5][2];
+    }
+  }
   
-  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma[ires_type][0]*(t[0][0] + t[0][1]);
-  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma[ires_type][1]*(t[1][0] + t[1][1]);
-  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma[ires_type][2]*(t[2][0] + t[2][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma_val_0*(t[0][0] + t[0][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma_val_1*(t[1][0] + t[1][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma_val_2*(t[2][0] + t[2][1]);
   
-  force[0] = 0.5*epsilon*k_burial*burial_gamma[ires_type][0]*burial_kappa*( t[0][1]*t[0][1] - t[0][0]*t[0][0] );
-  force[1] = 0.5*epsilon*k_burial*burial_gamma[ires_type][1]*burial_kappa*( t[1][1]*t[1][1] - t[1][0]*t[1][0] );
-  force[2] = 0.5*epsilon*k_burial*burial_gamma[ires_type][2]*burial_kappa*( t[2][1]*t[2][1] - t[2][0]*t[2][0] );
+  force[0] = 0.5*epsilon*k_burial*burial_gamma_val_0*burial_kappa*( t[0][1]*t[0][1] - t[0][0]*t[0][0] );
+  force[1] = 0.5*epsilon*k_burial*burial_gamma_val_1*burial_kappa*( t[1][1]*t[1][1] - t[1][0]*t[1][0] );
+  force[2] = 0.5*epsilon*k_burial*burial_gamma_val_2*burial_kappa*( t[2][1]*t[2][1] - t[2][0]*t[2][0] );
   
   for (k=0;k<nn;++k) {
 	if (res_info[k]==OFF) continue;

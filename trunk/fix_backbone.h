@@ -199,6 +199,9 @@ public:
   inline double para_HB(int res1, int res2, int k);
   inline double para_one(int res);
   inline double anti_one(int res);
+  inline double get_water_gamma(int i_resno, int j_resno, int i_well, int ires_type, int jres_type, int local_dens);
+  inline double get_burial_gamma(int i_resno, int irestype, int local_dens);
+  
   inline void print_log(char *line);
   void final_log_output();
   Fragment_Memory **read_mems(char *mems_file, int &n_mems);

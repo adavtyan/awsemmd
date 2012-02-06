@@ -1847,8 +1847,7 @@ inline double FixBackbone::anti_one(int res)
 
 inline double FixBackbone::get_water_gamma(int i_resno, int j_resno, int i_well, int ires_type, int jres_type, int local_dens)
 {
-  double water_gamma_val;
-  
+   
   if (!phosph_flag) {
     return water_gamma[i_well][ires_type][jres_type][local_dens];
   } 
@@ -1864,17 +1863,15 @@ inline double FixBackbone::get_water_gamma(int i_resno, int j_resno, int i_well,
 
 inline double FixBackbone::get_burial_gamma(int i_resno, int ires_type, int local_dens)
 {
-  double burial_gamma_val;
-  
   if (!phosph_flag) {
-    return burial_gamma_val = burial_gamma[ires_type][local_dens];
+    return burial_gamma[ires_type][local_dens];
   }
   else {
     if (phosph_map[i_resno]) {
-      return burial_gamma_val = burial_gamma[5][local_dens];
+      return burial_gamma[5][local_dens];
     }
     else {
-      return burial_gamma_val = burial_gamma[ires_type][local_dens];
+      return burial_gamma[ires_type][local_dens];
     }
   }
 }
@@ -2369,7 +2366,6 @@ void FixBackbone::compute_water_potential(int i, int j)
 void FixBackbone::compute_burial_potential(int i)
 {
   double t[3][2], dx[3], force[3], force2, *xi, *xk;
-  double burial_gamma_val_0, burial_gamma_val_1, burial_gamma_val_2; 
   int iatom, katom, k, k_resno, k_chno;
   int i_resno = res_no[i]-1;
   int i_chno = chain_no[i]-1;

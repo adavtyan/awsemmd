@@ -393,18 +393,14 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	}
 	
 	if (phosph_flag) {
-	  ifstream in_wg("gamma.dat");
-	  if (!in_wg) error->all("File gamma.dat doesn't exist");
 	  for (int i_well=0;i_well<n_wells;++i_well) {
 	    for (i=0;i<20;++i) {
 	      for (j=i;j<20;++j) {
-		in_wg >> phosph_water_gamma[i_well][i][j][0] >> phosph_water_gamma[i_well][i][j][1];
-		phosph_water_gamma[i_well][j][i][0] = phosph_water_gamma[i_well][i][j][0];
-		phosph_water_gamma[i_well][j][i][1] = phosph_water_gamma[i_well][i][j][1];
+		phosph_water_gamma[i_well][i][j][0] = phosph_water_gamma[i_well][j][i][0] = water_gamma[i_well][i][j][0];
+		phosph_water_gamma[i_well][i][j][1] = phosph_water_gamma[i_well][j][i][1] = water_gamma[i_well][i][j][1];
 	      }
 	    }
 	  }
-	  in_wg.close();
 	}
 
 	  //replacing serine interaction gammas with hypercharged glutamate interaction gammas
@@ -1845,18 +1841,18 @@ inline double FixBackbone::anti_one(int res)
 	return m_anti_one[se_map[res-'A']];
 }
 
-inline double FixBackbone::get_water_gamma(int i_resno, int j_resno, int i_well, int ires_type, int jres_type, int local_dens)
+inline double FixBackbone::get_water_gamma(int i_resno, int j_resno, int i_well, int ires_type, int jres_type, int water_prot_flag)
 {
    
   if (!phosph_flag) {
-    return water_gamma[i_well][ires_type][jres_type][local_dens];
+    return water_gamma[i_well][ires_type][jres_type][water_prot_flag];
   } 
   else {
     if (phosph_map[i_resno] || phosph_map[j_resno]) {
-      return phosph_water_gamma[i_well][ires_type][jres_type][local_dens];
+      return phosph_water_gamma[i_well][ires_type][jres_type][water_prot_flag];
     }
     else {
-      return water_gamma[i_well][ires_type][jres_type][local_dens];
+      return water_gamma[i_well][ires_type][jres_type][water_prot_flag];
     }
   }
 }
@@ -1864,7 +1860,7 @@ inline double FixBackbone::get_water_gamma(int i_resno, int j_resno, int i_well,
 inline double FixBackbone::get_burial_gamma(int i_resno, int ires_type, int local_dens)
 {
   if (!phosph_flag) {
-    return burial_gamma[ires_type][local_dens];
+     return burial_gamma[ires_type][local_dens];
   }
   else {
     if (phosph_map[i_resno]) {
@@ -2267,6 +2263,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 
 	double dx[3], sigma_gamma, theta_gamma, force;
 	double *xi, *xj, *xk;
+	double water_gamma_0, water_gamma_1;
 	int iatom, jatom, katom, i_well, k;
 	int k_resno, k_chno;
 	bool direct_contact;
@@ -2294,16 +2291,19 @@ void FixBackbone::compute_water_potential(int i, int j)
 		if (fabs(well->theta(i, j, i_well))<delta) continue;
 
 		direct_contact = false;
-
+		
+		water_gamma_0 = get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 0);
+		water_gamma_1 = get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 1);
+		
 		// Optimization for gamma[0]==gamma[1]
-		if (fabs(water_gamma[i_well][ires_type][jres_type][0] - water_gamma[i_well][ires_type][jres_type][1])<delta) direct_contact = true;
-						 
+		if (fabs(water_gamma_0 - water_gamma_1)<delta) direct_contact = true;
+		
 		if (direct_contact) {
-		  sigma_gamma = (get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 0) + get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 1))/2;
-			theta_gamma = 0;
+		  sigma_gamma = (water_gamma_0 + water_gamma_1)/2;
+		  theta_gamma = 0;
 		} else {	
-			sigma_gamma = (1.0 - well->sigma(i, j))*get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 0) + well->sigma(i, j)*get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 1);
-			theta_gamma = (get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 1) - get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 0))*well->theta(i, j, i_well);
+		  sigma_gamma = (1.0 - well->sigma(i, j))*water_gamma_0 + well->sigma(i, j)*water_gamma_1;
+		  theta_gamma = (water_gamma_1 - water_gamma_0)*well->theta(i, j, i_well);
 		}		
 	    
 		energy[ET_WATER] += -epsilon*k_water*sigma_gamma*well->theta(i, j, i_well);
@@ -2366,6 +2366,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 void FixBackbone::compute_burial_potential(int i)
 {
   double t[3][2], dx[3], force[3], force2, *xi, *xk;
+  double burial_gamma_0, burial_gamma_1, burial_gamma_2;
   int iatom, katom, k, k_resno, k_chno;
   int i_resno = res_no[i]-1;
   int i_chno = chain_no[i]-1;
@@ -2381,14 +2382,18 @@ void FixBackbone::compute_burial_potential(int i)
   t[1][1] = tanh( burial_kappa*(burial_ro_max[1] - well->ro(i)) );
   t[2][0] = tanh( burial_kappa*(well->ro(i) - burial_ro_min[2]) );
   t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - well->ro(i)) );
-
-  energy[ET_BURIAL] += -0.5*epsilon*k_burial*get_burial_gamma(i_resno, ires_type, 0)*(t[0][0] + t[0][1]);
-  energy[ET_BURIAL] += -0.5*epsilon*k_burial*get_burial_gamma(i_resno, ires_type, 1)*(t[1][0] + t[1][1]);
-  energy[ET_BURIAL] += -0.5*epsilon*k_burial*get_burial_gamma(i_resno, ires_type, 2)*(t[2][0] + t[2][1]);
   
-  force[0] = 0.5*epsilon*k_burial*get_burial_gamma(i_resno, ires_type, 0)*burial_kappa*( t[0][1]*t[0][1] - t[0][0]*t[0][0] );
-  force[1] = 0.5*epsilon*k_burial*get_burial_gamma(i_resno, ires_type, 1)*burial_kappa*( t[1][1]*t[1][1] - t[1][0]*t[1][0] );
-  force[2] = 0.5*epsilon*k_burial*get_burial_gamma(i_resno, ires_type, 2)*burial_kappa*( t[2][1]*t[2][1] - t[2][0]*t[2][0] );
+  burial_gamma_0 = get_burial_gamma(i_resno, ires_type, 0);
+  burial_gamma_1 = get_burial_gamma(i_resno, ires_type, 1);
+  burial_gamma_2 = get_burial_gamma(i_resno, ires_type, 2);
+
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma_0*(t[0][0] + t[0][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma_1*(t[1][0] + t[1][1]);
+  energy[ET_BURIAL] += -0.5*epsilon*k_burial*burial_gamma_2*(t[2][0] + t[2][1]);
+  
+  force[0] = 0.5*epsilon*k_burial*burial_gamma_0*burial_kappa*( t[0][1]*t[0][1] - t[0][0]*t[0][0] );
+  force[1] = 0.5*epsilon*k_burial*burial_gamma_1*burial_kappa*( t[1][1]*t[1][1] - t[1][0]*t[1][0] );
+  force[2] = 0.5*epsilon*k_burial*burial_gamma_2*burial_kappa*( t[2][1]*t[2][1] - t[2][0]*t[2][0] );
   
   for (k=0;k<nn;++k) {
 	if (res_info[k]==OFF) continue;

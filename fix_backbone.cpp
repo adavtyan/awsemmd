@@ -1864,7 +1864,7 @@ inline double FixBackbone::get_burial_gamma(int i_resno, int ires_type, int loca
   }
   else {
     if (phosph_map[i_resno]) {
-      return burial_gamma[5][local_dens];
+      return burial_gamma[6][local_dens];  // returns burial gamma for glutamine instead of serine
     }
     else {
       return burial_gamma[ires_type][local_dens];

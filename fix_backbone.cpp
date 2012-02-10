@@ -813,7 +813,13 @@ inline void FixBackbone::Construct_Computational_Arrays()
 		if (i>0 && res_info[i-1]==LOCAL && res_info[i]==OFF) {
 			error->all("Missing neighbor atoms in fix backbone (Code 004)");
 		}
-	}	
+	}
+	
+/*	if (ntimestep==0) {
+		for (i = 0; i < nn; ++i) {
+			fprintf(dout, "%d %d %d %d %d %d\n", i, res_no[i], res_info[i], alpha_carbons[i], beta_atoms[i], oxygens[i]);
+		}
+	}*/
 }
 
 /*inline void FixBackbone::Construct_Computational_Arrays()
@@ -2957,7 +2963,6 @@ void FixBackbone::table_fragment_memory(int i, int j)
   xj[3] = xcb[j];
   
   for (k=0;k<4;++k) {
-//    double st= MPI_Wtime();
   
     if (se[i_resno]=='G' && iatom_type[k]==Fragment_Memory::FM_CB) continue;
     if (se[j_resno]=='G' && jatom_type[k]==Fragment_Memory::FM_CB) continue;
@@ -3369,7 +3374,7 @@ void FixBackbone::compute_backbone()
 		for (j=0;j<nn;j++) {
 			j_resno = res_no[j]-1;
 			j_chno = chain_no[j]-1;
-			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL)
+			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) )
 				table_fragment_memory(i, j);
 		}
 	}
@@ -3503,7 +3508,7 @@ void FixBackbone::compute_backbone()
 			if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL)
 			  compute_water_potential(i, j);
 			  
-			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL)
+			if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) )
 				table_fragment_memory(i, j);
 
 			if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL)
@@ -3545,8 +3550,8 @@ void FixBackbone::compute_backbone()
 		}
 	
 		fprintf(efile, "%d ", ntimestep);
-		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%4.6f", energy_all[i]);
-		fprintf(efile, "\t%4.6f\n", energy_all[ET_TOTAL]);
+		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%8.6f", energy_all[i]);
+		fprintf(efile, "\t%8.6f\n", energy_all[ET_TOTAL]);
 	}
 }
 

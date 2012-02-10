@@ -106,7 +106,6 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			for(i=0; i<n_basins; ++i){
 				in >> A[i];
 			}
-			//fprintf(screen, "A = %f %f\n", A[0], A[1]);
 			in >> gaussian_width;
 			g_w_sq_inv = 1.0/gaussian_width/gaussian_width ;
 			in >> rmin_cutoff ;
@@ -754,10 +753,6 @@ void FixGoModel::compute_contact(int i, int j)
 
 	energy[ET_CONTACTS] += V;
 	
-	if (update->ntimestep==0) {
-//			fprintf(fout, "COMPUTE %d %d %d %.15f %.15f %.15f %.15f\n", i_resno, j_resno, isNative[i_resno][j_resno-4], rsq, sigma[i_resno][j_resno-4]*sigma[i_resno][j_resno-4], sgrinvsq, V);
-		}
-
 	f[alpha_carbons[j]][0] -= force*dx[0];
 	f[alpha_carbons[j]][1] -= force*dx[1];
 	f[alpha_carbons[j]][2] -= force*dx[2];
@@ -1033,6 +1028,8 @@ void FixGoModel::compute_goModel()
 	
 	if (contacts_dev_flag)
 		compute_contact_deviation();
+		
+//	fprintf(efout, "%f\n", dev);
 	
 	for (i=0;i<nn;++i) {
 		if (res_info[i]!=LOCAL) continue;
@@ -1195,7 +1192,7 @@ void FixGoModel::restart(char *buf)
   	} else if (r_dev_type==DT_CONST) {
   		// Nothing need to be done
   	}
+  	
+  	random->reset(seed);
   }
-  
-  random->reset(seed);
 }

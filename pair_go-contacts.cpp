@@ -7,6 +7,9 @@ http://papoian.chem.umd.edu/
 Last Update: 12/01/2010
 ------------------------------------------------------------------------- */
 
+// pair_style gocontacts pair_gomodel_coeff.data 24
+// pair_coeff * * 24
+
 #include "math.h"
 #include "stdio.h"
 #include "stdlib.h"
@@ -99,7 +102,7 @@ void PairGoContacts::compute(int eflag, int vflag)
   int *ilist,*jlist,*numneigh,**firstneigh;
   
   double sgrinv, sgrinv12, sgrinv10, contact_epsilon;
-
+  
   evdwl = 0.0;
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = 0;
@@ -118,6 +121,8 @@ void PairGoContacts::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
+  
+  compute_contact_deviation();
   
   // loop over neighbors of my atoms
 
@@ -175,13 +180,6 @@ void PairGoContacts::compute(int eflag, int vflag)
 		fpair *=factor_lj;
 		V *= factor_lj;
 		
-		if (update->ntimestep==0) {
-			fprintf(fout, "COMPUTE %d %d %d %.15f %.15f %.15f %.15f\n", ires, jres, isNative[ires][jres], rsq, sigma_sq[ires][jres], sgrinv, V);
-		}
-		
-//		if (V>100.0)
-//			fprintf(screen, "COMPUTE %d %d %d %f %f %f %f %f %f %f\n",update->ntimestep, ires, jres, fpair, V, factor_lj, epsilon, sgrinv, sgrinv12, sgrinv10);
-		
 		f[i][0] += fpair*delx;
 		f[i][1] += fpair*dely;
 		f[i][2] += fpair*delz;
@@ -199,7 +197,7 @@ void PairGoContacts::compute(int eflag, int vflag)
       }
     }
   }
-
+  
   if (vflag_fdotr) virial_compute();
 }
 
@@ -255,6 +253,7 @@ void PairGoContacts::settings(int narg, char **arg)
   lj_contacts_flag = contacts_flag = contacts_dev_flag = 0;
   dev_type = DT_NONE;
   seed = time(NULL);
+//  seed = 1;
   
   char varsection[100];
   ifstream in(parfile);
@@ -463,8 +462,6 @@ double PairGoContacts::single(int i, int j, int itype, int jtype, double rsq,
   
   ires = atom->residue[i]-1;
   jres = atom->residue[j]-1;
-  
-  fprintf(screen, "SINGLE %d %d\n", ires, jres);
   
 // || rsq>sigma_sq[ires][jres]*9
   if (abs(jres-ires)<=3 || rsq>=cutsq[itype][jtype] || rsq>sigma_sq[ires][jres]*9) return 0.0;

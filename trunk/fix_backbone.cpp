@@ -442,7 +442,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	}
 	
 	if (amh_go_flag) {
-	  char amhgo_gamma_file[] = "amh-go.gamma";
+		char amhgo_gamma_file[] = "amh-go.gamma";
 		amh_go_gamma = new Gamma_Array(amhgo_gamma_file);
 		if (amh_go_gamma->error==amh_go_gamma->ERR_FILE) error->all("Cannot read file amh-go.gamma");
 		if (amh_go_gamma->error==amh_go_gamma->ERR_CLASS_DEF) error->all("AMH_Go: Wrong definition of sequance separation classes");
@@ -450,12 +450,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 		if (amh_go_gamma->error==amh_go_gamma->ERR_G_CLASS) error->all("AMH_Go: Wrong sequance separation class tag");
 		if (amh_go_gamma->error==amh_go_gamma->ERR_ASSIGN) error->all("AMH_Go: Cannot build gamma array");
     
-    char amhgo_mem_file[] = "amh-go.gro";
+		char amhgo_mem_file[] = "amh-go.gro";
 		m_amh_go = new Fragment_Memory(0, 0, n, 1.0, amhgo_mem_file);
 		if (m_amh_go->error==m_amh_go->ERR_FILE) error->all("Cannot read file amh-go.gro");
 		if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all("AMH_Go: Wrong atom count in memory structure file");
 		if (m_amh_go->error==m_amh_go->ERR_RES) error->all("AMH_Go: Unknown residue");
+		
+		// Calculate normalization factor for AMH-GO potential
+		compute_amhgo_normalization();
 	}
+	
 	
 	if (frag_mem_flag || frag_mem_tb_flag) {
 		if (comm->me==0) print_log("Reading fragments...\n");
@@ -2562,19 +2566,20 @@ void FixBackbone::compute_amhgo_normalization()
 	// Loop over chains
 	for (ich=0;ich<nch;++ich) {
 		res0 = ch_pos[ich]-1;
-		resn = ch_pos[ich]+ch_len[ich]-2;
+		resn = ch_pos[ich]+ch_len[ich]-1;
 	
 		// Double loop over all residue pairs
 		for (i=res0;i<resn;++i) {
 			ires_type = se_map[se[i]-'A'];
 			
-			for (iatom==Fragment_Memory::FM_CA; iatom<=Fragment_Memory::FM_CB - (se[i]=='G' ? 1 : 0); ++iatom) {
+			for (iatom=Fragment_Memory::FM_CA; iatom<=Fragment_Memory::FM_CB - (se[i]=='G' ? 1 : 0); ++iatom) {
 				normi = 0.0;
-			
+				
 				for (j=res0;j<resn;++j) {
 					jres_type = se_map[se[j]-'A'];
 					
-					for (jatom==Fragment_Memory::FM_CA; jatom<=Fragment_Memory::FM_CB - (se[j]=='G' ? 1 : 0); ++jatom) {
+					for (jatom=Fragment_Memory::FM_CA; jatom<=Fragment_Memory::FM_CB - (se[j]=='G' ? 1 : 0); ++jatom) {
+					
 						if (abs(i-j)<amh_go_gamma->minSep()) continue;
 						
 						rnative = m_amh_go->Rf(i, iatom, j, jatom);
@@ -2587,7 +2592,7 @@ void FixBackbone::compute_amhgo_normalization()
 				amh_go_norm[ich] += pow(fabs(normi), amh_go_p);
 			}
 		}
-		amh_go_norm[ich] /= 8*n;
+		amh_go_norm[ich] /= 8*resn;
 	}	
 }
 
@@ -2701,7 +2706,7 @@ void FixBackbone::compute_amh_go_model()
         f[amh_go_force_map[k]][2] += factor*amh_go_force[k][2];
       }
       
-      E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[imol];
+      E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[imol-1];
     }
   }
   

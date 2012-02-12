@@ -29,6 +29,6 @@ SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGTSDSNVR
 -HHHHHHHHHHH----HHHHHHHH---HHHHHHHH------HHHHHHHHHHH------H----------
 }}}
 
-Copy the prediction (second) line to a separate file and use _GenSswight.py_ script located in awsemmd/create_project_tools/ directory to convert it to _ssweight_ file in the desired format.
+Copy the prediction (second) line to a separate file and use _!GenSswight.py_ script located in awsemmd/create_project_tools/ directory to convert it to _ssweight_ file in the desired format.
 
 == Turning SS Bias off ==

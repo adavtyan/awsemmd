@@ -1,0 +1,34 @@
+#summary Using secondary structure bias in your simulations
+#labels Featured,Phase-Deploy
+
+<wiki:toc max_depth="3" />
+
+= Secondary Structure Bias =
+
+== Introduction ==
+
+This document explains how to apply secondary structure (SS) bias in simulations with AWSEM, and how to turn SS bias off if you don't need it.
+
+== Ramachandran plot parameters ==
+
+== SSWeight ==
+
+== File format for _ssweight_ ==
+To apply SS bias you need a _ssweight_ file in a specific format, which must correspond to Ramachandran plot definition and to '[SSWeight]' section in the parameter file. In the most common case described above this file must contain two columns with float numbers (typically 0.0 or 1.0), with the number of lines equal to the number of residues in the structure of interest. Values of 1.0 in the first column set helical bias to the Ramachandaran plots of corresponding residues and 1.0s in the second column bias towards beta-sheets. Note, that technically both helical and beta-sheet biases can be on simultaneously.
+
+In general case _ssweight_ can have up to 12 columns. The first six will set a per residue weighting factor to the terms of the general Ramachandran plot, and the next six columns will do the same for Proline plot.
+
+== Obtaining SS prediction and _ssweight_ file ==
+
+First you need to obtain an SS prediction using any appropriate software or an online server. For instance, you can use Jpred prediction server (http://www.compbio.dundee.ac.uk/www-jpred/), which takes a protein sequence as an input.
+
+After you run Jpred server with desired sequence you should get to the Result page, which will offer you the prediction results in various of different formats. Choose _Simple HTML_ output, which should look like this.
+
+{{{
+SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGTSDSNVR
+-HHHHHHHHHHH----HHHHHHHH---HHHHHHHH------HHHHHHHHHHH------H----------
+}}}
+
+Copy the prediction (second) line to a separate file and use _GenSswight.py_ script located in awsemmd/create_project_tools/ directory to convert it to _ssweight_ file in the desired format.
+
+== Turning SS Bias off ==

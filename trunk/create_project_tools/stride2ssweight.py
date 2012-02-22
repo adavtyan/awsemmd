@@ -5,8 +5,7 @@
 # You can find stride files for all pdb files at:
 # http://webclu.bio.wzw.tum.de/cgi-bin/stride/db.py
 # The script assumes you have put the "plain" version of the stride
-# database entry into a file called ssweight.stride and outputs the result
-# to a file called ssweight
+# database entry into a file called ssweight.stride.
 
 # Nick Schafer 2/22/12
 

@@ -117,7 +117,7 @@ double ComputePairdistmat::compute_scalar()
 
   int ntimestep=update->ntimestep;
 
-  fprintf(pairdistmatfile,"timestep:%d\n",ntimestep); 
+  fprintf(pairdistmatfile,"timestep %d\n",ntimestep); 
   // print pairwise distance matrix to file
   for(i=0; i<numres; i++) {
     for(j=0; j<numres; j++) {

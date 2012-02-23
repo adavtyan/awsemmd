@@ -132,7 +132,7 @@ double ComputeContactmap::compute_scalar()
 
   int ntimestep=update->ntimestep;
 
-  fprintf(contactmapfile,"timestep:%d\n",ntimestep); 
+  fprintf(contactmapfile,"timestep %d\n",ntimestep); 
   // print contact map to file
   for(i=0; i<numres; i++) {
     for(j=0; j<numres; j++) {

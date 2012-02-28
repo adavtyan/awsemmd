@@ -2699,7 +2699,7 @@ void FixBackbone::compute_amh_go_model()
         }
       }
       
-      factor = -0.5*epsilon*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1);
+      factor = -0.5*epsilon*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1)/amh_go_norm[imol-1];
       for (k=0;k<nforces;k++) {
         f[amh_go_force_map[k]][0] += factor*amh_go_force[k][0];
         f[amh_go_force_map[k]][1] += factor*amh_go_force[k][1];

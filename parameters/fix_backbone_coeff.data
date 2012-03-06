@@ -107,6 +107,8 @@ NOTE: helix_cutoff can be 7.0 instead fo 15.0
 1
 8.0
 
+NOTE: If you use AMH-Go you need to make sure that neigbour list cutoff and skin distance are set right
+
 [Fragment_Memory]-
 1.0
 1r69.mem

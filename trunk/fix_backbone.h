@@ -118,8 +118,8 @@ public:
   double tb_rmin, tb_rmax, tb_dr;
 
   // Solvent separated barrier
-  double k_solventb;
-  double ssb_kappa, ssb_rmin0, ssb_rmax0;
+  double k_solventb1, k_solventb2;
+  double ssb_kappa, ssb_rmin1, ssb_rmax1, ssb_rmin2, ssb_rmax2;
   int ssb_ij_sep;
   bool ssb_rad_cor;
   double ssb_rshift[20];

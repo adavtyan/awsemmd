@@ -272,9 +272,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
       if (comm->me==0) print_log("Solvent separated barrier flag on\n");
-      in >> k_solventb;
+      in >> k_solventb1;
+      in >> ssb_rmin1 >> ssb_rmax1;
+      in >> k_solventb2;
+      in >> ssb_rmin2 >> ssb_rmax2;
       in >> ssb_kappa;
-      in >> ssb_rmin0 >> ssb_rmax0;
       in >> ssb_ij_sep;
       in >> ssb_rad_cor;
       for (int j=0;j<20;++j)
@@ -3026,9 +3028,9 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
 {
   if (chain_no[i]==chain_no[j] && res_no[j]-res_no[i]<ssb_ij_sep) return;
 
-  double dx[3], force;
-  double *xi, *xj, r, rmin, rmax, rshift;
-  double t_min, t_max, theta;
+  double dx[3], force1, force2;
+  double *xi, *xj, r, rmin1, rmax1, rmin2, rmax2, rshift;
+  double t_min1, t_max1, theta1, t_min2, t_max2, theta2;
   int iatom, jatom;
   
   int i_resno = res_no[i]-1;
@@ -3048,33 +3050,48 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
 
   r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
-  rmin = ssb_rmin0;
-  rmax = ssb_rmax0;
+  rmin1 = ssb_rmin1;
+  rmax1 = ssb_rmax1;
+  rmin2 = ssb_rmin2;
+  rmax2 = ssb_rmax2;
   if(ssb_rad_cor){
     rshift = ssb_rshift[ires_type]+ssb_rshift[jres_type];
-    rmin += rshift;
-    rmax += rshift;
+    rmin1 += rshift;
+    rmax1 += rshift;    
+    rmin2 += rshift;
+    rmax2 += rshift;
   }
 
   // apply a distance cutoff criterion, cutoff = rmax + 10/kappa
-  if(r>rmax+10/ssb_kappa) return;
+  if(r>rmax1+10/ssb_kappa && r>rmax2+10/ssb_kappa) return;
 
-  t_min = tanh(ssb_kappa*(r-rmin));
-  t_max = tanh(ssb_kappa*(rmax-r));
+  t_min1 = tanh(ssb_kappa*(r-rmin1));
+  t_max1 = tanh(ssb_kappa*(rmax1-r));
+  t_min2 = tanh(ssb_kappa*(r-rmin2));
+  t_max2 = tanh(ssb_kappa*(rmax2-r));
 
-  theta = 0.5*(t_min+t_max);
+  theta1 = 0.5*(t_min1+t_max1);
+  theta2 = 0.5*(t_min2+t_max2);
 
-  energy[ET_SSB] += epsilon*k_solventb*theta;
+  energy[ET_SSB] += epsilon*k_solventb1*theta1;
+  energy[ET_SSB] += epsilon*k_solventb2*theta2;
 
-  force = -epsilon*k_solventb*ssb_kappa*theta*(t_max-t_min)/r;
+  force1 = -epsilon*k_solventb1*ssb_kappa*theta1*(t_max1-t_min1)/r;
+  force2 = -epsilon*k_solventb2*ssb_kappa*theta2*(t_max2-t_min2)/r;
 
-  f[iatom][0] += force*dx[0];
-  f[iatom][1] += force*dx[1];
-  f[iatom][2] += force*dx[2];
+  f[iatom][0] += force1*dx[0];
+  f[iatom][1] += force1*dx[1];
+  f[iatom][2] += force1*dx[2];
+  f[iatom][0] += force2*dx[0];
+  f[iatom][1] += force2*dx[1];
+  f[iatom][2] += force2*dx[2];
 
-  f[jatom][0] += -force*dx[0];
-  f[jatom][1] += -force*dx[1];
-  f[jatom][2] += -force*dx[2];
+  f[jatom][0] += -force1*dx[0];
+  f[jatom][1] += -force1*dx[1];
+  f[jatom][2] += -force1*dx[2];
+  f[jatom][0] += -force2*dx[0];
+  f[jatom][1] += -force2*dx[1];
+  f[jatom][2] += -force2*dx[2];
 }
 
 void FixBackbone::print_forces(int coord)

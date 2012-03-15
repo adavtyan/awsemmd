@@ -7,31 +7,64 @@
 # Features to add:
 # * save data to files
 # * flexibly choose what data to save
-# * check for errors in system parameters
 # * plot reconfiguration time versus sequence separation
 # * plot autocorrelation functions
 # * compute uncertainties for acfs and reconfiguration times
-# * automatically determine size and number of snapshots
 # * optionally specify number of snapshots to process
 # * flexibly specify separation range (e.g. range(1,5,20))
 
 # import necessary libraries
 import numpy
 import sys
+import commands
 
-# open the data file
-f=open('pairdistmattimeseries','r')
+# check commad line arguments
+if len(sys.argv) != 3:
+    print "Usage: python computeReconfigurationTimes.py maxlag"
+    sys.exit()
 
 # set system parameters
-size=66 # size of the protein
-snapshots=1000 # number of timesteps in input file
+maxlag=int(sys.argv[2]) # maximum lag time at which to compute autocorrelation
+print "maximum lag time to be computed: " + str(maxlag)
+
+# open the data file
+f=open(sys.argv[1],'r')
+
+# read in system size
+print "Reading system size..."
+size=0
+for line in f:
+    line=line.split()
+    if line[0] == 'timestep':
+        continue
+    
+    for element in line:
+        size += 1
+    
+    break
+
+print "size:" + str(size)
+
+# set min and max sequence separation
 minseqsep=1 # at least 1
-maxseqsep=65 # at most size-1
-maxlag=150 # maximum lag time at which to compute autocorrelation
+maxseqsep=size-1 # at most size-1
+
+# read in number of snapshots
+print "Reading in number of snapshots..."
+snapshots=int(commands.getstatusoutput('grep timestep ' + sys.argv[1] + ' | wc -l')[1])
+print "snapshots:" + str(snapshots)
+
+if maxlag > snapshots:
+    print "Cannot have a maxlag greater than the number of snapshots."
+    sys.exit()
+
+# close and reopen data file to read over again
+f.close()
+f=open(sys.argv[1],'r')
 
 # for debugging purposes
-testrow=10 
-testcolumn=15
+# testrow=10 
+# testcolumn=15
 
 # build timeseries matrix
 print "Building timeseries matrix..."
@@ -64,6 +97,14 @@ for line in f:
     column=0
 
 # print timeseries[testrow][testcolumn]
+
+# build reconfiguration times matrix
+print "Building reconfiguration times matrix..."
+reconfigurationtimes=[]
+for row in range(size):
+    reconfigurationtimes.append([])
+    for column in range(size):
+        reconfigurationtimes[row].append(0.0)
 
 # build average matrix
 print "Building average matrix..."
@@ -147,6 +188,19 @@ for row in range(size):
 
             autocorrelationvalues[row][column][tau] /= snapshots*variancevalues[row][column]
 
+# calculate reconfiguration time matrix
+print "Calculating reconfiguration time matrix..."
+for row in range(size):
+    for column in range(row,size):
+        if abs(row-column) > maxseqsep or abs(row-column) < minseqsep:
+            continue
+
+        for tau in range(maxlag):
+            if autocorrelationvalues[row][column][tau] < 0:
+                break
+            
+            reconfigurationtimes[row][column] += autocorrelationvalues[row][column][tau]
+
 # build autocorrelation array averaged over separation
 print "Averaging autocorrelation functions over sequence separations..."
 sepaveragedautocorrarray=[]
@@ -166,10 +220,10 @@ for tau in range(maxlag):
         sepaveragedautocorrarray[sep][tau] /= float(size-sep)
             
 # print sepaveragedautocorrarray[5]
-print timeseries[testrow][testcolumn]
+# print timeseries[testrow][testcolumn]
 # print averagevalues[testrow][testcolumn]
 # print variancevalues[testrow][testcolumn]
-print autocorrelationvalues[testrow][testcolumn]
+# print autocorrelationvalues[testrow][testcolumn]
 
 # calculate reconfiguration times for all seps between minsep and maxsep
 # (sum all values of averaged autocor function before it goes to zero)
@@ -181,13 +235,13 @@ for sep in range(0,size):
     decaytimevalues.append(0.0)
 
 # calculate decay times
-finished=0
+reachedzero=0
 print "Calculating decay times..."
 for sep in range(minseqsep,maxseqsep+1):
     decaytime=0.0
     for tau in range(maxlag):
         if sepaveragedautocorrarray[sep][tau] < 0:
-            finished=1
+            reachedzero=1
             break
 
         decaytime += sepaveragedautocorrarray[sep][tau]
@@ -195,8 +249,9 @@ for sep in range(minseqsep,maxseqsep+1):
     decaytimevalues[sep] = decaytime
 
 print decaytimevalues
+print reconfigurationtimes
 
-if finished == 0:
+if reachedzero == 0:
     print "Warning: maxlag may be too small"
             
     

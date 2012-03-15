@@ -121,7 +121,7 @@ double ComputePairdistmat::compute_scalar()
   // print pairwise distance matrix to file
   for(i=0; i<numres; i++) {
     for(j=0; j<numres; j++) {
-      fprintf(pairdistmatfile,"%f ", pairdistmat[i][j]);
+      fprintf(pairdistmatfile,"%.3f ", pairdistmat[i][j]);
     }
     fprintf(pairdistmatfile,"\n");
   }

@@ -33,12 +33,13 @@ int main(int argc, char *argv[])
   int size=0;
   int totalsnapshots=0;
   int i=0;
+  int lastwasspace=1;
   if ( datafile != NULL )
     {
       char line [ 1000 ];
       for (i=0; i<sizeof line; i++)
 	{
-	  line[i] = NULL;
+	  line[i] = ' ';
 	}
 
       while ( fgets ( line, sizeof line, datafile ) != NULL )
@@ -47,16 +48,24 @@ int main(int argc, char *argv[])
 	    {
 	      totalsnapshots++;
 	    }
-	  size=0;
-	  for (i=0; i<sizeof line; i++)
+	}
+      size=0;
+      for (i=0; i<sizeof line; i++)
+	{
+	  if ( line[i] == ' ' )
 	    {
-	      if ( line[i] == '.' )
+	      lastwasspace=1;
+	    }
+	  else if ( lastwasspace == 1 )
+	    {
+	      lastwasspace=0;
+	      if ( line[i] != '\n' )
 		{
 		  size++;
 		}
 	    }
-	  //	  fputs ( line, stdout ); /* write the line */
 	}
+
       fclose ( datafile );
     }
 
@@ -77,6 +86,11 @@ int main(int argc, char *argv[])
   printf("Frequency at which to accept snapshots (snapfreq): %d\n",snapfreq);
   snapshots = totalsnapshots/snapfreq;
   printf("Number of snapshots to process (snapshots/snapfreq): %d\n",snapshots);
+  if (maxlag < snapfreq)
+    {
+      printf("Cannot have a maxlag less than the snapshot frequency.\n");
+      return;
+    }
   maxlag /= snapfreq;
   printf("Effective maxlag (maxlag/snapfreq): %d\n",maxlag);
   if (maxlag > snapshots)

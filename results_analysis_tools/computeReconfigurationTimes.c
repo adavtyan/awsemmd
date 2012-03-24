@@ -20,9 +20,9 @@ void free_data3d(double ***data, size_t xlen, size_t ylen);
 // main program
 int main(int argc, char *argv[])
 {
-  if ( argc != 6 && argc !=7 ) 
+  if ( argc != 8 && argc !=9 ) 
     {
-      printf( "usage: %s datafilename pairdistdatafile maxlag reconfigmatrixoutfile sepaveragedoutfile meanreconfigoutfile [snapshotfrequency]\n", argv[0] );
+      printf( "usage: %s datafilename pairdistdatafile maxlag reconfigmatrixoutfile sepaveragedoutfile meanreconfigoutfile meanvaluesfile variancevaluesfile [snapshotfrequency]\n", argv[0] );
       exit(1);
     }
   int maxlag=atoi(argv[2]);
@@ -68,11 +68,11 @@ int main(int argc, char *argv[])
 
       fclose ( datafile );
     }
-
+  
   int snapfreq = 1; // only read in every snapfreq snapshots
-  if ( argc == 7 )
+  if ( argc == 9 )
     {
-      snapfreq = atoi(argv[6]);
+      snapfreq = atoi(argv[8]);
     }
   printf("System size: %d\n",size);
   printf("Number of snapshots: %d\n",totalsnapshots);
@@ -98,6 +98,8 @@ int main(int argc, char *argv[])
       printf("Cannot have a maxlag greater than the number of snapshots.\n");
       return;
     }
+
+  printf("Allocating and reading time series data...\n");
   double ***timeseries;
   timeseries = alloc_data3d(size,size,snapshots);
   datafile=fopen(argv[1], "r");
@@ -105,7 +107,6 @@ int main(int argc, char *argv[])
     {  
       fscanf(datafile,"%s",timestepstr);
       fscanf(datafile,"%d",&timestepnum);
-      //printf("timestep: %s, number: %d \n",timestepstr,timestepnum);
       for ( row = 0; row < size; row++)
 	{
 	  for ( column = 0; column < size; column++ )
@@ -113,23 +114,13 @@ int main(int argc, char *argv[])
 	      fscanf(datafile,"%lf", &pairdist);
 	      if( snapshot == 0 || (snapshot+1)%snapfreq == 0 )
 		{
-		  //printf("%d\n",snapshot);
 		  timeseries[row][column][snapshot/snapfreq]=pairdist;
 		}
 	    }
 	}
     }
   
-    /* for ( snapshot = 0; snapshot < snapshots; snapshot++ ) */
-    /* { */
-    /*   for ( row = 0; row < size; row++) */
-    /* 	{ */
-    /* 	  for ( column = 0; column < size; column++ ) */
-    /* 	    { */
-    /* 	      printf("%f \n", timeseries[row][column][snapshot]); */
-    /* 	    } */
-    /* 	} */
-    /* } */
+  printf("Allocating and initializing reconfiguration time matrix...\n");
   double **reconfigurationtimes;
   reconfigurationtimes = alloc_data2d(size,size);
   for ( row = 0; row < size; row++)
@@ -140,6 +131,7 @@ int main(int argc, char *argv[])
 	}
     }
 
+  printf("Allocating and initializing average values matrix...\n");
   double **averagevalues;
   averagevalues = alloc_data2d(size,size);
   for ( row = 0; row < size; row++)
@@ -149,8 +141,9 @@ int main(int argc, char *argv[])
 	  averagevalues[row][column] = 0.0;
 	}
     }
-  double average = 0.0;
 
+  printf("Calculating average values matrix...\n");
+  double average = 0.0;
   for ( row = 0; row < size; row++)
     {
       for ( column = 0; column < size; column++ )
@@ -164,6 +157,7 @@ int main(int argc, char *argv[])
 	}
     }
 
+  printf("Subtracting average values from time series data...\n");
   for ( row = 0; row < size; row++)
     {
       for ( column = 0; column < size; column++ )
@@ -175,6 +169,8 @@ int main(int argc, char *argv[])
 	    }
 	}
     }  
+
+  printf("Allocating and initializing variance values matrix...\n");
   double **variancevalues;
   variancevalues = alloc_data2d(size,size);
   for ( row = 0; row < size; row++)
@@ -184,6 +180,8 @@ int main(int argc, char *argv[])
 	  variancevalues[row][column] = 0.0;
 	}
     }
+
+  printf("Calculating variance values matrix...\n");
   double variance = 0.0;
   for ( row = 0; row < size; row++)
     {
@@ -197,6 +195,8 @@ int main(int argc, char *argv[])
 	  variancevalues[row][column] = variance/((double)snapshots-1);
 	}
     }  
+
+  printf("Allocating and calculating autocorrelation values...\n");
   double ***autocorrelationvalues;
   autocorrelationvalues = alloc_data3d(size,size,maxlag);
   int tau = 0;
@@ -228,18 +228,30 @@ int main(int argc, char *argv[])
 	    {
 	      continue;
 	    }
-	  for ( tau = 0; tau < maxlag; tau++ )
-	    { 	  
-	      if ( tau == 0 )
+	  if ( variancevalues[row][column] == 0.0 )
+	    {
+	      printf("WARNING: variancevalues[%d][%d] is zero. The corresponding autocorrelation function has been artificially set to zero. \n",row,column);
+	      for ( tau =0; tau < maxlag; tau++ )
 		{
-		  autocorrelationvalues[row][column][tau] = 1.0;
-		  continue;
+		  autocorrelationvalues[row][column][tau] = 0;
 		}
-	      autocorrelationvalues[row][column][tau] /= snapshots*variancevalues[row][column];
+	    }
+	  else
+	    {
+	      for ( tau = 0; tau < maxlag; tau++ )
+		{ 	  
+		  if ( tau == 0 )
+		    {
+		      autocorrelationvalues[row][column][tau] = 1.0;
+		      continue;
+		    }
+		  autocorrelationvalues[row][column][tau] /= snapshots*variancevalues[row][column];
+		}	      
 	    }
 	}
     }  
-  
+
+  printf("Calculating reconfiguration times...\n");  
   int reachedzero = 0;
   for ( row = 0; row < size; row++)
     {
@@ -265,8 +277,11 @@ int main(int argc, char *argv[])
 	    }
 	}
     }  
+
+  printf("Writing output files...\n");  
   FILE *reconfigmatoutfile;
   reconfigmatoutfile=fopen(argv[3], "w");
+  printf(argv[3]);
   for ( row = 0; row < size; row++)
     {
       for ( column = 0; column < size; column++ )
@@ -276,7 +291,31 @@ int main(int argc, char *argv[])
       fprintf(reconfigmatoutfile,"\n");
     }  
   fclose(reconfigmatoutfile);
-  
+
+  FILE *averageoutfile;
+  averageoutfile=fopen(argv[6], "w");
+  for ( row = 0; row < size; row++)
+    {
+      for ( column = 0; column < size; column++ )
+	{
+	  fprintf(averageoutfile,"%f ",averagevalues[row][column]);
+	}
+      fprintf(averageoutfile,"\n");
+    }  
+  fclose(averageoutfile);
+
+  FILE *varianceoutfile;
+  varianceoutfile=fopen(argv[7], "w");
+  for ( row = 0; row < size; row++)
+    {
+      for ( column = 0; column < size; column++ )
+	{
+	  fprintf(varianceoutfile,"%f ",variancevalues[row][column]);
+	}
+      fprintf(varianceoutfile,"\n");
+    }  
+  fclose(varianceoutfile);
+ 
   double *sepaveragedreconfigtimes = malloc(size * sizeof *sepaveragedreconfigtimes);
   for ( i = 0; i < size; i++ )
     {

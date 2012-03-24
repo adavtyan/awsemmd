@@ -12,13 +12,16 @@ import numpy
 from VectorAlgebra import *
 from Bio.PDB.PDBParser import PDBParser
 
-if len(sys.argv)!=3:
-	print "\n" + str(sys.argv[0]) + " PDB_ID output_file \n"
+if len(sys.argv) != 3 and len(sys.argv) != 4:
+	print "\n" + str(sys.argv[0]) + " PDB_ID output_file [snapshot]\n"
 	sys.exit()
 
 struct_id = sys.argv[1]
 filename = struct_id + ".pdb"
 output = sys.argv[2]
+snapshot = -1
+if len(sys.argv) > 3:
+	snapshot = int(sys.argv[3])
 
 p = PDBParser(PERMISSIVE=1)
 s = p.get_structure(struct_id, filename)
@@ -94,50 +97,96 @@ for i in range(0,len(native_coords)):
 		print 'Warning: Residue %s has no native contacts. norm set to 1. The residue will always appear "unfolded".' % i
 
 #read in dump.lammpstrj and calculate qi's
+nFrame = 0
+found = False
+Qis_array = []
+box = []
+A = []
 qis_array = []
 lfile = open(lammps_file)
-for l in lfile:
-	l = l.strip()
-	if l[:5]=="ITEM:":
-		item = l[6:]
-	else:
-		if item == "TIMESTEP":
-			if len(cb_atoms)>0:
-				qis_snapshot = compute_qis()
-				qis_array.append(qis_snapshot)
-			step = int(l)
-			cb_atoms = []
-			box = []
-			A = []
-		elif item[:10] == "BOX BOUNDS":
-			box.append(l)
-			l = l.split()
-			A.append([float(l[0]), float(l[1])])
-		elif item[:5] == "ATOMS":
-			l = l.split()
-			i_atom = l[0]
-			x = float(l[2])
-			y = float(l[3])
-			z = float(l[4])
-			x = (A[0][1] - A[0][0])*x + A[0][0]
-			y = (A[1][1] - A[1][0])*y + A[1][0]
-			z = (A[2][1] - A[2][0])*z + A[2][0]
-			desc = atom_desc[l[1]]
-			if desc=='C-Alpha':
-				ca_atom = [x,y,z]
-			elif desc=='C-Beta':
-				cb_atom = [x,y,z]
-				cb_atoms.append(cb_atom)
-			elif desc=='H-Beta':
-				cb_atoms.append(ca_atom)
+if snapshot < 0:
+	for l in lfile:
+		l = l.strip()
+		if l[:5]=="ITEM:":
+			item = l[6:]
+		else:
+			if item == "TIMESTEP":
+				if len(cb_atoms)>0:
+					qis_snapshot = compute_qis()
+					qis_array.append(qis_snapshot)
+					step = int(l)
+				cb_atoms = []
+				box = []
+				A = []
+			elif item[:10] == "BOX BOUNDS":
+				box.append(l)
+				l = l.split()
+				A.append([float(l[0]), float(l[1])])
+			elif item[:5] == "ATOMS":
+				l = l.split()
+				i_atom = l[0]
+				x = float(l[2])
+				y = float(l[3])
+				z = float(l[4])
+				x = (A[0][1] - A[0][0])*x + A[0][0]
+				y = (A[1][1] - A[1][0])*y + A[1][0]
+				z = (A[2][1] - A[2][0])*z + A[2][0]
+				desc = atom_desc[l[1]]
+				if desc=='C-Alpha':
+					ca_atom = [x,y,z]
+				elif desc=='C-Beta':
+					cb_atom = [x,y,z]
+					cb_atoms.append(cb_atom)
+				elif desc=='H-Beta':
+					cb_atoms.append(ca_atom)
+
+        # calculate qis for last snapshot
+	if len(cb_atoms)>0:
+		qis_snapshot = compute_qis()
+		qis_array.append(qis_snapshot)
+		qis_total.append(qis_array)
+
+else:
+	for l in lfile:
+		l = l.strip()
+		if l[:5]=="ITEM:":
+			item = l[6:]
+			if item == "TIMESTEP":
+				if found: break
+				elif nFrame==snapshot: found = True
+				nFrame = nFrame + 1
+		elif found:			
+			if item == "TIMESTEP":
+				step = int(l)
+			elif item[:10] == "BOX BOUNDS":
+				box.append(l)
+				l = l.split()
+				A.append([float(l[0]), float(l[1])])
+			elif item[:5] == "ATOMS":
+				l = l.split()
+				i_atom = l[0]
+				x = float(l[2])
+				y = float(l[3])
+				z = float(l[4])
+				x = (A[0][1] - A[0][0])*x + A[0][0]
+				y = (A[1][1] - A[1][0])*y + A[1][0]
+				z = (A[2][1] - A[2][0])*z + A[2][0]
+				desc = atom_desc[l[1]]
+				if desc=='C-Alpha':
+					ca_atom = [x,y,z]
+				elif desc=='C-Beta':
+					cb_atom = [x,y,z]
+					cb_atoms.append(cb_atom)
+				elif desc=='H-Beta':
+					cb_atoms.append(ca_atom)
+        # calculate qis for last snapshot
+	if len(cb_atoms)>0:
+		qis_snapshot = compute_qis()
+		qis_array.append(qis_snapshot)
+		qis_total.append(qis_array)
+		
 lfile.close()
 
-#calculate qis for last snapshot
-if len(cb_atoms)>0:
-	qis_snapshot = compute_qis()
-	qis_array.append(qis_snapshot)
-
-qis_total.append(qis_array)
 
 snapshotfile = open(output, 'w')
 

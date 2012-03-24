@@ -8,6 +8,19 @@
 
 # Modified by Nick Schafer to read from a file with per-residue
 # color information and insert it into the B-factor field
+# The format of the file should be as follows: it should have one entry
+# for every residue on every line, separated by a space and as many
+# lines as there are snapshots in the dump file that is being processed.
+# Example for 5 residue, 4 snapshot trajectory:
+
+# 1.0 0.5 0.7 0.3 0.0
+# 1.0 0.5 0.7 0.3 0.2
+# 0.8 0.5 0.2 0.5 0.1
+# 1.0 0.7 0.7 0.3 0.0
+
+# To specify the file with color information, add
+# -color colorfile
+# to the normal list of arguments.
 
 # Last Update: 03/23/12
 # ----------------------------------------------------------------------

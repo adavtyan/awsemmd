@@ -433,7 +433,10 @@ else:
 		buildAllAtoms()
 		convertToPDB()
 		n_atoms = len(atoms2)
-		print_pdb(snapshot)
+		if numsnap == 1:
+			print_pdb(0)
+		else:
+			print_pdb(snapshot)
 		buildBonds()
 		print_psf()
 

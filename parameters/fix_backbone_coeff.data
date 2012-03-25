@@ -114,6 +114,16 @@ NOTE: If you use AMH-Go you need to make sure that neigbour list cutoff and skin
 1r69.mem
 1r69.gamma
 
+#[Fragment_Frustratometer]
+memory_file
+num_decoy_calcs
+frust_output_freq
+
+[Fragment_Frustratometer]
+1r69.mem
+1000
+10
+
 #[Fragment_Memory_Table]
 scaling_factor
 mem_file

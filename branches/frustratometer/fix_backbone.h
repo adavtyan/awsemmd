@@ -110,6 +110,14 @@ public:
   Gamma_Array *fm_gamma;
   char frag_mems_file[100];
   char fm_gamma_file[100];
+
+  // Fragment Frustratometer parameters
+  int n_decoy_mems, **decoy_mem_map, *ilen_decoy_map;
+  Fragment_Memory **decoy_mems;
+  char decoy_mems_file[100];
+  int num_decoy_calcs;
+  double **decoy_energy;
+  int frust_output_freq;
   
   // Table Fragment Memory parameters
     TBV **fm_table;
@@ -148,6 +156,7 @@ public:
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
   bool phosph_flag;
   bool frag_mem_tb_flag;
+  bool frag_frust_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -180,6 +189,7 @@ public:
   void compute_helix_potential(int i, int j);
   void compute_amh_go_model();
   void compute_fragment_memory_potential(int i);
+  double compute_decoy_memory_potential(int i);
   void compute_solvent_barrier(int i, int j);
   void compute_fragment_memory_table();
   void table_fragment_memory(int i, int j);

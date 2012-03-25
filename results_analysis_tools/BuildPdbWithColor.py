@@ -116,13 +116,10 @@ def One2ThreeLetters(txt):
 	return seq_array
 
 def file_len(fname):
-    with open(fname) as f:
-        for i, l in enumerate(f):
-            pass
-    return i + 1
+    return len(open(fname).readlines())
 
 if len(sys.argv)<3 or len(sys.argv)>8:
-	print "Too many arguments."
+	print "Too many or too few arguments."
 	print "\n" + sys.argv[0] + " Input_file Output_file [snapshot] [-seq sequence_file] [-color color_file]\n"
 	exit()
 
@@ -170,7 +167,8 @@ if seq_file!="":
 	fseq.close()
 if color_file!="":		
 	numsnap=file_len(color_file)
-	print "Number of snapshots (inferred from number of lines): " + str(numsnap)
+  print "Building color information into the b-factor field..."
+	print "Number of snapshots (inferred from number of lines in color file): " + str(numsnap)
 	snap=0
 	linecounter=1
 	fcolor = open(color_file)
@@ -178,7 +176,7 @@ if color_file!="":
 		splitline=line.split()
 		if linecounter==1:
 			numres=len(splitline)
-			print "Number of residues (inferred from first line size): " + str(numres)
+			print "Number of residues (inferred from first line size of color file): " + str(numres)
 			linecounter +=1
 			# Build array that is numres x numsnapshots
 			# Each line contains all per residue values for a single snapshot

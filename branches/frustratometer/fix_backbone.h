@@ -189,7 +189,9 @@ public:
   void compute_helix_potential(int i, int j);
   void compute_amh_go_model();
   void compute_fragment_memory_potential(int i);
-  double compute_decoy_memory_potential(int i);
+  void compute_decoy_memory_potential(int i, int decoy_calc);
+  void randomize_decoys();
+  void compute_fragment_frustration();
   void compute_solvent_barrier(int i, int j);
   void compute_fragment_memory_table();
   void table_fragment_memory(int i, int j);

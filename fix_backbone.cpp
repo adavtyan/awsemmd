@@ -523,7 +523,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       decoy_mem_map[i] = NULL;
     }
 	
-    // Fill Fragment Memory map
+    // Fill Decoy Memory map
     int k, pos, len, min_sep;
     min_sep = fm_gamma->minSep();
     for (k=0;k<n_decoy_mems;++k) {
@@ -541,6 +541,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	decoy_mem_map[i][ilen_decoy_map[i]-1] = k;
       }
     }
+
+    // Allocate decoy_energy array
     decoy_energy = new double*[n];
     for (i=0;i<n;i++)
       {
@@ -2841,7 +2843,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
         drsq = dr*dr;
         
         V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
-	printf("%d %f\n",i,V);
+	// printf("%d %f\n",i,V);
 
         energy[ET_FRAGMEM] += V;
         
@@ -2871,14 +2873,14 @@ void FixBackbone::compute_fragment_memory_potential(int i)
   }
 }
 
-double FixBackbone::compute_decoy_memory_potential(int i)
+void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 {
   int j, js, je, i_fm, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
   int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
   double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, V, force;
   double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
   Fragment_Memory *frag;
-  double Vtotal=0.0;
+  int num_frags;
   
   iatom_type[0] = Fragment_Memory::FM_CA;
   iatom_type[1] = Fragment_Memory::FM_CA;
@@ -2903,8 +2905,26 @@ double FixBackbone::compute_decoy_memory_potential(int i)
   i_resno = res_no[i]-1;
   ires_type = se_map[se[i_resno]-'A'];
   
-  for (i_fm=0; i_fm<ilen_decoy_map[i_resno]; ++i_fm) {
-    frag = decoy_mems[ decoy_mem_map[i_resno][i_fm] ];
+  if (decoy_calc == 0)
+    {
+      num_frags=ilen_fm_map[i_resno];
+    }
+  else
+    {
+      num_frags=ilen_decoy_map[i_resno];
+    }
+  
+
+  for (i_fm=0; i_fm<num_frags; ++i_fm) {
+
+    if (decoy_calc == 0)
+      {
+	frag=frag_mems[ frag_mem_map[i_resno][i_fm] ];
+      }
+    else
+      {
+	frag=decoy_mems[ decoy_mem_map[i_resno][i_fm] ];
+      }
     
     epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
     
@@ -2954,11 +2974,88 @@ double FixBackbone::compute_decoy_memory_potential(int i)
         drsq = dr*dr;
         
         V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
-        Vtotal += V;
+        decoy_energy[i_resno][decoy_calc] += V;
+        decoy_energy[j_resno][decoy_calc] += V;
       }
     }
   }
-  return Vtotal;
+}
+
+void FixBackbone::randomize_decoys()
+{
+  int i;
+  //printf("n_mems: %d",n_decoy_mems);
+  for(i=0; i<n_decoy_mems; i++)
+    {
+      //printf("i: %d pos: %d weight: %f len: %d\n",i,decoy_mems[i]->pos,decoy_mems[i]->weight,decoy_mems[i]->len);
+      // randomize the position of each decoy memory
+      int random_position = rand() % (n-decoy_mems[i]->len+1);
+      //printf("random position: %d\n",random_position);
+      decoy_mems[i]->pos = random_position;
+    }
+
+  // Repopulate Decoy Memory map
+  int k, pos, len, min_sep;
+  for (i=0;i<n;++i) {
+    ilen_decoy_map[i] = 0;
+    decoy_mem_map[i] = NULL;
+  }
+  min_sep = fm_gamma->minSep();
+  // printf("min_sep done\n");
+  for (k=0;k<n_decoy_mems;++k) {
+    // printf("k:%d\n",k);
+    pos = decoy_mems[k]->pos;
+    len = decoy_mems[k]->len;
+    
+    if (pos+len>n) {
+      fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
+      error->all("Fragment_Frustratometer: Incorrectly defined memory fragment");
+    }
+    
+    for (i=pos; i<pos+len-min_sep; ++i) {
+      ilen_decoy_map[i]++;
+      decoy_mem_map[i] = (int *) memory->srealloc(decoy_mem_map[i],ilen_decoy_map[i]*sizeof(int),"modify:decoy_mem_map");
+      decoy_mem_map[i][ilen_decoy_map[i]-1] = k;
+    }
+  }
+  // printf("randomize decoys done\n");
+}
+
+void FixBackbone::compute_fragment_frustration()
+{
+  // loop over decoy calculations
+  int residueindex, decoyindex;
+  double averagedecoyenergy, variancedecoyenergy, frustrationindex;
+  double nativeenergy;
+    for (residueindex=0; residueindex<n; residueindex++)
+      {
+	// zero per-residue variables
+	averagedecoyenergy=0.0;
+	variancedecoyenergy=0.0;
+	// i=0 is native, start at i=1
+	// compute average decoy energy
+	for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	  {
+	    averagedecoyenergy += decoy_energy[residueindex][decoyindex];
+	  }
+	// divide sum over decoys by num_decoy_calcs-1 (because native is excluded from sum)
+	averagedecoyenergy /= (num_decoy_calcs-1);
+
+	// compute variance decoy energy
+	for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	  {
+	    variancedecoyenergy += pow(decoy_energy[residueindex][decoyindex]-averagedecoyenergy,2);
+	  }
+	variancedecoyenergy /= (num_decoy_calcs-1);
+	// compute frustration index
+	nativeenergy = decoy_energy[residueindex][0];
+	frustrationindex = (nativeenergy-averagedecoyenergy)/(sqrt(variancedecoyenergy));
+	printf("%f ",frustrationindex);
+	// printf("averagedecoyenergy: %f\n", averagedecoyenergy);
+	// printf("variancedecoyenergy: %f\n", variancedecoyenergy);
+	// printf("nativeenergy: %f\n", nativeenergy);
+      }
+    printf("\n");
 }
 
 void FixBackbone::compute_fragment_memory_table()
@@ -3693,18 +3790,17 @@ void FixBackbone::compute_backbone()
   if (frag_frust_flag && ntimestep % frust_output_freq == 0) {
     for (int idecoy=0; idecoy<num_decoy_calcs; idecoy++)
       {
-	// randomize decoy memory positions and weights
-	// randomize_decoys();
-
 	// compute and store decoy energies
 	for (i=0;i<nn;i++) {
-	  decoy_energy[i][idecoy]=compute_decoy_memory_potential(i);
+	  compute_decoy_memory_potential(i,idecoy);
 	  // printf("%d %d %d %f\n",ntimestep,i,idecoy,decoy_energy[i][idecoy]);
 	}
+	// randomize decoy memory positions and weights
+	randomize_decoys();
       }
 
     // calculate and output per-residue frustration index
-    // calc_fragment_frustration();
+    compute_fragment_frustration();
   }
  
   if (amh_go_flag)

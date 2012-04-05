@@ -3049,33 +3049,44 @@ void FixBackbone::compute_fragment_frustration()
   int residueindex, decoyindex;
   double averagedecoyenergy, variancedecoyenergy, frustrationindex;
   double nativeenergy;
-
-    for (residueindex=0; residueindex<n; residueindex++)
-      {
-	// zero per-residue variables
-	averagedecoyenergy=0.0;
-	variancedecoyenergy=0.0;
-	// i=0 is native, start at i=1
-	// compute average decoy energy
-	for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
-	  {
-	    averagedecoyenergy += decoy_energy[residueindex][decoyindex];
-	  }
-	// divide sum over decoys by num_decoy_calcs-1 (because native is excluded from sum)
-	averagedecoyenergy /= (num_decoy_calcs-1);
-
-	// compute variance decoy energy
-	for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
-	  {
-	    variancedecoyenergy += pow(decoy_energy[residueindex][decoyindex]-averagedecoyenergy,2);
-	  }
-	variancedecoyenergy /= (num_decoy_calcs-1);
-	// compute frustration index
-	nativeenergy = decoy_energy[residueindex][0];
-	frustrationindex = (nativeenergy-averagedecoyenergy)/(sqrt(variancedecoyenergy));
-	fprintf(fragment_frustration_file, "%f ",frustrationindex);
-      }
-    fprintf(fragment_frustration_file, "\n");
+    
+  // normalize native and decoy energies by number of respective memories
+  for (residueindex=0; residueindex<n; residueindex++)
+    {
+      decoy_energy[residueindex][0] /= n_frag_mems;
+      
+      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	{
+	  decoy_energy[residueindex][decoyindex] /= n_decoy_mems;
+	}
+    }
+  
+  for (residueindex=0; residueindex<n; residueindex++)
+    {
+      // zero per-residue variables
+      averagedecoyenergy=0.0;
+      variancedecoyenergy=0.0;
+      // i=0 is native, start at i=1
+      // compute average decoy energy
+      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	{
+	  averagedecoyenergy += decoy_energy[residueindex][decoyindex];
+	}
+      // divide sum over decoys by num_decoy_calcs-1 (because native is excluded from sum)
+      averagedecoyenergy /= (num_decoy_calcs-1);
+      
+      // compute variance decoy energy
+      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	{
+	  variancedecoyenergy += pow(decoy_energy[residueindex][decoyindex]-averagedecoyenergy,2);
+	}
+      variancedecoyenergy /= (num_decoy_calcs-1);
+      // compute frustration index
+      nativeenergy = decoy_energy[residueindex][0];
+      frustrationindex = (nativeenergy-averagedecoyenergy)/(sqrt(variancedecoyenergy));
+      fprintf(fragment_frustration_file, "%f ",frustrationindex);
+    }
+  fprintf(fragment_frustration_file, "\n");
 }
 
 void FixBackbone::compute_fragment_memory_table()

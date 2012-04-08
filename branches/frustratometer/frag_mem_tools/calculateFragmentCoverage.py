@@ -44,9 +44,9 @@ def getNumberOfResidues():
     for line in memoryLines:
         maxResidueOfLine = int(line[1]) + int(line[3]) - 1
         if maxResidueOfLine > numberOfResidues:
-            size = maxResidueOfLine
+            numberOfResidues = maxResidueOfLine
 
-    return size
+    return numberOfResidues
 
 # Main program
 if len(sys.argv) != 3:

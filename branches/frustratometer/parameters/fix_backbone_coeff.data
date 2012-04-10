@@ -115,14 +115,26 @@ NOTE: If you use AMH-Go you need to make sure that neigbour list cutoff and skin
 1r69.gamma
 
 #[Fragment_Frustratometer]
-memory_file
-num_decoy_calcs
-frust_output_freq
+shuffle (outputs residue specific frustration indices using a shuffling mechanism to generate decoys)
+memory_file (containing memory fragments to shuffle)
+num_decoy_calcs (the number of times to shuffle the memories)
+frust_output_freq (the number of steps between each frustration calculation)
 
-[Fragment_Frustratometer]
-1r69.mem
+[Fragment_Frustratometer]-
+shuffle
+decoy_frags.mem
 1000
 10
+
+#[Fragment_Frustratometer]
+read (reads the per-residue fragment energies in from a file to represent the decoy distribution)
+memory_file (containing previously generated decoy structures)
+frust_output_freq (the number of steps between each frustration calculation)
+
+[Fragment_Frustratometer]
+read
+decoy_frags.mem
+1000
 
 #[Fragment_Memory_Table]
 scaling_factor

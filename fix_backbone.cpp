@@ -79,7 +79,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 7) error->all("Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
-  fragment_frustration_file = fopen("fragment_frustration.dat","w");
 
   char buff[5];
   char forcefile[20]="";
@@ -103,6 +102,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
   ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = 0;
   ssb_flag = frag_mem_tb_flag = phosph_flag = 0;
+  // all fragment frustration flags are off by default
+  frag_frust_flag = frag_frust_read_flag = frag_frust_shuffle_flag = 0;
+
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
 	
@@ -262,12 +264,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_frag_mem;
       in >> frag_mems_file;
       in >> fm_gamma_file;
-    } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
-      frag_frust_flag = 1;
-      if (comm->me==0) print_log("Fragment_Frustratometer flag on\n");
-      in >> decoy_mems_file;
-      in >> num_decoy_calcs;
-      in >> frust_output_freq;
     } else if (strcmp(varsection, "[Fragment_Memory_Table]")==0) {
       frag_mem_tb_flag = 1;
       if (comm->me==0) print_log("Fragment_Memory_Table flag on\n");
@@ -276,6 +272,29 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> fm_gamma_file;
       in >> tb_rmin >> tb_rmax >> tb_dr;
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
+    } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
+      // The fragment frustratometer requires the fragment memory potential to be active
+      if (!frag_mem_flag && !frag_mem_tb_flag) error->all("Cannot run Fragment_Frustratometer without Fragment_Memory or Fragment_Memory_Table.");
+      frag_frust_flag = 1; // activate flag for fragment frustratometer
+      if (comm->me==0) print_log("Fragment_Frustratometer flag on\n");
+      in >> frag_frust_mode; // the possible modes are "read" and "shuffle"
+      if (strcmp(frag_frust_mode, "shuffle")==0) {
+	if (comm->me==0) print_log("Fragment_Frustratometer in shuffle mode\n");
+	frag_frust_shuffle_flag=1; // activate "shuffle" specific flag
+	in >> decoy_mems_file; // read in the decoy fragments that will be shuffled to generated decoy energies
+	in >> num_decoy_calcs; // this is the number of times that the decoy fragments will be shuffled
+	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
+      }
+      else if (strcmp(frag_frust_mode, "read")==0) {
+	if (comm->me==0) print_log("Fragment_Frustratometer in read mode\n");
+	frag_frust_read_flag=1; // activate "read" specific flag
+	in >> decoy_mems_file; // read in the decoy structures that will be used to generate the decoy energies
+	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
+      }
+      else {
+	// throw an error if the "mode" is anything but "read" or "shuffle"
+	error->all("Only \"shuffle\" and \"read\" are acceptable modes for the Fragment_Frustratometer.");
+      }
     } else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
       if (comm->me==0) print_log("Solvent separated barrier flag on\n");
@@ -510,11 +529,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       }
     }
   }
-
+  
+  // if the fragment frustratometer flag is on, perform appropriate initializations
   if (frag_frust_flag) {
-    if (comm->me==0) print_log("Reading decoy fragments...\n");
+    // open fragment frustration file for writing
+    fragment_frustration_file = fopen("fragment_frustration.dat","w");
 
-    decoy_mems = read_mems(decoy_mems_file, n_decoy_mems);
+    if (comm->me==0) print_log("Reading decoy fragments...\n");
+    // create a decoy memory array by reading in the appropriate file
+    decoy_mems = read_mems(decoy_mems_file, n_decoy_mems); // n_decoy_mems is set equal to the number of decoys in the read_mems function
+    // because the number of decoy calculations is set by the size of the decoy list in "read" mode, we need to initialize the variable here
+    if (frag_frust_read_flag) {
+      num_decoy_calcs = n_decoy_mems+1; // add one so that the "native" energy can occupy the 0 index
+    }
 
     // allocate decoy_mem_map and ilen_decoy_map
     ilen_decoy_map = new int[n]; // Number of decoys for residue i
@@ -548,6 +575,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     for (i=0;i<n;i++)
       {
 	decoy_energy[i] = new double[num_decoy_calcs];
+      }
+    // if in "read" mode, allocate per residue mean and variance arrays and compute generated decoy energies
+    if (frag_frust_read_flag)
+      {
+	frag_frust_read_mean = new double[num_decoy_calcs];
+	frag_frust_read_variance = new double[num_decoy_calcs];
       }
   }
   
@@ -671,9 +704,13 @@ FixBackbone::~FixBackbone()
 		}		
 		delete [] fm_table;*/
   }
+
+  // if the fragment frustratometer was on, close the fragment frustration file
+  if (frag_frust_flag) {
+    fclose(fragment_frustration_file);
+  }
 	
   fclose(efile);
-  fclose(fragment_frustration_file);
 }
 
 void FixBackbone::allocate()
@@ -2879,13 +2916,13 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
   // adapted from compute_fragment_memory_potential
   // given a residue i and a decoy_calc index, calculates a decoy memory energy
   // the energy is stored for residues i and j in the decoy_energy array
-  // for decoy_calc > 0, the fragment memory energy is calculated using a shuffled fragment library 
+  // for decoy_calc > 0, the fragment memory energy is calculated using a shuffled fragment library (only used in "shuffle" mode)
   // for decoy_calc = 0, the fragment memory energy is calculated using the default fragment library 
   // the decoy_calc = 0 energy is used as the native energy in compute_fragment_frustration
 
   int j, js, je, i_fm, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
-  int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
-  double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, V, force;
+  int i_resno, j_resno, ires_type, jres_type;
+  double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, V;
   double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
   Fragment_Memory *frag;
   int num_frags;
@@ -2905,15 +2942,10 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
   xi[2] = xcb[i];
   xi[3] = xcb[i];
   
-  iatom[0] = alpha_carbons[i];
-  iatom[1] = alpha_carbons[i];
-  iatom[2] = beta_atoms[i];
-  iatom[3] = beta_atoms[i];
-  
   i_resno = res_no[i]-1;
   ires_type = se_map[se[i_resno]-'A'];
   
-  // declare num_frags as the number of fragments for a residue i
+  // initialize num_frags as the number of fragments for a residue i
   if (decoy_calc == 0) 
     {
       num_frags=ilen_fm_map[i_resno];
@@ -2971,11 +3003,6 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 	  xj[2] = xca[j];
 	  xj[3] = xcb[j];
 	  
-	  jatom[0] = alpha_carbons[j];
-	  jatom[1] = beta_atoms[j];
-	  jatom[2] = alpha_carbons[j];
-	  jatom[3] = beta_atoms[j];
-	  
 	  // loop over combinations of CA, CB pairs
 	  for (k=0;k<4;++k) {
 	    if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
@@ -3001,9 +3028,11 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
     }
 }
 
+// This function will shuffle the positions of the "decoy_mems" array
+// This is used in "shuffle" mode to generate the decoy energies
 void FixBackbone::randomize_decoys()
 {
-  //loops over decoy_mems and randomizes positions and lengths of fragments for each fragment object
+  //loops over decoy_mems and randomizes the starting position of each fragment object
 
   int i, k, pos, len, min_sep, random_position;
 
@@ -3043,50 +3072,208 @@ void FixBackbone::randomize_decoys()
     }
 }
 
+// This routine is used in both "shuffle" and "read" modes to compute the per residue
+// fragment frustration. Because the number of decoy fragments can be larger or smaller
+// than the number of "native" fragments in "shuffle" mode, a normalization is applied.
+// In "read" mode, all of the decoy structures should be the same size as the target
+// structure and uses the same number of fragments to calculate the energy, so no normalization
+// is necessary.
 void FixBackbone::compute_fragment_frustration()
 {
-  // loop over decoy calculations
   int residueindex, decoyindex;
   double averagedecoyenergy, variancedecoyenergy, frustrationindex;
   double nativeenergy;
-    
-  // normalize native and decoy energies by number of respective memories
-  for (residueindex=0; residueindex<n; residueindex++)
+  
+  // if using shuffle method, normalize energies
+  if (frag_frust_shuffle_flag)
     {
-      decoy_energy[residueindex][0] /= n_frag_mems;
-      
-      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
-	{
-	  decoy_energy[residueindex][decoyindex] /= n_decoy_mems;
-	}
+      // normalize native and decoy energies by number of respective memories
+      for (residueindex=0; residueindex<n; residueindex++)
+      	{
+      	  decoy_energy[residueindex][0] /= n_frag_mems;
+	  
+      	  for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+      	    {
+      	      decoy_energy[residueindex][decoyindex] /= n_decoy_mems;
+      	    }
+      	}
     }
   
+  // perform per residue statistics and calculate frustration index
   for (residueindex=0; residueindex<n; residueindex++)
     {
-      // zero per-residue variables
-      averagedecoyenergy=0.0;
-      variancedecoyenergy=0.0;
-      // i=0 is native, start at i=1
-      // compute average decoy energy
-      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+      // in "shuffle" mode, the mean and variance must be calculated from the decoy energy
+      // distribution during every frustration calculation
+      if (frag_frust_shuffle_flag)
 	{
-	  averagedecoyenergy += decoy_energy[residueindex][decoyindex];
+	  // zero per-residue variables
+	  averagedecoyenergy=0.0;
+	  variancedecoyenergy=0.0;
+	  // i=0 is native, start at i=1
+	  // compute average decoy energy
+	  for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	    {
+	      averagedecoyenergy += decoy_energy[residueindex][decoyindex];
+	    }
+	  // divide sum over decoys by num_decoy_calcs-1 (because native is excluded from sum)
+	  averagedecoyenergy /= (num_decoy_calcs-1);
+	  
+	  // compute variance decoy energy
+	  for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	    {
+	      variancedecoyenergy += pow(decoy_energy[residueindex][decoyindex]-averagedecoyenergy,2);
+	    }
+	  variancedecoyenergy /= (num_decoy_calcs-1); 
 	}
-      // divide sum over decoys by num_decoy_calcs-1 (because native is excluded from sum)
-      averagedecoyenergy /= (num_decoy_calcs-1);
+      // in "read" mode, the decoy energy distribution is computed once
+      // and reused for every frustration calculation
+      else if (frag_frust_read_flag)
+	{
+	  averagedecoyenergy = frag_frust_read_mean[residueindex];
+	  variancedecoyenergy = frag_frust_read_variance[residueindex];
+	}
+      else
+	{
+	  // throw an error because only shuffle and read are valid modes
+	  error->all("Fragment_Frustratometer: only shuffle and read are valid modes.");
+	}
       
-      // compute variance decoy energy
-      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
-	{
-	  variancedecoyenergy += pow(decoy_energy[residueindex][decoyindex]-averagedecoyenergy,2);
-	}
-      variancedecoyenergy /= (num_decoy_calcs-1);
       // compute frustration index
-      nativeenergy = decoy_energy[residueindex][0];
+      nativeenergy = decoy_energy[residueindex][0]; // the "native" energy is stored in index 0 of decoy_energy
+      // the frustration index: f_i = E_i-<E_d>/(sqrt(/\E_d^2))
       frustrationindex = (nativeenergy-averagedecoyenergy)/(sqrt(variancedecoyenergy));
+      // print out the frustration index to the fragment_frustration file
       fprintf(fragment_frustration_file, "%f ",frustrationindex);
     }
+  // print a new line for each new frustration calculation
   fprintf(fragment_frustration_file, "\n");
+}
+
+// This routine is used in "read" mode to calculate the decoy energy distribution
+// It treats the decoy structures as if they were memories and uses the Rf() function
+// to return the appropriate pairwise distances.
+void FixBackbone::compute_generated_decoy_energies()
+{
+  int i, j, js, je, i_fm, k, iatom_type[4], jatom_type[4];
+  int i_resno, j_resno, ires_type, jres_type;
+  double r, rf, dr, drsq, V;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
+  Fragment_Memory *frag, *decoy;
+  int num_frags;
+	  
+  int idecoy;
+  int decoyindex;
+  // for each generated decoy in the mem file
+  for (idecoy=0; idecoy<n_decoy_mems; idecoy++)
+    {
+      // set decoy memory object
+      decoy = decoy_mems[idecoy];
+
+      // for each residue in the protein
+      for (i=0;i<n;i++)
+	{
+	  i_resno = res_no[i]-1;
+	  	  
+	  iatom_type[0] = Fragment_Memory::FM_CA;
+	  iatom_type[1] = Fragment_Memory::FM_CA;
+	  iatom_type[2] = Fragment_Memory::FM_CB;
+	  iatom_type[3] = Fragment_Memory::FM_CB;
+	  
+	  jatom_type[0] = Fragment_Memory::FM_CA; 
+	  jatom_type[1] = Fragment_Memory::FM_CB; 
+	  jatom_type[2] = Fragment_Memory::FM_CA; 
+	  jatom_type[3] = Fragment_Memory::FM_CB;
+
+	  i_resno = res_no[i]-1;
+	  ires_type = se_map[se[i_resno]-'A'];
+
+	  // set number of frags for residue i_resno
+	  num_frags = ilen_fm_map[i_resno];
+
+	  // loop over fragments associated with residue i
+	  for (i_fm=0; i_fm<num_frags; ++i_fm) 
+	    {      
+	      frag = frag_mems[ frag_mem_map[i_resno][i_fm] ];
+	      
+	      epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
+	      
+	      // loop over all residues j associated with residue i for fragment i_fm 
+	      js = i+fm_gamma->minSep();
+	      je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
+	      
+	      if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in decoy memory potential");
+	      
+	      for (j=js;j<=je;++j) 
+		{
+		  j_resno = res_no[j]-1;
+		  jres_type = se_map[se[j_resno]-'A'];
+		  
+		  fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+		  
+		  if (!fm_gamma->fourResTypes()) 
+		    {
+		      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
+		    } 
+		  else 
+		    {
+		      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
+		    }
+		  if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Decoy_Memory: Wrong call of getGamma() function");
+		  
+		  epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
+		  
+		  // loop over combinations of CA, CB pairs
+		  for (k=0;k<4;++k) 
+		    {
+		      if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
+		      if ( jatom_type[k]==frag->FM_CB && (se[j_resno]=='G' || frag->getSe(j_resno)=='G') ) continue;
+
+		      r = decoy->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+		      rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+
+		      if (frag->error==frag->ERR_CALL) error->all("Fragment_Frustratometer: Wrong call of Rf() function");
+		      dr = r - rf;
+		      drsq = dr*dr;
+		      
+		      V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+		      
+		      // add decoy memory energy to both residue i and j 
+		      decoy_energy[i_resno][idecoy+1] += V; // shift all decoy energies by one
+		      decoy_energy[j_resno][idecoy+1] += V; // so that the native energy is in index 0
+		    }
+		}
+	    }
+	}
+    }
+  // compute statistics on the decoy_energy array
+  // for every residue, average over idecoy to get frag_frust_read_mean and frag_frust_read_variance
+  for (i=0; i<n; i++)
+    {
+      // zero per-residue variables
+      frag_frust_read_mean[i]=0.0;
+      frag_frust_read_variance[i]=0.0;
+      // i=0 is native, start at i=1
+      // compute average decoy energy
+      // note that num_decoy_calcs is the size of the decoy_energy array, which in this case
+      // is one larger than n_decoy_mems because the native energy is stored in index 0
+      // which is why the loop starts with index 1
+      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	{
+	  frag_frust_read_mean[i] += decoy_energy[i][decoyindex];
+	}
+      // divide sum over decoys by n_decoy_mems
+      frag_frust_read_mean[i] /= n_decoy_mems;
+      
+      // compute variance decoy energy
+      // note that num_decoy_calcs is the size of the decoy_energy array, which in this case
+      // is one larger than n_decoy_mems because the native energy is stored in index 0
+      // which is why the loop starts with index 1
+      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	{
+	  frag_frust_read_variance[i] += pow(decoy_energy[i][decoyindex]-frag_frust_read_mean[i],2);
+	}
+      frag_frust_read_variance[i] /= n_decoy_mems;      
+    }
 }
 
 void FixBackbone::compute_fragment_memory_table()
@@ -3727,13 +3914,6 @@ void FixBackbone::compute_backbone()
       compute_fragment_memory_potential(i);
   }
   
-  // needs to be fixed
-  for (i=0;i<nn;i++) {
-    if (frag_frust_flag && res_info[i]==LOCAL)
-      //only feeds in one arg?
-      compute_decoy_memory_potential(i);
-  }
-	
   if (frag_mem_flag && ntimestep>=sStep && ntimestep<=eStep) {
     fprintf(dout, "Frag_Mem: %d\n", ntimestep);
     fprintf(dout, "Frag_Mem_Energy: %f\n\n", energy[ET_FRAGMEM]);
@@ -3768,7 +3948,7 @@ void FixBackbone::compute_backbone()
     fprintf(dout, "\n\n");
 
 #else
-  
+
   for (i=0;i<nn;i++) {
     i_resno = res_no[i]-1;
     i_chno = chain_no[i]-1;
@@ -3820,20 +4000,46 @@ void FixBackbone::compute_backbone()
 
   }
 
-  if (frag_frust_flag && ntimestep % frust_output_freq == 0) {
-    // loop over decoys to be generated
-    for (int idecoy=0; idecoy<num_decoy_calcs; idecoy++)
-      {
-	// compute and store decoy energies for each residue
-	for (i=0;i<nn;i++) {
-	  compute_decoy_memory_potential(i,idecoy);
-	  // printf("%d %d %d %f\n",ntimestep,i,idecoy,decoy_energy[i][idecoy]);
+  // if the fragment frustratometer is on and it is time to compute the fragment frustration, do so!
+  if (frag_frust_flag && ntimestep % frag_frust_output_freq == 0) {
+    // if running in shuffle mode...
+    if (frag_frust_shuffle_flag) {
+      // zero decoy energy array (because new decoy energies are generated at every calculation in "shuffle" mode)
+      for (i=0; i<n; i++) {
+	for (j=0; j<num_decoy_calcs; j++) {
+	  decoy_energy[i][j] = 0.0;
 	}
-	// randomize decoy memory positions and weights
+      }
+      // loop over decoys to be generated
+      for (int idecoy=0; idecoy<num_decoy_calcs; idecoy++) {
+	// compute and store decoy energies for each residue
+	for (i=0;i<n;i++) {
+	  compute_decoy_memory_potential(i,idecoy);
+	}
+	// randomize decoy memory positions
 	randomize_decoys();
       }
-
-    // calculate and output per-residue frustration index
+    }
+    // if running in read mode ...
+    else if (frag_frust_read_flag) {
+      // zero native energies (because only the native energies are recalculated at every calculation in "read" mode)
+      for (i=0;i<n;i++) {
+	decoy_energy[i][0] = 0.0;
+      }
+      // compute and store native energies
+      for (i=0;i<n;i++) {
+	compute_decoy_memory_potential(i,0);
+      }
+      // on time step zero, compute the decoy energy distribution
+      if (ntimestep == 0) {
+	compute_generated_decoy_energies();
+      }
+    }
+    else {
+      // throw an error because only shuffle and read are valid modes
+      error->all("Fragment_Frustratometer: only shuffle and read are valid modes.");
+    }
+    // regardless of what mode you are using, calculate and output per-residue frustration index
     compute_fragment_frustration();
   }
  

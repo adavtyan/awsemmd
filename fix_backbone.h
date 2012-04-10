@@ -117,7 +117,10 @@ public:
   char decoy_mems_file[100];
   int num_decoy_calcs;
   double **decoy_energy;
-  int frust_output_freq;
+  int frag_frust_output_freq;
+  char frag_frust_mode[100];
+  int frag_frust_read_flag, frag_frust_shuffle_flag;
+  double *frag_frust_read_mean, *frag_frust_read_variance;
   
   // Table Fragment Memory parameters
     TBV **fm_table;
@@ -191,6 +194,7 @@ public:
   void compute_fragment_memory_potential(int i);
   void compute_decoy_memory_potential(int i, int decoy_calc);
   void randomize_decoys();
+  void compute_generated_decoy_energies();
   void compute_fragment_frustration();
   void compute_solvent_barrier(int i, int j);
   void compute_fragment_memory_table();

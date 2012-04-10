@@ -403,7 +403,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	      }
 	    }
 	  }
-	}
+	  
 
 	  //replacing serine interaction gammas with hypercharged glutamate interaction gammas
 	  for (int i_well=0;i_well<n_wells;++i_well) {
@@ -428,12 +428,13 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	    phosph_map[i]=0;
 	  }  
 	  for (int j=0;j<n_phosph_res;++j) {
-	      if (phosph_res[j]!=0) {
-		int dummy = phosph_res[j]-1;
-		phosph_map[dummy]=1;
-	      }
+	    if (phosph_res[j]!=0) {
+	      int dummy = phosph_res[j]-1;
+	      phosph_map[dummy]=1;
+	    }
 	  }	  
-
+	}
+	
 	if (burial_flag) {
 		ifstream in_brg("burial_gamma.dat");
 		if (!in_brg) error->all("File burial_gamma.dat doesn't exist");

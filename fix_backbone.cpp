@@ -429,36 +429,36 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	}
       }
     }
-  }
-
-  //replacing serine interaction gammas with hypercharged glutamate interaction gammas
-  for (int i_well=0;i_well<n_wells;++i_well) {
-    for (i=0;i<20;++i) {
-      if (bb_four_letter_map[i]==1) {
-	phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0]*k_hypercharge;
-	phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1]*k_hypercharge;
-      }
-      else if (bb_four_letter_map[i]==2 || bb_four_letter_map[i]==3) {
-	phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0]*pow(k_hypercharge,2);
-	phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1]*pow(k_hypercharge,2);
-      }
-      else {
-	phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0];
-	phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1];
+    
+    //replacing serine interaction gammas with hypercharged glutamate interaction gammas
+    for (int i_well=0;i_well<n_wells;++i_well) {
+      for (i=0;i<20;++i) {
+	if (bb_four_letter_map[i]==1) {
+	  phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0]*k_hypercharge;
+	  phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1]*k_hypercharge;
+	}
+	else if (bb_four_letter_map[i]==2 || bb_four_letter_map[i]==3) {
+	  phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0]*pow(k_hypercharge,2);
+	  phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1]*pow(k_hypercharge,2);
+	}
+	else {
+	  phosph_water_gamma[i_well][i][15][0] = phosph_water_gamma[i_well][15][i][0] = phosph_water_gamma[i_well][i][6][0];
+	  phosph_water_gamma[i_well][i][15][1] = phosph_water_gamma[i_well][15][i][1] = phosph_water_gamma[i_well][i][6][1];
+	}
       }
     }
+    //create map of phosphorylated residues
+    phosph_map = new int[n];
+    for (int i=0;i<n;++i) {
+      phosph_map[i]=0;
+    }  
+    for (int j=0;j<n_phosph_res;++j) {
+      if (phosph_res[j]!=0) {
+	int dummy = phosph_res[j]-1;
+	phosph_map[dummy]=1;
+      }
+    }	  
   }
-  //create map of phosphorylated residues
-  phosph_map = new int[n];
-  for (int i=0;i<n;++i) {
-    phosph_map[i]=0;
-  }  
-  for (int j=0;j<n_phosph_res;++j) {
-    if (phosph_res[j]!=0) {
-      int dummy = phosph_res[j]-1;
-      phosph_map[dummy]=1;
-    }
-  }	  
 
   if (burial_flag) {
     ifstream in_brg("burial_gamma.dat");
@@ -579,8 +579,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     // if in "read" mode, allocate per residue mean and variance arrays and compute generated decoy energies
     if (frag_frust_read_flag)
       {
-	frag_frust_read_mean = new double[num_decoy_calcs];
-	frag_frust_read_variance = new double[num_decoy_calcs];
+	frag_frust_read_mean = new double[n];
+	frag_frust_read_variance = new double[n];
       }
   }
   
@@ -708,6 +708,15 @@ FixBackbone::~FixBackbone()
   // if the fragment frustratometer was on, close the fragment frustration file
   if (frag_frust_flag) {
     fclose(fragment_frustration_file);
+    for (int i=0;i<n;++i) memory->sfree(decoy_mem_map[i]);
+    delete [] decoy_mem_map;
+    delete [] ilen_decoy_map;
+    for (int i=0;i<n_decoy_mems;i++) delete decoy_mems[i];
+    if (n_decoy_mems>0) memory->sfree(decoy_mems);
+    if (frag_frust_read_flag) {
+      delete [] frag_frust_read_mean;
+      delete [] frag_frust_read_variance;
+    }
   }
 	
   fclose(efile);

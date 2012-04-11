@@ -575,6 +575,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     for (i=0;i<n;i++)
       {
 	decoy_energy[i] = new double[num_decoy_calcs];
+	for(int decoyindex=0; decoyindex<num_decoy_calcs; decoyindex++)
+	  {
+	    decoy_energy[i][decoyindex] = 0.0;
+	  }
       }
     // if in "read" mode, allocate per residue mean and variance arrays and compute generated decoy energies
     if (frag_frust_read_flag)

@@ -152,7 +152,7 @@ class Residue:
         self.z = z
         
     def display(self):
-        print "pos: " + str(pos)
+        print "pos: " + str(self.pos)
         print "coords: " + str(self.x) + " " + str(self.y) + " " + str(self.z)
 
 class Snapshot:
@@ -162,13 +162,9 @@ class Snapshot:
     Q = 0.0
     ustate = 0
     
-    def __init__(self, numRes):
-        self.numRes = numRes
-        self.residues = []
-        for i in range(self.numRes):
-            residue = Residue(0.0, 0.0, 0.0)
-            self.residues.append(residue)
-                                           
+    def __init__(self, residues):
+        self.numRes = len(residues)
+        self.residues = residues                                           
         self.energy = 0.0
         self.Q = 0.0
         self.ustate = 0
@@ -199,27 +195,94 @@ class Trajectory:
         for i in range(self.numSnapshots):
             self.snapshots[i].display()
 
-# Read in foldon definition file and create foldon objects
-foldons = []
-f = open(foldonFile,"r")
-for line in f:
+# # Read in foldon definition file and create foldon objects
+# foldons = []
+# f = open(foldonFile,"r")
+# for line in f:
+#     residues = []
+#     line = line.strip()
+
+#     if line == "" or line[0] == "#":
+#         continue
+
+#     for i in range(len(line)):
+#         if line[i] == " ":
+#             continue
+#         else:
+#             residues.append(line[i])
+
+#     foldons.append(foldon(residues))
+
+# for i in range(len(foldons)):
+#     foldons[i].display()
+#     print foldons[i].numRes
+
+# # End reading in foldon file
+
+def readDumpFile(dumpFile):
+    foundAtoms = False
     residues = []
-    line = line.strip()
+    residuePosition = 0
+    snapshots = []
+    firstTimestep = True
+    
+    foundBoxBounds = False
+    boundsIndex = 0
+    bounds = []
 
-    if line == "" or line[0] == "#":
-        continue
+    for i in range(3):
+        bounds.append([0.0, 0.0])
 
-    for i in range(len(line)):
-        if line[i] == " ":
+    f = open(dumpFile,"r")
+    for line in f:
+        line = line.split()
+
+        if len(line) < 2:
             continue
-        else:
-            residues.append(line[i])
 
-    foldons.append(foldon(residues))
+        if line[1] == "ATOMS":
+            foundBoxBounds = False
+            boundsIndex = 0
+            foundAtoms = True
+            continue
 
-for i in range(len(foldons)):
-    foldons[i].display()
-    print foldons[i].numRes
+        if line[1] == "BOX":
+            foundBoxBounds = True
+            continue
 
-# End reading in foldon file
+        if(foundBoxBounds):
+            bounds[boundsIndex] = [float(line[0]), float(line[1])]
+            print bounds
+            boundsIndex += 1
 
+        if line[1] == "TIMESTEP":
+            if(not firstTimestep):
+                snapshot = Snapshot(residues)
+                snapshots.append(snapshot)
+                residues = []
+
+            foundAtoms = False
+            residuePosition = 0
+            continue 
+
+        if(foundAtoms):
+            firstTimestep = False
+            if(int(line[1]) == 1):
+                x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
+                y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
+                z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
+                residues.append(Residue(residuePosition, x, y, z))
+                residuePosition += 1
+
+    snapshot = Snapshot(residues)
+    snapshots.append(snapshot)
+
+    return snapshots
+
+dumpFile = './dump.lammpstrj'
+
+examplesnapshots = readDumpFile(dumpFile)
+for i in range(len(examplesnapshots)):
+    examplesnapshots[i].display()
+
+print len(examplesnapshots)

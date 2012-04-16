@@ -20,7 +20,7 @@ import commands
 
 # check commad line arguments
 if len(sys.argv) != 3:
-    print "Usage: python computeReconfigurationTimes.py maxlag"
+    print "Usage: python computeReconfigurationTimes.py datafile maxlag"
     sys.exit()
 
 # set system parameters
@@ -63,8 +63,8 @@ f.close()
 f=open(sys.argv[1],'r')
 
 # for debugging purposes
-# testrow=10 
-# testcolumn=15
+testrow=10 
+testcolumn=15
 
 # build timeseries matrix
 print "Building timeseries matrix..."
@@ -96,7 +96,8 @@ for line in f:
     row=row+1
     column=0
 
-# print timeseries[testrow][testcolumn]
+print timeseries[testrow][testcolumn]
+sys.exit()
 
 # build reconfiguration times matrix
 print "Building reconfiguration times matrix..."

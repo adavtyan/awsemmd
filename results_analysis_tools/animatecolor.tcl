@@ -14,6 +14,9 @@
 proc animatecolor { fname } {
     # load the pdb
     mol load pdb ${fname}.pdb 
+    # add the psf file so that the secondary structure can be properly visualized
+    mol addfile ${fname}.psf type {psf} first 0 last -1 step 1 waitfor 1 0
+
     # select all the atoms in the file that was just loaded
     set all [atomselect top all]
     # start with the first frame
@@ -43,11 +46,14 @@ proc animatecolor { fname } {
 	}
     }
     # set the coloring method to "User"
-    mol modcolor 0 0 "User"
+    mol modcolor 0 top "User"
     # go to the first frame and ...
     animate goto 0
-    # add the psf file so that the secondary structure can be properly visualized
-    mol addfile ${fname}.psf type {psf} first 0 last -1 step 1 waitfor 1 0
+
+    color scale min 0.0
+    color scale max 1.0
+    color midpoint 0.5
+    mol scaleminmax top 0 0.33 0.66
 }
 
 # make the default load style newcartoon
@@ -57,9 +63,9 @@ color scale method RWG
 # set the min, max and midpoint so that 0-.33 is red, .33-.66 is white and .66 to 1 is green
 color scale min 0.33
 color scale max 1.0
-color scale midpoint 0.5
+color midpoint 0.5
 # call the function above with the first argument, 
 # e.g. "movie" if you have movie.pdb and movie.psf in your current directory
-animatecolor $argv
+# animatecolor $argv
 
 

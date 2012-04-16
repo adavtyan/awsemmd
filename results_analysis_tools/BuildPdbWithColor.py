@@ -167,7 +167,7 @@ if seq_file!="":
 	fseq.close()
 if color_file!="":		
 	numsnap=file_len(color_file)
-  print "Building color information into the b-factor field..."
+	print "Building color information into the b-factor field..."
 	print "Number of snapshots (inferred from number of lines in color file): " + str(numsnap)
 	snap=0
 	linecounter=1

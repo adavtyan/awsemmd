@@ -77,6 +77,9 @@
 # chevron plots" by plotting (the negative of) the first non-zero eigenvalue
 # as a function of temperature.
 
+# Libraries
+import math
+
 # Files
 # Native structure file (in PDB format)
 nativeStructureFile = './1nor.pdb'
@@ -88,21 +91,45 @@ foldonFile = './foldons'
 # Parameters
 # Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
 nativeContactThreshold = 10 
+# Minimum sequence separation for two residues in contact
+minSeqSep = 3
+# Foldon foldedness threshold
+foldonThreshold = 0.8
 
 # Variables and arrays
 # Native contact list: {[residue1 residue2],[...],}
 nativeContactList = []
+nativeDumpFile = './dump.native'
 
-class foldon:
+class Foldon:
     numRes = 0
-    residues = []
+    residuelist = []
+    numNativeContacts = 0
 
-    def __init__(self,residues):
-        self.residues = residues
-        self.numRes = len(self.residues)
+    def __init__(self,residuelist):
+        self.residuelist = residuelist
+        self.numRes = len(self.residuelist)
+        self.numNativeContacts = self.calculateNumNativeContacts(nativeSnapshot,nativeSnapshot)
 
     def display(self):
-        print self.residues
+        print self.residuelist
+
+    def calculateNumNativeContacts(self, snapshot, native):
+        numNativeContacts = 0
+        for residue1 in self.residuelist:
+            for residue2 in range(len(native.residues)):
+                if snapshot.residues[residue1].isInContactWith(snapshot.residues[residue2]):
+                    if native.residues[residue1].isInContactWith(native.residues[residue2]):
+                        numNativeContacts += 1
+
+        return numNativeContacts
+
+    def isFoldedIn(self, snapshot):
+        currentContacts = self.calculateNumNativeContacts(snapshot,nativeSnapshot)
+        if float(currentContacts)/float(self.numNativeContacts) > foldonThreshold:
+            return True
+        else:
+            return False
 
 class ustate:
     code = ""
@@ -115,7 +142,7 @@ class ustate:
         print self.code
     
     def isFolded(self,i):
-        if(self.code[i-1] == '1'):
+        if(self.code[i] == '1'):
             return True
         else:
             return False
@@ -155,12 +182,20 @@ class Residue:
         print "pos: " + str(self.pos)
         print "coords: " + str(self.x) + " " + str(self.y) + " " + str(self.z)
 
+    def isInContactWith(self,otherresidue):
+        distance = math.sqrt(pow(self.x-otherresidue.x,2)+pow(self.y-otherresidue.y,2)+pow(self.z-otherresidue.z,2))
+        if abs(self.pos - otherresidue.pos) >= minSeqSep and distance < nativeContactThreshold:
+            return True
+        else:
+            return False
+
 class Snapshot:
     numRes = 0
     residues = []
     energy = 0.0
     Q = 0.0
-    ustate = 0
+    contactmap = []
+    ustate = ustate("")
     
     def __init__(self, residues):
         self.numRes = len(residues)
@@ -168,6 +203,14 @@ class Snapshot:
         self.energy = 0.0
         self.Q = 0.0
         self.ustate = 0
+        self.contactmap = []
+        for i in range(self.numRes):
+            self.contactmap.append([])
+            for j in range(self.numRes):
+                self.contactmap[i].append([])
+                self.contactmap[i][j] = 0
+        self.calculateContactMap()
+        self.ustate = ustate("")
 
     def display(self):
         print "Ca coordinates:"
@@ -176,48 +219,72 @@ class Snapshot:
             
         print "Energy: " + str(self.energy)
         print "Qvalue: " + str(self.Q)
-        print "ustate: " + str(self.ustate)
+        print "Microstate code:"
+        self.ustate.display()
+
+    def calculateContactMap(self):
+        for i in range(self.numRes):
+            for j in range(self.numRes):
+                if self.residues[i].isInContactWith(self.residues[j]):
+                    self.contactmap[i][j] = 1
+
+    def assignUstate(self):
+        microstatecode = ""
+        for i in range(len(foldons)):
+            if foldons[i].isFoldedIn(self):
+                microstatecode += '1'
+            else:
+                microstatecode += '0'
+
+        self.ustate = ustate(microstatecode)
+        return microstatecode
 
 class Trajectory:
     metadataFile = ""
     snapshots = []
-    numSnapshots = 0
     numRes = 0
     
-    def __init__(self, numRes, numSnapshots):
-        self.numSnapshots = numSnapshots
-        self.numRes = numRes
-        for i in range(self.numSnapshots):
-            snapshot = Snapshot(self.numRes)
-            self.snapshots.append(snapshot)
+    def __init__(self, metadataFile):
+        self.metadataFile = metadataFile
+        f = open(metadataFile, 'r')
+        for line in f:
+            line=line.split()
+            self.snapshots = readDumpFile(line[0])
+            f2 = open(line[1], 'r')
+            snapshotindex = 0
+            for dataline in f2:
+                dataline = dataline.split()
+                self.snapshots[snapshotindex].Q = dataline[0]
+                self.snapshots[snapshotindex].energy = dataline[1]
+                snapshotindex += 1
 
     def display(self):
-        for i in range(self.numSnapshots):
+        for i in range(len(self.snapshots)):
             self.snapshots[i].display()
+    
+    def assignAllUstates(self):
+        for i in range(len(self.snapshots)):
+            self.snapshots[i].assignUstate()
 
-# # Read in foldon definition file and create foldon objects
-# foldons = []
-# f = open(foldonFile,"r")
-# for line in f:
-#     residues = []
-#     line = line.strip()
+def readFoldonFile(foldonFile):
+    foldons = []
+    f = open(foldonFile,"r")
+    for line in f:
+        residues = []
+        line = line.split()
 
-#     if line == "" or line[0] == "#":
-#         continue
+        if line == "" or line[0] == "#":
+            continue
 
-#     for i in range(len(line)):
-#         if line[i] == " ":
-#             continue
-#         else:
-#             residues.append(line[i])
+        for i in range(len(line)):
+            if line[i] == " ":
+                continue
+            else:
+                residues.append(int(line[i]))
 
-#     foldons.append(foldon(residues))
+        foldons.append(Foldon(residues))
 
-# for i in range(len(foldons)):
-#     foldons[i].display()
-#     print foldons[i].numRes
-
-# # End reading in foldon file
+    return foldons
 
 def readDumpFile(dumpFile):
     foundAtoms = False
@@ -252,7 +319,6 @@ def readDumpFile(dumpFile):
 
         if(foundBoxBounds):
             bounds[boundsIndex] = [float(line[0]), float(line[1])]
-            print bounds
             boundsIndex += 1
 
         if line[1] == "TIMESTEP":
@@ -279,10 +345,27 @@ def readDumpFile(dumpFile):
 
     return snapshots
 
-dumpFile = './dump.lammpstrj'
 
-examplesnapshots = readDumpFile(dumpFile)
-for i in range(len(examplesnapshots)):
-    examplesnapshots[i].display()
 
-print len(examplesnapshots)
+# examplesnapshots = readDumpFile(dumpFile)
+# for i in range(len(examplesnapshots)):
+#     examplesnapshots[i].display()
+
+# print len(examplesnapshots)
+
+# trajectory=Trajectory("./metadata");
+
+# trajectory.snapshots[0].calculateContactMap()
+
+# res1 = Residue(0,0,0,1)
+# res2 = Residue(10,0,0,10.9)
+
+# print res1.isInContactWith(res2)
+
+nativeSnapshot = readDumpFile(nativeDumpFile)[0]
+foldons = readFoldonFile(foldonFile)
+trajectory=Trajectory("./metadata")
+trajectory.assignAllUstates()
+trajectory.display()
+
+

@@ -5,8 +5,7 @@
 # native structure of the protein is also required.
 
 # The input is a set of snapshots from simulation. For each snapshot,
-# the coordinates, energy (including the biasing energy) and global Q 
-# value are required.
+# the coordinates, biasing energy, and global Q value are required.
 # {X_i}, V_i, Q_i
 
 # Each protein is, prior to the simulation, divided into foldons,
@@ -77,18 +76,35 @@
 # chevron plots" by plotting (the negative of) the first non-zero eigenvalue
 # as a function of temperature.
 
-# Libraries
+#############
+# Libraries #
+#############
 import math
+import os
 
-# Files
-# Native structure file (in PDB format)
-nativeStructureFile = './1nor.pdb'
+#########
+# Files #
+#########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
 metadataFile = './metadata'
+# Foldon file: each line contains the residues in a foldon
+# each residue in the protein should be included once and only once
 foldonFile = './foldons'
+# The dump file (LAMMPS format) of the native structure coordinates
+nativeDumpFile = './dump.native'
+# The directory containing free energy files in the output format of UltimateWHAM
+freeEnergyFileDirectory = './freeenergyfiles/'
 
-# Parameters
+#############
+# Constants #
+#############
+# Boltzmann constant
+kb = 0.001987 # kcal/mol/K
+
+##############
+# Parameters #
+##############
 # Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
 nativeContactThreshold = 10 
 # Minimum sequence separation for two residues in contact
@@ -96,10 +112,12 @@ minSeqSep = 3
 # Foldon foldedness threshold
 foldonThreshold = 0.8
 
-# Variables and arrays
-# Native contact list: {[residue1 residue2],[...],}
-nativeContactList = []
-nativeDumpFile = './dump.native'
+########################
+# Variables and arrays #
+########################
+trajectories = []
+temperaturearray = []
+fofqandt = []
 
 class Foldon:
     numRes = 0
@@ -240,23 +258,22 @@ class Snapshot:
         return microstatecode
 
 class Trajectory:
-    metadataFile = ""
+    dumpFile = ""
+    snapshotDataFile = ""
     snapshots = []
     numRes = 0
     
-    def __init__(self, metadataFile):
-        self.metadataFile = metadataFile
-        f = open(metadataFile, 'r')
-        for line in f:
-            line=line.split()
-            self.snapshots = readDumpFile(line[0])
-            f2 = open(line[1], 'r')
-            snapshotindex = 0
-            for dataline in f2:
-                dataline = dataline.split()
-                self.snapshots[snapshotindex].Q = dataline[0]
-                self.snapshots[snapshotindex].energy = dataline[1]
-                snapshotindex += 1
+    def __init__(self, dumpFile, snapshotDataFile):
+        self.dumpFile = dumpFile
+        self.snapshotDataFile = snapshotDataFile
+        self.snapshots = readDumpFile(dumpFile)
+        ssdata = open(snapshotDataFile, 'r')
+        snapshotindex = 0
+        for dataline in ssdata:
+            dataline = dataline.split()
+            self.snapshots[snapshotindex].Q = dataline[0]
+            self.snapshots[snapshotindex].energy = dataline[1]
+            snapshotindex += 1
 
     def display(self):
         for i in range(len(self.snapshots)):
@@ -345,7 +362,55 @@ def readDumpFile(dumpFile):
 
     return snapshots
 
+def readAllTrajectories(metadataFile):
+    f = open(metadataFile, 'r')
+    for line in f:
+        line=line.split()
+        trajectory = Trajectory(line[0],line[1])
+        trajectories.append(trajectory)
 
+def readAllFreeEnergies(freeEnergyDirectory):
+    print "Reading free energy files in: " + str(freeEnergyDirectory)
+    path = freeEnergyDirectory
+    listing = os.listdir(path)
+    mintemp = 99999
+    for infile in listing:
+        temp = int(infile)/10
+        temperaturearray.append(int(infile)/10)
+        if temp < mintemp:
+            mintemp = temp
+
+    temperaturearray.sort()
+
+    for i in range(len(temperaturearray)):
+        fofqandt.append([])
+
+    for infile in listing:
+        f = open(freeEnergyDirectory+'/'+infile, 'r')
+        for line in f:
+            line=line.split()
+            q = line[0]
+            fofq = line[1]
+            index = int(infile)/10-mintemp
+            fofqandt[index].append([q, fofq])
+
+    # fofqandt[temperature-mintemp][q/fofqindex][0=qvalue,1=fofqvalue]
+    return mintemp
+
+def FofQandT(Q,T):
+    fofq = fofqandt[T-mintemp]
+    index = 0
+    for i in range(len(fofq)):
+        tempQ = fofq[i][0]
+        if float(tempQ) > Q:
+            index = i
+            break
+    
+    interpFvalue = float(fofq[index-1][1]) + ((float(fofq[index][1])-float(fofq[index-1][1]))/(float(fofq[index][0])-float(fofq[index-1][0])))*(Q-float(fofq[index-1][0]))
+
+    print str(fofq[index-1][0]) + " " + str(fofq[index-1][1])
+    print str(fofq[index][0]) + " " + str(fofq[index][1])
+    print interpFvalue
 
 # examplesnapshots = readDumpFile(dumpFile)
 # for i in range(len(examplesnapshots)):
@@ -364,8 +429,11 @@ def readDumpFile(dumpFile):
 
 nativeSnapshot = readDumpFile(nativeDumpFile)[0]
 foldons = readFoldonFile(foldonFile)
-trajectory=Trajectory("./metadata")
-trajectory.assignAllUstates()
-trajectory.display()
+# readAllTrajectories("./metadata")
+# for i in range(len(trajectories)):
+#     trajectories[i].assignAllUstates()
+#     trajectories[i].display()
 
+mintemp = readAllFreeEnergies(freeEnergyFileDirectory)
 
+FofQandT(.9,500)

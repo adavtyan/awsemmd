@@ -125,25 +125,6 @@ class ustate:
         else:
             return False
     
-    def distanceTo(self,otherustate):
-        distance = 0
-        for i in range(len(self.code)):
-            distance += abs(int(self.code[i])-int(otherustate.code[i]))
-
-        return distance
-
-    def isConnectedTo(self,otherustate):
-        if(self.distanceTo(otherustate)==1):
-            return True
-        else:
-            return False
-
-    def isDownhillFrom(self,otherustate):
-        if(self.freeEnergy < otherustate.freeEnergy):
-            return True
-        else:
-            return False
-
 class Residue:
     pos = 0
     x = 0.0
@@ -432,15 +413,57 @@ def calculateUstateProbabilities():
 def calculateUstateFreeEnergies(temperature):
     microstatefreeenergies = []
     for i in range(len(microstatecodes)):
-        microstatefreeenergies.append(-kb*temperature*math.log(microstateprobabilities[i]))
+        microstatefreeenergies.append(-kb*float(temperature)*numpy.log(microstateprobabilities[i]))
 
     return microstatefreeenergies
+
+def ustateDistance(code1,code2):
+    distance = 0
+    for i in range(len(code1)):
+        distance += abs(int(code1[i])-int(code2[i]))
+
+    return distance
+
+def areConnected(code1,code2):
+    if(ustateDistance(code1,code2)==1):
+        return True
+    else:
+        return False
+
+def calculateRateMatrix(temperature):
+    ratematrix = numpy.zeros((len(microstatecodes),len(microstatecodes)),dtype=numpy.float64)
+
+    for i in range(len(microstatecodes)):
+        for j in range(len(microstatecodes)):
+            rate = 0.0
+            if areConnected(microstatecodes[i],microstatecodes[j]):
+                rate = k0
+                if microstatefreeenergies[i] < microstatefreeenergies[j]:
+                    rate = k0*numpy.exp(-(microstatefreeenergies[j]-microstatefreeenergies[i])/(kb*float(temperature)))
+                
+            ratematrix[i][j] = rate
+
+    for i in range(len(microstatecodes)):
+        total = 0.0
+        for j in range(len(microstatecodes)):
+            total += ratematrix[i,j]
+
+        ratematrix[i,i] = -total
+
+    return numpy.transpose(ratematrix)
+
+def calculateEigenvectorsEigenvalues():
+    eigenvalues, eigenvectors=LA.eig(ratematrix)
+    perm = numpy.argsort(-eigenvalues)  # sort in descending order
+    return numpy.real(eigenvalues[perm]), numpy.real(numpy.transpose(eigenvectors[:, perm]))
 
 #############
 # Libraries #
 #############
 import math
 import os
+import numpy
+from numpy import linalg as LA
 
 #########
 # Files #
@@ -455,6 +478,8 @@ foldonFile = './foldons'
 nativeDumpFile = './dump.native'
 # The directory containing free energy files in the output format of UltimateWHAM
 freeEnergyFileDirectory = './freeenergyfiles/'
+# Overall rate file
+overallRateFile = './overallrates'
 
 #############
 # Constants #
@@ -471,6 +496,12 @@ nativeContactThreshold = 10
 minSeqSep = 3
 # Foldon foldedness threshold
 foldonThreshold = 0.8
+# Downhill rate
+k0 = 0.000001
+# Minimum temperature for computing overall rate
+starttemp = 402
+# Maximum temperature for computing overall rate
+endtemp = 500
 
 ########################
 # Variables and arrays #
@@ -483,6 +514,10 @@ sortedsnapshots = []  # a 2D list containing all snapshots corresponding to a gi
 microstateprobabilities = [] # a list containing all (sampled) microstate probabilities
 microstatefreeenergies = []  # a list containing all (sampled) microstate free energies
 Z = 0.0 # the partition sum
+ratematrix = []   # the rate matrix
+eigenvectors = [] # eigenvectors of the rate matrix
+eigenvalues = []  # eigenvalues of the rate matrix
+overallrates = [] # stores all temperature/overall rate pairs calculated
 
 ################
 # Main program #
@@ -498,19 +533,39 @@ for i in range(len(trajectories)):
     trajectories[i].assignAllUstates()
 # read in all the free energy information, return minimum temperature (for indexing purposes)
 mintemp = readAllFreeEnergies(freeEnergyFileDirectory)
-# calculate partition function for a certain temperature
-Z = calcZ(500)
-# assign probabilities to all snapshots in all trajectories for a certain temperature
-for i in range(len(trajectories)):
-    trajectories[i].assignAllProbabilities(500)
-# find all the microstates present
-microstatecodes = findAllUstates()
-# sort all snapshots
-sortedsnapshots = sortAllSnapshots()
-# calculate microstate probabilities (the temperature is implied by the snapshot probabilities)
-microstateprobabilities = calculateUstateProbabilities()
-# calculate microstate free energies for a certain temperature
-microstatefreeenergies = calculateUstateFreeEnergies(500)
+
+# loop over all desired temperatures, compute overall rate
+for temperature in range(starttemp,endtemp+1):
+    print "Calculating rate for temperature: " + str(temperature)
+    # calculate partition function for a certain temperature
+    Z = calcZ(temperature)
+    # assign probabilities to all snapshots in all trajectories for a certain temperature
+    for i in range(len(trajectories)):
+        trajectories[i].assignAllProbabilities(temperature)
+    # find all the microstates present
+    microstatecodes = findAllUstates()
+    # sort all snapshots according to their microstate
+    sortedsnapshots = sortAllSnapshots()
+    # calculate microstate probabilities (the temperature is implied by the snapshot probabilities)
+    microstateprobabilities = calculateUstateProbabilities()
+    # calculate microstate free energies for a certain temperature
+    microstatefreeenergies = calculateUstateFreeEnergies(temperature)
+
+    # Dummy microstate codes and microstate free energies for debugging
+    microstatecodes = ["000", "100", "001", "010", "011", "110", "101", "111"]
+    microstatefreeenergies = [1.0, 10.0, 20.0, 30.0, 30.0, 20.0, 10.0, 1.0]
+
+    # calculate rate matrix, given a temperature
+    ratematrix = calculateRateMatrix(temperature)
+    # calculate eigenvalues and eigenvectors
+    eigenvalues, eigenvectors = calculateEigenvectorsEigenvalues()
+
+    overallrates.append([temperature,-eigenvalues[1]])
+
+f = open(overallRateFile, 'w')
+for i in range(len(overallrates)):
+    f.write(str(overallrates[i][0]) + " " + str(overallrates[i][1]) + '\n')
+    
 
 
 

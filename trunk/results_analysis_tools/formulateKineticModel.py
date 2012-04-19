@@ -76,49 +76,9 @@
 # chevron plots" by plotting (the negative of) the first non-zero eigenvalue
 # as a function of temperature.
 
-#############
-# Libraries #
-#############
-import math
-import os
-
-#########
-# Files #
-#########
-# The metadata file, containing links to the dump files and Qw/Potential energy
-# files. The format is: dumpfile qw-pot-file
-metadataFile = './metadata'
-# Foldon file: each line contains the residues in a foldon
-# each residue in the protein should be included once and only once
-foldonFile = './foldons'
-# The dump file (LAMMPS format) of the native structure coordinates
-nativeDumpFile = './dump.native'
-# The directory containing free energy files in the output format of UltimateWHAM
-freeEnergyFileDirectory = './freeenergyfiles/'
-
-#############
-# Constants #
-#############
-# Boltzmann constant
-kb = 0.001987 # kcal/mol/K
-
-##############
-# Parameters #
-##############
-# Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
-nativeContactThreshold = 10 
-# Minimum sequence separation for two residues in contact
-minSeqSep = 3
-# Foldon foldedness threshold
-foldonThreshold = 0.8
-
-########################
-# Variables and arrays #
-########################
-trajectories = []
-temperaturearray = []
-fofqandt = []
-
+#########################
+# Classes and Functions #
+#########################
 class Foldon:
     numRes = 0
     residuelist = []
@@ -214,6 +174,7 @@ class Snapshot:
     Q = 0.0
     contactmap = []
     ustate = ustate("")
+    probability = 0.0
     
     def __init__(self, residues):
         self.numRes = len(residues)
@@ -229,6 +190,7 @@ class Snapshot:
                 self.contactmap[i][j] = 0
         self.calculateContactMap()
         self.ustate = ustate("")
+        self.probability = 0.0
 
     def display(self):
         print "Ca coordinates:"
@@ -239,6 +201,7 @@ class Snapshot:
         print "Qvalue: " + str(self.Q)
         print "Microstate code:"
         self.ustate.display()
+        print "Probability: " + str(self.probability)
 
     def calculateContactMap(self):
         for i in range(self.numRes):
@@ -256,6 +219,9 @@ class Snapshot:
 
         self.ustate = ustate(microstatecode)
         return microstatecode
+
+    def assignProbability(self, temperature):
+        self.probability = boltzmannFactor(self,temperature)/Z
 
 class Trajectory:
     dumpFile = ""
@@ -282,6 +248,10 @@ class Trajectory:
     def assignAllUstates(self):
         for i in range(len(self.snapshots)):
             self.snapshots[i].assignUstate()
+
+    def assignAllProbabilities(self,temperature):
+        for i in range(len(self.snapshots)):
+            self.snapshots[i].assignProbability(temperature)
 
 def readFoldonFile(foldonFile):
     foldons = []
@@ -402,38 +372,146 @@ def FofQandT(Q,T):
     index = 0
     for i in range(len(fofq)):
         tempQ = fofq[i][0]
-        if float(tempQ) > Q:
+        if float(tempQ) > float(Q):
             index = i
             break
     
-    interpFvalue = float(fofq[index-1][1]) + ((float(fofq[index][1])-float(fofq[index-1][1]))/(float(fofq[index][0])-float(fofq[index-1][0])))*(Q-float(fofq[index-1][0]))
+    interpFvalue = float(fofq[index-1][1]) + ((float(fofq[index][1])-float(fofq[index-1][1]))/(float(fofq[index][0])-float(fofq[index-1][0])))*(float(Q)-float(fofq[index-1][0]))
 
-    print str(fofq[index-1][0]) + " " + str(fofq[index-1][1])
-    print str(fofq[index][0]) + " " + str(fofq[index][1])
-    print interpFvalue
+    return interpFvalue
 
-# examplesnapshots = readDumpFile(dumpFile)
-# for i in range(len(examplesnapshots)):
-#     examplesnapshots[i].display()
+def boltzmannFactor(snapshot,temperature):
+    exponent = (float(snapshot.energy)-float(FofQandT(snapshot.Q,temperature)))/(kb*float(temperature))
+    return math.exp(exponent)
 
-# print len(examplesnapshots)
+def calcZ(temperature):
+    Z = 0.0
+    for i in range(len(trajectories)):
+        for j in range(len(trajectories[i].snapshots)):
+            Z += boltzmannFactor(trajectories[i].snapshots[j],temperature)
 
-# trajectory=Trajectory("./metadata");
+    return Z
 
-# trajectory.snapshots[0].calculateContactMap()
+def findAllUstates():
+    for i in range(len(trajectories)):
+        for j in range(len(trajectories[i].snapshots)):
+            tempustatecode = trajectories[i].snapshots[j].ustate.code
+            if len(microstatecodes) == 0:
+                microstatecodes.append(tempustatecode)
+            for k in range(len(microstatecodes)):
+                if tempustatecode == microstatecodes[k]:
+                    continue
+                if tempustatecode != microstatecodes[k] and k == len(microstatecodes)-1:
+                    microstatecodes.append(tempustatecode)
 
-# res1 = Residue(0,0,0,1)
-# res2 = Residue(10,0,0,10.9)
+    return microstatecodes
 
-# print res1.isInContactWith(res2)
+def sortAllSnapshots():
+    sortedsnapshots = []
+    for i in range(len(microstatecodes)):
+        sortedsnapshots.append([])
+    for i in range(len(trajectories)):
+        for j in range(len(trajectories[i].snapshots)):
+            for k in range(len(microstatecodes)):
+                if trajectories[i].snapshots[j].ustate.code == microstatecodes[k]:
+                    sortedsnapshots[k].append(trajectories[i].snapshots[j])
+                    break
 
+    return sortedsnapshots
+
+def calculateUstateProbabilities():
+    for i in range(len(sortedsnapshots)):
+        ustateprob = 0.0
+        for j in range(len(sortedsnapshots[i])):
+            ustateprob += sortedsnapshots[i][j].probability
+
+        microstateprobabilities.append(ustateprob)
+
+    return microstateprobabilities
+
+def calculateUstateFreeEnergies(temperature):
+    microstatefreeenergies = []
+    for i in range(len(microstatecodes)):
+        microstatefreeenergies.append(-kb*temperature*math.log(microstateprobabilities[i]))
+
+    return microstatefreeenergies
+
+#############
+# Libraries #
+#############
+import math
+import os
+
+#########
+# Files #
+#########
+# The metadata file, containing links to the dump files and Qw/Potential energy
+# files. The format is: dumpfile qw-pot-file
+metadataFile = './metadata'
+# Foldon file: each line contains the residues in a foldon
+# each residue in the protein should be included once and only once
+foldonFile = './foldons'
+# The dump file (LAMMPS format) of the native structure coordinates
+nativeDumpFile = './dump.native'
+# The directory containing free energy files in the output format of UltimateWHAM
+freeEnergyFileDirectory = './freeenergyfiles/'
+
+#############
+# Constants #
+#############
+# Boltzmann constant
+kb = 0.001987 # kcal/mol/K
+
+##############
+# Parameters #
+##############
+# Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
+nativeContactThreshold = 10
+# Minimum sequence separation for two residues in contact
+minSeqSep = 3
+# Foldon foldedness threshold
+foldonThreshold = 0.8
+
+########################
+# Variables and arrays #
+########################
+trajectories = []     # a list of Trajectory objects
+temperaturearray = [] # a list of temperature values for which free energies are available
+fofqandt = []         # a list containing all values of the free energy at all temperatures
+microstatecodes = []  # a list containing all (sampled) microstate codes
+sortedsnapshots = []  # a 2D list containing all snapshots corresponding to a given microstate code
+microstateprobabilities = [] # a list containing all (sampled) microstate probabilities
+microstatefreeenergies = []  # a list containing all (sampled) microstate free energies
+Z = 0.0 # the partition sum
+
+################
+# Main program #
+################
+# read in native coordinates for the purposes of computing contacts
 nativeSnapshot = readDumpFile(nativeDumpFile)[0]
+# read in the foldon definitions
 foldons = readFoldonFile(foldonFile)
-# readAllTrajectories("./metadata")
-# for i in range(len(trajectories)):
-#     trajectories[i].assignAllUstates()
-#     trajectories[i].display()
-
+# read all the trajectory information from the metadata file
+readAllTrajectories(metadataFile)
+# assign microstate to all snapshots
+for i in range(len(trajectories)):
+    trajectories[i].assignAllUstates()
+# read in all the free energy information, return minimum temperature (for indexing purposes)
 mintemp = readAllFreeEnergies(freeEnergyFileDirectory)
+# calculate partition function for a certain temperature
+Z = calcZ(500)
+# assign probabilities to all snapshots in all trajectories for a certain temperature
+for i in range(len(trajectories)):
+    trajectories[i].assignAllProbabilities(500)
+# find all the microstates present
+microstatecodes = findAllUstates()
+# sort all snapshots
+sortedsnapshots = sortAllSnapshots()
+# calculate microstate probabilities (the temperature is implied by the snapshot probabilities)
+microstateprobabilities = calculateUstateProbabilities()
+# calculate microstate free energies for a certain temperature
+microstatefreeenergies = calculateUstateFreeEnergies(500)
 
-FofQandT(.9,500)
+
+
+

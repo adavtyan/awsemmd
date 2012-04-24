@@ -96,7 +96,7 @@ public:
   
   // Non-additive AMH-Go parameters
   double k_amh_go, amh_go_rc;
-  int amh_go_p;
+  double amh_go_p;
   Fragment_Memory *m_amh_go;
   Gamma_Array *amh_go_gamma;
   double **amh_go_force;

@@ -83,28 +83,30 @@ class Foldon:
     numRes = 0
     residuelist = []
     numNativeContacts = 0
+    nativefoldoncontactlist = []
 
     def __init__(self,residuelist):
         self.residuelist = residuelist
         self.numRes = len(self.residuelist)
-        self.numNativeContacts = self.calculateNumNativeContacts(nativeSnapshot,nativeSnapshot)
+        self.numNativeContacts = self.calculateNumNativeContacts(nativeSnapshot)
+        self.nativefoldoncontactlist = []
 
     def display(self):
         print self.residuelist
 
-    def calculateNumNativeContacts(self, snapshot, native):
+    def calculateNumNativeContacts(self, snapshot):
         numNativeContacts = 0
-        for residue1 in self.residuelist:
-            for residue2 in range(len(native.residues)):
-                if snapshot.residues[residue1].isInContactWith(snapshot.residues[residue2]):
-                    if native.residues[residue1].isInContactWith(native.residues[residue2]):
-                        numNativeContacts += 1
+        for nativepairindex in range(len(self.nativefoldoncontactlist)):
+            residue1 = self.nativefoldoncontactlist[nativepairindex][0]
+            residue2 = self.nativefoldoncontactlist[nativepairindex][1]
+            if snapshot.residues[residue1].isInContactWith(snapshot.residues[residue2]):
+                numNativeContacts += 1
 
         return numNativeContacts
 
     def isFoldedIn(self, snapshot):
-        currentContacts = self.calculateNumNativeContacts(snapshot,nativeSnapshot)
-        if float(currentContacts)/float(self.numNativeContacts) > foldonThreshold:
+        currentContacts = self.calculateNumNativeContacts(snapshot)
+        if float(currentContacts)/float(len(self.nativefoldoncontactlist)) > foldonThreshold:
             return True
         else:
             return False
@@ -163,13 +165,6 @@ class Snapshot:
         self.energy = 0.0
         self.Q = 0.0
         self.ustate = 0
-        self.contactmap = []
-        for i in range(self.numRes):
-            self.contactmap.append([])
-            for j in range(self.numRes):
-                self.contactmap[i].append([])
-                self.contactmap[i][j] = 0
-        self.calculateContactMap()
         self.ustate = ustate("")
         self.probability = 0.0
 
@@ -183,12 +178,6 @@ class Snapshot:
         print "Microstate code:"
         self.ustate.display()
         print "Probability: " + str(self.probability)
-
-    def calculateContactMap(self):
-        for i in range(self.numRes):
-            for j in range(self.numRes):
-                if self.residues[i].isInContactWith(self.residues[j]):
-                    self.contactmap[i][j] = 1
 
     def assignUstate(self):
         microstatecode = ""
@@ -218,8 +207,10 @@ class Trajectory:
         snapshotindex = 0
         for dataline in ssdata:
             dataline = dataline.split()
-            self.snapshots[snapshotindex].Q = dataline[0]
-            self.snapshots[snapshotindex].energy = dataline[1]
+            if dataline == "" or dataline[0] == "#":
+                continue
+            self.snapshots[snapshotindex].Q = dataline[1]
+            self.snapshots[snapshotindex].energy = dataline[2]
             snapshotindex += 1
 
     def display(self):
@@ -248,7 +239,7 @@ def readFoldonFile(foldonFile):
             if line[i] == " ":
                 continue
             else:
-                residues.append(int(line[i]))
+                residues.append(int(line[i])-1)
 
         foldons.append(Foldon(residues))
 
@@ -317,6 +308,7 @@ def readAllTrajectories(metadataFile):
     f = open(metadataFile, 'r')
     for line in f:
         line=line.split()
+        print "Creating trajectory for " + line[0] + "..."
         trajectory = Trajectory(line[0],line[1])
         trajectories.append(trajectory)
 
@@ -379,9 +371,10 @@ def findAllUstates():
             tempustatecode = trajectories[i].snapshots[j].ustate.code
             if len(microstatecodes) == 0:
                 microstatecodes.append(tempustatecode)
+                continue
             for k in range(len(microstatecodes)):
                 if tempustatecode == microstatecodes[k]:
-                    continue
+                    break
                 if tempustatecode != microstatecodes[k] and k == len(microstatecodes)-1:
                     microstatecodes.append(tempustatecode)
 
@@ -401,6 +394,7 @@ def sortAllSnapshots():
     return sortedsnapshots
 
 def calculateUstateProbabilities():
+    microstateprobabilities = []
     for i in range(len(sortedsnapshots)):
         ustateprob = 0.0
         for j in range(len(sortedsnapshots[i])):
@@ -457,12 +451,31 @@ def calculateEigenvectorsEigenvalues():
     perm = numpy.argsort(-eigenvalues)  # sort in descending order
     return numpy.real(eigenvalues[perm]), numpy.real(numpy.transpose(eigenvectors[:, perm]))
 
+def findNativeContacts(nativesnapshot):
+    numNativeContacts = 0
+    for residue1 in range(len(nativesnapshot.residues)):
+        for residue2 in range(residue1,len(nativesnapshot.residues)):
+            if nativesnapshot.residues[residue1].isInContactWith(nativesnapshot.residues[residue2]):
+                nativecontactlist.append([residue1,residue2])
+
+def sortNativeContactsByFoldon():
+    for foldon in foldons:
+        for nativepairindex in range(len(nativecontactlist)):
+            for foldonresidue in foldon.residuelist:
+                residue1 = nativecontactlist[nativepairindex][0]
+                residue2 = nativecontactlist[nativepairindex][1]
+                if foldonresidue == residue1 or foldonresidue == residue2:
+                    foldon.nativefoldoncontactlist.append([residue1, residue2])
+                    break
+
 #############
 # Libraries #
 #############
 import math
 import os
 import numpy
+numpy.set_printoptions(threshold=numpy.nan)
+import sys
 from numpy import linalg as LA
 
 #########
@@ -470,7 +483,7 @@ from numpy import linalg as LA
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadata'
+metadataFile = './metadatamedium'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldons'
@@ -480,6 +493,18 @@ nativeDumpFile = './dump.native'
 freeEnergyFileDirectory = './freeenergyfiles/'
 # Overall rate file
 overallRateFile = './overallrates'
+# Microstate codes file
+microstatecodesfile = './microstatecodes'
+# Microstate probabilities file
+microstateprobabilitiesfile = './microstateprobabilities'
+# Microstate free energies file
+microstatefreeenergiesfile = './microstatefreeenergies'
+# Partition sum file
+partitionsumfile = './partitionsum'
+# Rate matrix file
+ratematrixfile = './ratematrix'
+# Eigenvalues and eigenvectors file
+eigenvectorsfile = './eigenvectors'
 
 #############
 # Constants #
@@ -499,9 +524,9 @@ foldonThreshold = 0.8
 # Downhill rate
 k0 = 0.000001
 # Minimum temperature for computing overall rate
-starttemp = 402
+starttemp = 500
 # Maximum temperature for computing overall rate
-endtemp = 500
+endtemp = 700
 
 ########################
 # Variables and arrays #
@@ -518,48 +543,65 @@ ratematrix = []   # the rate matrix
 eigenvectors = [] # eigenvectors of the rate matrix
 eigenvalues = []  # eigenvalues of the rate matrix
 overallrates = [] # stores all temperature/overall rate pairs calculated
+nativecontactlist = [] # stores all native contact pairs
 
 ################
 # Main program #
 ################
 # read in native coordinates for the purposes of computing contacts
+print "Reading native dump file..."
 nativeSnapshot = readDumpFile(nativeDumpFile)[0]
+findNativeContacts(nativeSnapshot)
 # read in the foldon definitions
+print "Reading foldon file..."
 foldons = readFoldonFile(foldonFile)
+sortNativeContactsByFoldon()
 # read all the trajectory information from the metadata file
+print "Reading all trajectories..."
 readAllTrajectories(metadataFile)
 # assign microstate to all snapshots
+print "Assigning microstates..."
 for i in range(len(trajectories)):
     trajectories[i].assignAllUstates()
 # read in all the free energy information, return minimum temperature (for indexing purposes)
+print "Reading free energy files..."
 mintemp = readAllFreeEnergies(freeEnergyFileDirectory)
 
 # loop over all desired temperatures, compute overall rate
 for temperature in range(starttemp,endtemp+1):
     print "Calculating rate for temperature: " + str(temperature)
     # calculate partition function for a certain temperature
+    print "Calculating the partition function..."
     Z = calcZ(temperature)
+    print "Z: " + str(Z)
     # assign probabilities to all snapshots in all trajectories for a certain temperature
+    print "Assigning snapshot probabilities..."
     for i in range(len(trajectories)):
         trajectories[i].assignAllProbabilities(temperature)
     # find all the microstates present
+    print "Finding all microstates..."
     microstatecodes = findAllUstates()
+    print "Microstate codes: " + str(microstatecodes)
     # sort all snapshots according to their microstate
+    print "Sorting all snapshots by microstate..."
     sortedsnapshots = sortAllSnapshots()
     # calculate microstate probabilities (the temperature is implied by the snapshot probabilities)
+    print "Calculating microstate probabilities..."
     microstateprobabilities = calculateUstateProbabilities()
+    print "Microstate probabilities: " + str(microstateprobabilities)
     # calculate microstate free energies for a certain temperature
+    print "Calculating microstate free energies..."
     microstatefreeenergies = calculateUstateFreeEnergies(temperature)
-
-    # Dummy microstate codes and microstate free energies for debugging
-    microstatecodes = ["000", "100", "001", "010", "011", "110", "101", "111"]
-    microstatefreeenergies = [1.0, 10.0, 20.0, 30.0, 30.0, 20.0, 10.0, 1.0]
-
+    print "Microstate free energies: " + str(microstatefreeenergies)
     # calculate rate matrix, given a temperature
+    print "Calculating rate matrix..."
     ratematrix = calculateRateMatrix(temperature)
+    print "Rate Matrix: \n" + str(ratematrix)
     # calculate eigenvalues and eigenvectors
+    print "Calculating eigenvalues and eigenvectors"
     eigenvalues, eigenvectors = calculateEigenvectorsEigenvalues()
-
+    print "Eigenvalues: \n" + str(eigenvalues)
+    print "Eigenvectors \n: " + str(eigenvectors)
     overallrates.append([temperature,-eigenvalues[1]])
 
 f = open(overallRateFile, 'w')

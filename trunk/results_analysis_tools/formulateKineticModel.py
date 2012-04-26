@@ -155,7 +155,6 @@ class Snapshot:
     residues = []
     energy = 0.0
     Q = 0.0
-    contactmap = []
     ustate = ustate("")
     probability = 0.0
     
@@ -246,6 +245,69 @@ def readFoldonFile(foldonFile):
     return foldons
 
 def readDumpFile(dumpFile):
+    foundAtoms = False
+    residues = []
+    residuePosition = 0
+    snapshots = []
+    firstTimestep = True
+    
+    foundBoxBounds = False
+    boundsIndex = 0
+    bounds = []
+
+    for i in range(3):
+        bounds.append([0.0, 0.0])
+
+    f = open(dumpFile,"r")
+    for line in f:
+        line = line.split()
+
+        if len(line) < 2:
+            continue
+
+        if line[1] == "ATOMS":
+            foundBoxBounds = False
+            boundsIndex = 0
+            foundAtoms = True
+            continue
+
+        if line[1] == "BOX":
+            foundBoxBounds = True
+            continue
+
+        if(foundBoxBounds):
+            bounds[boundsIndex] = [float(line[0]), float(line[1])]
+            boundsIndex += 1
+
+        if line[1] == "TIMESTEP":
+            if(not firstTimestep):
+                snapshot = Snapshot(residues) # create snapshot with residue coordinates
+                snapshot.assignUstate()       # assign microstate based on coordinates
+                del snapshot.residues         # delete residue coordinates to save memory
+                snapshots.append(snapshot)    # append snapshot to snapshots list
+                residues = []                 # zero out residues for next snapshot        
+
+            foundAtoms = False
+            residuePosition = 0
+            continue 
+
+        if(foundAtoms):
+            firstTimestep = False
+            if(int(line[1]) == 1):
+                x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
+                y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
+                z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
+                residues.append(Residue(residuePosition, x, y, z))
+                residuePosition += 1
+
+    snapshot = Snapshot(residues) # create snapshot with residue coordinates 
+    snapshot.assignUstate()       # assign microstate based on coordinates   
+    del snapshot.residues         # delete residue coordinates to save memory
+    snapshots.append(snapshot)    # append snapshot to snapshots list        
+                                  
+    return snapshots
+
+def readNativeDumpFile(dumpFile):
     foundAtoms = False
     residues = []
     residuePosition = 0
@@ -468,6 +530,55 @@ def sortNativeContactsByFoldon():
                     foldon.nativefoldoncontactlist.append([residue1, residue2])
                     break
 
+def readHeatCapacityFile(heatcapacityfile):
+    heatcapacity = []
+    f = open(heatcapacityfile, 'r')
+    for line in f:
+        line = line.split()
+        heatcapacity.append([line[0],line[1]])
+
+    return heatcapacity
+
+def findFoldingTemperature(heatcapacity):
+    foldingtemperature = 0.0
+    maxheatcapacity = 0.0
+    for index in range(len(heatcapacity)):
+        if float(heatcapacity[index][1]) > float(maxheatcapacity):
+            maxheatcapacity = heatcapacity[index][1]
+            foldingtemperature = heatcapacity[index][0]
+    
+    return int(float(foldingtemperature))
+
+def findBasins(foldingtemperature):
+    unfoldedQ = 0.0
+    foldedQ = 0.0
+    minfreeenergy = 100000
+    for Q in floatRange(0.0,0.5,0.01):
+        freeenergy = FofQandT(Q,foldingtemperature)
+        if freeenergy < minfreeenergy:
+            minfreeenergy = freeenergy
+            unfoldedQ = Q
+
+    minfreeenergy = 100000
+    for Q in floatRange(0.5,1.0,0.01):
+        freeenergy = FofQandT(Q,foldingtemperature)
+        if freeenergy < minfreeenergy:
+            minfreeenergy = freeenergy
+            foldedQ = Q
+
+    return unfoldedQ, foldedQ
+
+def floatRange(a, b, inc):
+    try: x = [float(a)]
+    except: return False
+    for i in range(1, int(math.ceil((b - a ) / inc))):
+        x. append(a + i * inc)
+    
+    return x
+
+def findStabilityGap(unfoldedQ,foldedQ,temperature):
+    return FofQandT(foldedQ,temperature) - FofQandT(unfoldedQ,temperature)
+
 #############
 # Libraries #
 #############
@@ -477,6 +588,8 @@ import numpy
 numpy.set_printoptions(threshold=numpy.nan)
 import sys
 from numpy import linalg as LA
+import cPickle
+import gc
 
 #########
 # Files #
@@ -505,6 +618,10 @@ partitionsumfile = './partitionsum'
 ratematrixfile = './ratematrix'
 # Eigenvalues and eigenvectors file
 eigenvectorsfile = './eigenvectors'
+# Trajectories pickle file
+trajectoriespicklefile = './trajectories.pkl'
+# Heat capapcity file
+heatcapacityfile = './cv'
 
 #############
 # Constants #
@@ -520,13 +637,15 @@ nativeContactThreshold = 10
 # Minimum sequence separation for two residues in contact
 minSeqSep = 3
 # Foldon foldedness threshold
-foldonThreshold = 0.8
+foldonThreshold = 0.6
 # Downhill rate
-k0 = 0.000001
+k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 500
+starttemp = 580
 # Maximum temperature for computing overall rate
-endtemp = 700
+endtemp = 640
+# read trajectories from metadata? if not, load trajectories.pkl
+readTrajectoriesFromMetadata = False
 
 ########################
 # Variables and arrays #
@@ -544,32 +663,52 @@ eigenvectors = [] # eigenvectors of the rate matrix
 eigenvalues = []  # eigenvalues of the rate matrix
 overallrates = [] # stores all temperature/overall rate pairs calculated
 nativecontactlist = [] # stores all native contact pairs
+foldons = [] # a list of all foldons
+heatcapacity = [] # heat capacity array
+foldingTemperature = 0.0 # folding temperature
+unfoldedQ = 0.0 # Q of the unfolded basin
+foldedQ = 0.0   # Q of the folded basin
+stabilitygap = 0.0 # stability gap between unfolded and folded basins
 
 ################
 # Main program #
 ################
+# read heat capacity file
+heatcapacity = readHeatCapacityFile(heatcapacityfile)
+# read in all the free energy information, return minimum temperature (for indexing purposes)
+print "Reading free energy files..."
+mintemp = readAllFreeEnergies(freeEnergyFileDirectory)
+# find folding temperature
+foldingtemperature = findFoldingTemperature(heatcapacity)
+print "Folding temperature: " + str(foldingtemperature)
+# find folded and unfolded basins
+unfoldedQ, foldedQ = findBasins(foldingtemperature)
 # read in native coordinates for the purposes of computing contacts
 print "Reading native dump file..."
-nativeSnapshot = readDumpFile(nativeDumpFile)[0]
+nativeSnapshot = readNativeDumpFile(nativeDumpFile)[0]
 findNativeContacts(nativeSnapshot)
 # read in the foldon definitions
 print "Reading foldon file..."
 foldons = readFoldonFile(foldonFile)
 sortNativeContactsByFoldon()
-# read all the trajectory information from the metadata file
-print "Reading all trajectories..."
-readAllTrajectories(metadataFile)
-# assign microstate to all snapshots
-print "Assigning microstates..."
-for i in range(len(trajectories)):
-    trajectories[i].assignAllUstates()
-# read in all the free energy information, return minimum temperature (for indexing purposes)
-print "Reading free energy files..."
-mintemp = readAllFreeEnergies(freeEnergyFileDirectory)
+if readTrajectoriesFromMetadata:
+    # read all the trajectory information from the metadata file and assign all microstates
+    print "Reading all trajectories and assigning microstates..."
+    readAllTrajectories(metadataFile)
+    # Pickle trajectories list for reading later
+    print "Pickling trajectories..."
+    cPickle.dump(trajectories, open(trajectoriespicklefile, 'wb')) 
+else:
+    # load trajectories from existing Pickle file
+    print "Loading pickled trajectories..."
+    trajectories = cPickle.load(open(trajectoriespicklefile, 'rb'))
 
 # loop over all desired temperatures, compute overall rate
 for temperature in range(starttemp,endtemp+1):
     print "Calculating rate for temperature: " + str(temperature)
+    # find stability gap
+    print "Finding stability gap..."
+    stabilitygap = findStabilityGap(unfoldedQ,foldedQ,temperature)
     # calculate partition function for a certain temperature
     print "Calculating the partition function..."
     Z = calcZ(temperature)
@@ -601,14 +740,11 @@ for temperature in range(starttemp,endtemp+1):
     print "Calculating eigenvalues and eigenvectors"
     eigenvalues, eigenvectors = calculateEigenvectorsEigenvalues()
     print "Eigenvalues: \n" + str(eigenvalues)
-    print "Eigenvectors \n: " + str(eigenvectors)
-    overallrates.append([temperature,-eigenvalues[1]])
+    print "Eigenvectors: \n " + str(eigenvectors)
+    overallrates.append([temperature,stabilitygap,-eigenvalues[1]])
 
 f = open(overallRateFile, 'w')
 for i in range(len(overallrates)):
-    f.write(str(overallrates[i][0]) + " " + str(overallrates[i][1]) + '\n')
+    f.write(str(overallrates[i][0]) + " " + str(overallrates[i][1]) + " " + str(overallrates[i][2]) + '\n')
+f.close()
     
-
-
-
-

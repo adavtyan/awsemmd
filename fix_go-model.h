@@ -77,7 +77,7 @@ private:
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
   
   double energy[5], energy_all[5];
-  enum EnergyTerms{ET_TOTAL=0, ET_BOND, ET_ANGLE, ET_DIHEDRAL, ET_CONTACTS, nEnergyTerms};
+  enum EnergyTerms{ET_TOTAL=0, ET_BOND, ET_ANGLE, ET_DIHEDRAL, ET_CONTACTS, ET_NCONTS, nEnergyTerms};
   
   enum ContactsDevType{DT_NONE=0, DT_CORR, DT_SIN, DT_CONST};
 

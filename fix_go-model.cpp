@@ -50,7 +50,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	
 	efile = fopen("energyGO.log", "w");
 	
-	char eheader[] = "Step\tBond\tAngle\tDihedral\tContacts\tVTotal\n";
+	char eheader[] = "Step\tBond\tAngle\tDihedral\tContacts\tNative\tVTotal\n";
 	fprintf(efile, "%s", eheader);
 	
 	restart_global = 1;
@@ -746,6 +746,8 @@ void FixGoModel::compute_contact(int i, int j)
 
 		V = contact_epsilon*(5*sgrinv12 - 6*sgrinv10);
 		force = -60*contact_epsilon*(sgrinv12 - sgrinv10)/rsq;
+		
+		energy[ET_NCONTS] += V;
 	} else {
 		V = epsilon2*sgrinv12;
 		force = -12*epsilon2*sgrinv12/rsq;
@@ -1056,7 +1058,8 @@ void FixGoModel::compute_goModel()
 		}
 	}
 	
-	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
+	// Last term is the energy of native contacts, already included in contacts energy
+	for (int i=1;i<nEnergyTerms-1;++i) energy[ET_TOTAL] += energy[i];
 	
 	if (ntimestep%output->thermo_every==0) {
 		fprintf(efile, "%d ", ntimestep);

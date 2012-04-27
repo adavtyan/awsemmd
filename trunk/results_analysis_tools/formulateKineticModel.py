@@ -110,6 +110,15 @@ class Foldon:
             return True
         else:
             return False
+    
+    def containsResidue(self, residue):
+        containsresidue = False
+        for i in range(len(self.residuelist)):
+            if residue == self.residuelist[i]:
+                containsresidue = True
+                break
+
+        return containsresidue
 
 class ustate:
     code = ""
@@ -143,9 +152,17 @@ class Residue:
         print "pos: " + str(self.pos)
         print "coords: " + str(self.x) + " " + str(self.y) + " " + str(self.z)
 
-    def isInContactWith(self,otherresidue):
+    def isNativeContactWith(self,otherresidue):
         distance = math.sqrt(pow(self.x-otherresidue.x,2)+pow(self.y-otherresidue.y,2)+pow(self.z-otherresidue.z,2))
         if abs(self.pos - otherresidue.pos) >= minSeqSep and distance < nativeContactThreshold:
+            return True
+        else:
+            return False
+
+    def isInContactWith(self,otherresidue):
+        distance = math.sqrt(pow(self.x-otherresidue.x,2)+pow(self.y-otherresidue.y,2)+pow(self.z-otherresidue.z,2))
+        # if abs(self.pos - otherresidue.pos) >= minSeqSep and distance < nativeContactThreshold:
+        if abs(self.pos - otherresidue.pos) >= minSeqSep and distance < contactFactor*nativedistances[self.pos][otherresidue.pos]:
             return True
         else:
             return False
@@ -517,18 +534,39 @@ def findNativeContacts(nativesnapshot):
     numNativeContacts = 0
     for residue1 in range(len(nativesnapshot.residues)):
         for residue2 in range(residue1,len(nativesnapshot.residues)):
-            if nativesnapshot.residues[residue1].isInContactWith(nativesnapshot.residues[residue2]):
+            if nativesnapshot.residues[residue1].isNativeContactWith(nativesnapshot.residues[residue2]):
                 nativecontactlist.append([residue1,residue2])
 
 def sortNativeContactsByFoldon():
-    for foldon in foldons:
-        for nativepairindex in range(len(nativecontactlist)):
-            for foldonresidue in foldon.residuelist:
+    if includeInterfaceContacts:
+        for foldon in foldons:
+            for nativepairindex in range(len(nativecontactlist)):
                 residue1 = nativecontactlist[nativepairindex][0]
                 residue2 = nativecontactlist[nativepairindex][1]
-                if foldonresidue == residue1 or foldonresidue == residue2:
+                if foldon.containsResidue(residue1) or foldon.containsResidue(residue2):
                     foldon.nativefoldoncontactlist.append([residue1, residue2])
-                    break
+
+            print "Foldon definition:"
+            foldon.display()
+            print "Number of native contacts:"
+            print len(foldon.nativefoldoncontactlist)
+            print "Native contacts being monitored:"
+            print foldon.nativefoldoncontactlist
+
+    else:
+        for foldon in foldons:
+            for nativepairindex in range(len(nativecontactlist)):
+                residue1 = nativecontactlist[nativepairindex][0]
+                residue2 = nativecontactlist[nativepairindex][1]
+                if foldon.containsResidue(residue1) and foldon.containsResidue(residue2):
+                    foldon.nativefoldoncontactlist.append([residue1, residue2])
+                    
+            print "Foldon definition:"
+            foldon.display()
+            print "Number of native contacts:"
+            print len(foldon.nativefoldoncontactlist)
+            print "Native contacts being monitored:"
+            print foldon.nativefoldoncontactlist
 
 def readHeatCapacityFile(heatcapacityfile):
     heatcapacity = []
@@ -579,6 +617,26 @@ def floatRange(a, b, inc):
 def findStabilityGap(unfoldedQ,foldedQ,temperature):
     return FofQandT(foldedQ,temperature) - FofQandT(unfoldedQ,temperature)
 
+def calculateRank(ustatecode):
+    rank = 0;
+    for i in range(len(ustatecode)):
+        rank += int(ustatecode[i])
+
+    return rank
+
+def readNativeDistances(nativedistancefile):
+    nativedistances = []
+    lineIndex = 0
+    f = open(nativedistancefile, 'r')
+    for line in f:
+        line = line.split()
+        nativedistances.append([])
+        for i in range(len(line)):
+            nativedistances[lineIndex].append(float(line[i]))
+        lineIndex += 1
+
+    return nativedistances
+
 #############
 # Libraries #
 #############
@@ -622,6 +680,10 @@ eigenvectorsfile = './eigenvectors'
 trajectoriespicklefile = './trajectories.pkl'
 # Heat capapcity file
 heatcapacityfile = './cv'
+# Microstate ranks file prefix
+microstateRanksFilePrefix = './microstateinfo'
+# Native distance file
+nativedistancefile = './rnative.dat'
 
 #############
 # Constants #
@@ -634,18 +696,24 @@ kb = 0.001987 # kcal/mol/K
 ##############
 # Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
 nativeContactThreshold = 10
+# Contact factor: two residues are in contact if their distances is less than contactFactor*nativedistance
+contactFactor = 1.2
+# Include interface contacts? If False, only those native contacts for residues within the same foldon will be used
+includeInterfaceContacts = False
 # Minimum sequence separation for two residues in contact
 minSeqSep = 3
 # Foldon foldedness threshold
-foldonThreshold = 0.6
+foldonThreshold = 0.7
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 580
+starttemp = 560
 # Maximum temperature for computing overall rate
 endtemp = 640
 # read trajectories from metadata? if not, load trajectories.pkl
-readTrajectoriesFromMetadata = False
+readTrajectoriesFromMetadata = True
+# output microstate free energy information?
+outputMicrostateRanks = True
 
 ########################
 # Variables and arrays #
@@ -669,10 +737,15 @@ foldingTemperature = 0.0 # folding temperature
 unfoldedQ = 0.0 # Q of the unfolded basin
 foldedQ = 0.0   # Q of the folded basin
 stabilitygap = 0.0 # stability gap between unfolded and folded basins
+ustateranks = [] # a list of microstate ranks (degree of foldness) for each temperature
+nativedistances = [] # a list of the CA-CA distances
 
 ################
 # Main program #
 ################
+# read native distances
+print "Reading native distances..."
+nativedistances = readNativeDistances(nativedistancefile)
 # read heat capacity file
 heatcapacity = readHeatCapacityFile(heatcapacityfile)
 # read in all the free energy information, return minimum temperature (for indexing purposes)
@@ -742,9 +815,21 @@ for temperature in range(starttemp,endtemp+1):
     print "Eigenvalues: \n" + str(eigenvalues)
     print "Eigenvectors: \n " + str(eigenvectors)
     overallrates.append([temperature,stabilitygap,-eigenvalues[1]])
+    # calculate and append ranks
+    ranks = []
+    for i in range(len(microstatecodes)):
+        ranks.append([microstatecodes[i],calculateRank(microstatecodes[i]),microstatefreeenergies[i]])
+    ustateranks.append(ranks)
 
 f = open(overallRateFile, 'w')
 for i in range(len(overallrates)):
     f.write(str(overallrates[i][0]) + " " + str(overallrates[i][1]) + " " + str(overallrates[i][2]) + '\n')
 f.close()
-    
+
+if outputMicrostateRanks:
+    for temperature in range(starttemp,endtemp+1):
+        f = open(microstateRanksFilePrefix + "." + str(temperature), 'w')
+        rankinformation = ustateranks[temperature-starttemp]
+        for index in range(len(rankinformation)):
+            f.write(str(rankinformation[index][0]) + " " + str(rankinformation[index][1]) + " " + str(rankinformation[index][2]) + '\n')
+        f.close()

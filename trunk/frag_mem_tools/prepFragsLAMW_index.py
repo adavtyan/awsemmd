@@ -342,7 +342,7 @@ for line in matchlines:
 
 		#write index file
 		if os.path.getsize('tmp.fasta') > 0 :
-        	print "Writing indexFile: ", indexFile
+			print "Writing indexFile: ", indexFile
 			writeIndexFile(fastFile, pdbFile, indexFile, chainID.upper())
 
 	#Read index file

@@ -406,7 +406,7 @@ void PairGoContacts::read_restart(FILE *fp)
 {
   read_restart_settings(fp);
 
-  allocate();
+  if (!allocated) allocate();
 
   int i,j;
   int me = comm->me;
@@ -431,6 +431,25 @@ void PairGoContacts::write_restart_settings(FILE *fp)
 {
   fwrite(&cut_global,sizeof(double),1,fp);
   fwrite(&mix_flag,sizeof(int),1,fp);
+  
+  fwrite(&dev_type,sizeof(int),1,fp);
+  if (dev_type==DT_CORR) {
+	int tseed=rand->state();
+  	fwrite(&tseed,sizeof(int),1,fp);
+  	fwrite(&sdivf,sizeof(double),1,fp);
+  	fwrite(&tcorr,sizeof(double),1,fp);
+  	fwrite(&dev0,sizeof(double),1,fp);
+  	fwrite(&dev,sizeof(double),1,fp);
+  } else if (dev_type==DT_SIN) {
+  	double tdev0=devB*update->ntimestep + devC;
+  	fwrite(&sdivf,sizeof(double),1,fp);
+  	fwrite(&tcorr,sizeof(double),1,fp);
+  	fwrite(&tdev0,sizeof(double),1,fp);
+  	fwrite(&dev,sizeof(double),1,fp);
+  } else if (dev_type==DT_CONST) {
+  	fwrite(&sdivf,sizeof(double),1,fp);
+  	fwrite(&dev,sizeof(double),1,fp);
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -439,10 +458,44 @@ void PairGoContacts::write_restart_settings(FILE *fp)
 
 void PairGoContacts::read_restart_settings(FILE *fp)
 {
+  if (!allocated) allocate();
+
+  int r_dev_type, r_seed;
+  double r_sdivf, r_tcorr, r_dev0, r_dev;
   if (comm->me == 0) {
-    fread(&cut_global,sizeof(double),1,fp);
+	fread(&cut_global,sizeof(double),1,fp);
     fread(&mix_flag,sizeof(int),1,fp);
+    
+    fread(&r_dev_type,sizeof(int),1,fp);
+    if (r_dev_type==DT_CORR) {
+    	fread(&r_seed,sizeof(int),1,fp);
+    	fread(&r_sdivf,sizeof(double),1,fp);
+    	fread(&r_tcorr,sizeof(double),1,fp);
+    	fread(&r_dev0,sizeof(double),1,fp);
+    	fread(&r_dev,sizeof(double),1,fp);
+    } else if (r_dev_type==DT_SIN) {
+    	fread(&r_sdivf,sizeof(double),1,fp);
+    	fread(&r_tcorr,sizeof(double),1,fp);
+    	fread(&r_dev0,sizeof(double),1,fp);
+    	fread(&r_dev,sizeof(double),1,fp);
+    } else if (r_dev_type==DT_CONST) {
+    	fread(&r_sdivf,sizeof(double),1,fp);
+    	fread(&r_dev,sizeof(double),1,fp);
+    }
+    
+    if (contacts_dev_flag && r_dev_type==dev_type) {
+    	if (r_dev_type==DT_CORR) {
+    		rand->reset(r_seed);
+    		dev = r_dev;
+    	} else if (r_dev_type==DT_SIN) {
+    		devC = r_dev0;
+    		dev = devA*sin(devC);
+    	} else if (r_dev_type==DT_CONST) {
+    		// Nothing need to be done
+    	}
+    }
   }
+  
   MPI_Bcast(&cut_global,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&mix_flag,1,MPI_INT,0,world);
 }

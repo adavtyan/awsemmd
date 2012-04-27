@@ -206,6 +206,9 @@ public:
   void final_log_output();
   Fragment_Memory **read_mems(char *mems_file, int &n_mems);
   bool isEmptyString(char *str);
+  char *ltrim(char *s);
+  char *rtrim(char *s);
+  char *trim(char *s);
   
   void timerBegin();
   void timerEnd(int which);

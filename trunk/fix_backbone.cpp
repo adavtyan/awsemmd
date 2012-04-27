@@ -1017,13 +1017,13 @@ bool FixBackbone::isEmptyString(char *str)
   return true;
 }
 
-char *ltrim(char *s) 
+char *FixBackbone::ltrim(char *s) 
 {     
   while(isspace(*s)) s++;     
   return s; 
 }  
 
-char *rtrim(char *s) 
+char *FixBackbone::rtrim(char *s) 
 {
   char* back;
   int len = strlen(s);
@@ -1037,7 +1037,7 @@ char *rtrim(char *s)
   return s; 
 }  
 
-char *trim(char *s) 
+char *FixBackbone::trim(char *s) 
 {     
   return rtrim(ltrim(s));  
 } 

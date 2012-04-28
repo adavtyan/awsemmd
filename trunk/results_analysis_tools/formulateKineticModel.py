@@ -161,7 +161,6 @@ class Residue:
 
     def isInContactWith(self,otherresidue):
         distance = math.sqrt(pow(self.x-otherresidue.x,2)+pow(self.y-otherresidue.y,2)+pow(self.z-otherresidue.z,2))
-        # if abs(self.pos - otherresidue.pos) >= minSeqSep and distance < nativeContactThreshold:
         if abs(self.pos - otherresidue.pos) >= minSeqSep and distance < contactFactor*nativedistances[self.pos][otherresidue.pos]:
             return True
         else:
@@ -209,6 +208,22 @@ class Snapshot:
     def assignProbability(self, temperature):
         self.probability = boltzmannFactor(self,temperature)/Z
 
+    def calculatePairwiseDistances(self):
+        pairwisedistances = []
+        for i in range(self.numRes):
+            pairwisedistances.append([])
+            for j in range(self.numRes):
+                xi = self.residues[i].x
+                yi = self.residues[i].y
+                zi = self.residues[i].z
+                xj = self.residues[j].x
+                yj = self.residues[j].y
+                zj = self.residues[j].z
+                dist = numpy.sqrt(pow(xi-xj,2)+pow(yi-yj,2)+pow(zi-zj,2))
+                pairwisedistances[i].append(dist)
+
+        return pairwisedistances
+                           
 class Trajectory:
     dumpFile = ""
     snapshotDataFile = ""
@@ -221,13 +236,16 @@ class Trajectory:
         self.snapshots = readDumpFile(dumpFile)
         ssdata = open(snapshotDataFile, 'r')
         snapshotindex = 0
+        lineindex = 0
         for dataline in ssdata:
             dataline = dataline.split()
             if dataline == "" or dataline[0] == "#":
                 continue
-            self.snapshots[snapshotindex].Q = dataline[1]
-            self.snapshots[snapshotindex].energy = dataline[2]
-            snapshotindex += 1
+            if lineindex % snapshotFreq == 0:
+                self.snapshots[snapshotindex].Q = dataline[1]
+                self.snapshots[snapshotindex].energy = dataline[2]
+                snapshotindex += 1
+            lineindex += 1
 
     def display(self):
         for i in range(len(self.snapshots)):
@@ -272,6 +290,8 @@ def readDumpFile(dumpFile):
     boundsIndex = 0
     bounds = []
 
+    snapshotIndex = 0
+
     for i in range(3):
         bounds.append([0.0, 0.0])
 
@@ -298,10 +318,12 @@ def readDumpFile(dumpFile):
 
         if line[1] == "TIMESTEP":
             if(not firstTimestep):
-                snapshot = Snapshot(residues) # create snapshot with residue coordinates
-                snapshot.assignUstate()       # assign microstate based on coordinates
-                del snapshot.residues         # delete residue coordinates to save memory
-                snapshots.append(snapshot)    # append snapshot to snapshots list
+                if snapshotIndex % snapshotFreq == 0:
+                    snapshot = Snapshot(residues) # create snapshot with residue coordinates
+                    snapshot.assignUstate()       # assign microstate based on coordinates
+                    del snapshot.residues         # delete residue coordinates to save memory
+                    snapshots.append(snapshot)    # append snapshot to snapshots list
+                snapshotIndex += 1
                 residues = []                 # zero out residues for next snapshot        
 
             foundAtoms = False
@@ -310,17 +332,29 @@ def readDumpFile(dumpFile):
 
         if(foundAtoms):
             firstTimestep = False
-            if(int(line[1]) == 1):
-                x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
-                y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
-                z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
-                residues.append(Residue(residuePosition, x, y, z))
-                residuePosition += 1
+            if atomType == 'CA':
+                if(int(line[1]) == 1):
+                    x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
+                    y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
+                    z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
+                    residues.append(Residue(residuePosition, x, y, z))
+                    residuePosition += 1
+            elif atomType == 'CB':
+                if(int(line[1]) == 4 or int(line[1]) == 5):
+                    x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
+                    y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
+                    z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
+                    residues.append(Residue(residuePosition, x, y, z))
+                    residuePosition += 1
+            else:
+                print "Wrong atom type: " + str(atomType)
+                sys.exit()
 
-    snapshot = Snapshot(residues) # create snapshot with residue coordinates 
-    snapshot.assignUstate()       # assign microstate based on coordinates   
-    del snapshot.residues         # delete residue coordinates to save memory
-    snapshots.append(snapshot)    # append snapshot to snapshots list        
+    if snapshotIndex % snapshotFreq == 0:
+        snapshot = Snapshot(residues) # create snapshot with residue coordinates 
+        snapshot.assignUstate()       # assign microstate based on coordinates   
+        del snapshot.residues         # delete residue coordinates to save memory
+        snapshots.append(snapshot)    # append snapshot to snapshots list        
                                   
     return snapshots
 
@@ -371,12 +405,23 @@ def readNativeDumpFile(dumpFile):
 
         if(foundAtoms):
             firstTimestep = False
-            if(int(line[1]) == 1):
-                x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
-                y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
-                z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
-                residues.append(Residue(residuePosition, x, y, z))
-                residuePosition += 1
+            if atomType == 'CA':
+                if(int(line[1]) == 1):
+                    x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
+                    y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
+                    z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
+                    residues.append(Residue(residuePosition, x, y, z))
+                    residuePosition += 1
+            elif atomType == 'CB':
+                if(int(line[1]) == 4 or int(line[1]) == 5):
+                    x = (bounds[0][1]-bounds[0][0])*float(line[2])+bounds[0][0]
+                    y = (bounds[1][1]-bounds[1][0])*float(line[3])+bounds[1][0]
+                    z = (bounds[2][1]-bounds[2][0])*float(line[4])+bounds[2][0]
+                    residues.append(Residue(residuePosition, x, y, z))
+                    residuePosition += 1
+            else:
+                print "Wrong atom type: " + str(atomType)
+                sys.exit()
 
     snapshot = Snapshot(residues)
     snapshots.append(snapshot)
@@ -637,6 +682,40 @@ def readNativeDistances(nativedistancefile):
 
     return nativedistances
 
+def findMinRank(ranks):
+    minrank = 999999
+    for rank in ranks:
+        if int(rank[1]) < minrank:
+            minrank = int(rank[1])
+
+    return minrank
+
+def findMaxRank(ranks):
+    maxrank = 0
+    for rank in ranks:
+        if int(rank[1]) > maxrank:
+            maxrank = int(rank[1])
+
+    return maxrank
+
+def findUstateStabilityGap(minrank,maxrank):
+    minrankminfreeenergy = 9999999.9
+    maxrankminfreeenergy = 9999999.9
+    microstateindex = 0
+    for microstate in microstatecodes:
+        if calculateRank(microstate) == minrank:
+            if microstatefreeenergies[microstateindex] < minrankminfreeenergy:
+                minrankminfreeenergy = microstatefreeenergies[microstateindex]
+
+        if calculateRank(microstate) == maxrank:
+            if microstatefreeenergies[microstateindex] < maxrankminfreeenergy:
+                maxrankminfreeenergy = microstatefreeenergies[microstateindex]
+
+        microstateindex += 1
+
+    return maxrankminfreeenergy - minrankminfreeenergy
+        
+
 #############
 # Libraries #
 #############
@@ -694,8 +773,10 @@ kb = 0.001987 # kcal/mol/K
 ##############
 # Parameters #
 ##############
+# Which atom type to consider for contacts? CA or CB?
+atomType = 'CB'
 # Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
-nativeContactThreshold = 10
+nativeContactThreshold = 8.0
 # Contact factor: two residues are in contact if their distances is less than contactFactor*nativedistance
 contactFactor = 1.2
 # Include interface contacts? If False, only those native contacts for residues within the same foldon will be used
@@ -707,13 +788,15 @@ foldonThreshold = 0.7
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 560
+starttemp = 590
 # Maximum temperature for computing overall rate
 endtemp = 640
 # read trajectories from metadata? if not, load trajectories.pkl
 readTrajectoriesFromMetadata = True
 # output microstate free energy information?
 outputMicrostateRanks = True
+# The frequency at which to accept snapshots from the dump file
+snapshotFreq = 1
 
 ########################
 # Variables and arrays #
@@ -739,13 +822,14 @@ foldedQ = 0.0   # Q of the folded basin
 stabilitygap = 0.0 # stability gap between unfolded and folded basins
 ustateranks = [] # a list of microstate ranks (degree of foldness) for each temperature
 nativedistances = [] # a list of the CA-CA distances
+minrank = 0 # minimum rank of a sampled microstate
+maxrank = 0 # maximum rank of a samples microstate
+ustatestabilitygap = 0.0 # free energy gap between microstate with minimum rank, minimum
+                         # free energy and maximum rank, minimum free energy
 
 ################
 # Main program #
 ################
-# read native distances
-print "Reading native distances..."
-nativedistances = readNativeDistances(nativedistancefile)
 # read heat capacity file
 heatcapacity = readHeatCapacityFile(heatcapacityfile)
 # read in all the free energy information, return minimum temperature (for indexing purposes)
@@ -759,6 +843,11 @@ unfoldedQ, foldedQ = findBasins(foldingtemperature)
 # read in native coordinates for the purposes of computing contacts
 print "Reading native dump file..."
 nativeSnapshot = readNativeDumpFile(nativeDumpFile)[0]
+# calculate native distances
+print "Calculating native distances..."
+nativedistances = nativeSnapshot.calculatePairwiseDistances()
+# Find native contacts
+print "Finding native contacts..."
 findNativeContacts(nativeSnapshot)
 # read in the foldon definitions
 print "Reading foldon file..."
@@ -809,21 +898,24 @@ for temperature in range(starttemp,endtemp+1):
     print "Calculating rate matrix..."
     ratematrix = calculateRateMatrix(temperature)
     print "Rate Matrix: \n" + str(ratematrix)
-    # calculate eigenvalues and eigenvectors
-    print "Calculating eigenvalues and eigenvectors"
-    eigenvalues, eigenvectors = calculateEigenvectorsEigenvalues()
-    print "Eigenvalues: \n" + str(eigenvalues)
-    print "Eigenvectors: \n " + str(eigenvectors)
-    overallrates.append([temperature,stabilitygap,-eigenvalues[1]])
     # calculate and append ranks
     ranks = []
     for i in range(len(microstatecodes)):
         ranks.append([microstatecodes[i],calculateRank(microstatecodes[i]),microstatefreeenergies[i]])
     ustateranks.append(ranks)
+    minrank = findMinRank(ranks)
+    maxrank = findMaxRank(ranks)
+    ustatestabilitygap = findUstateStabilityGap(minrank,maxrank)
+    # calculate eigenvalues and eigenvectors
+    print "Calculating eigenvalues and eigenvectors"
+    eigenvalues, eigenvectors = calculateEigenvectorsEigenvalues()
+    print "Eigenvalues: \n" + str(eigenvalues)
+    print "Eigenvectors: \n " + str(eigenvectors)
+    overallrates.append([temperature,stabilitygap,ustatestabilitygap,-eigenvalues[1]])
 
 f = open(overallRateFile, 'w')
 for i in range(len(overallrates)):
-    f.write(str(overallrates[i][0]) + " " + str(overallrates[i][1]) + " " + str(overallrates[i][2]) + '\n')
+    f.write(str(overallrates[i][0]) + " " + str(overallrates[i][1]) + " " + str(overallrates[i][2]) + " " + str(overallrates[i][3]) + '\n')
 f.close()
 
 if outputMicrostateRanks:

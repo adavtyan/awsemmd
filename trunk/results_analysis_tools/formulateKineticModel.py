@@ -95,12 +95,18 @@ class Foldon:
         print self.residuelist
 
     def calculateNumNativeContacts(self, snapshot):
-        numNativeContacts = 0
+        numNativeContacts = 0.0
         for nativepairindex in range(len(self.nativefoldoncontactlist)):
-            residue1 = self.nativefoldoncontactlist[nativepairindex][0]
-            residue2 = self.nativefoldoncontactlist[nativepairindex][1]
-            if snapshot.residues[residue1].isInContactWith(snapshot.residues[residue2]):
-                numNativeContacts += 1
+            residueindex1 = self.nativefoldoncontactlist[nativepairindex][0]
+            residueindex2 = self.nativefoldoncontactlist[nativepairindex][1]
+            residue1 = snapshot.residues[residueindex1]
+            residue2 = snapshot.residues[residueindex2]
+            if qType == 'QC':
+                if residue1.isInContactWith(residue2):
+                    numNativeContacts += 1
+            elif qType == 'QW':
+                qvalue = numpy.exp(-pow(residue1.distanceTo(residue2)-nativedistances[residue1.pos][residue2.pos],2)/(2*pow(abs(residue1.pos-residue2.pos),0.3)))
+                numNativeContacts += qvalue
 
         return numNativeContacts
 
@@ -165,6 +171,10 @@ class Residue:
             return True
         else:
             return False
+
+    def distanceTo(self,otherresidue):
+        distance = math.sqrt(pow(self.x-otherresidue.x,2)+pow(self.y-otherresidue.y,2)+pow(self.z-otherresidue.z,2))
+        return distance
 
 class Snapshot:
     numRes = 0
@@ -508,12 +518,17 @@ def sortAllSnapshots():
     sortedsnapshots = []
     for i in range(len(microstatecodes)):
         sortedsnapshots.append([])
+        averageqofmicrostates.append(0.0)
     for i in range(len(trajectories)):
         for j in range(len(trajectories[i].snapshots)):
             for k in range(len(microstatecodes)):
                 if trajectories[i].snapshots[j].ustate.code == microstatecodes[k]:
                     sortedsnapshots[k].append(trajectories[i].snapshots[j])
+                    averageqofmicrostates[k] += float(trajectories[i].snapshots[j].Q)
                     break
+
+    for i in range(len(microstatecodes)):
+        averageqofmicrostates[i] /= len(sortedsnapshots[i])
 
     return sortedsnapshots
 
@@ -773,24 +788,26 @@ kb = 0.001987 # kcal/mol/K
 ##############
 # Parameters #
 ##############
+# Which type of Q calculation do you want to use? QC (a contact Q) or QW (a sum of gaussians)?
+qType = 'QW'
 # Which atom type to consider for contacts? CA or CB?
 atomType = 'CB'
 # Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
 nativeContactThreshold = 8.0
-# Contact factor: two residues are in contact if their distances is less than contactFactor*nativedistance
+# Contact factor: two residues are in contact if their distances is less than contactFactor*nativedistance (only used for qType = 'QC')
 contactFactor = 1.2
 # Include interface contacts? If False, only those native contacts for residues within the same foldon will be used
 includeInterfaceContacts = False
 # Minimum sequence separation for two residues in contact
 minSeqSep = 3
 # Foldon foldedness threshold
-foldonThreshold = 0.7
+foldonThreshold = 0.6
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 590
+starttemp = 600
 # Maximum temperature for computing overall rate
-endtemp = 640
+endtemp = 600
 # read trajectories from metadata? if not, load trajectories.pkl
 readTrajectoriesFromMetadata = True
 # output microstate free energy information?
@@ -826,6 +843,7 @@ minrank = 0 # minimum rank of a sampled microstate
 maxrank = 0 # maximum rank of a samples microstate
 ustatestabilitygap = 0.0 # free energy gap between microstate with minimum rank, minimum
                          # free energy and maximum rank, minimum free energy
+averageqofmicrostates = [] # the average Q of a given microstate
 
 ################
 # Main program #
@@ -886,6 +904,7 @@ for temperature in range(starttemp,endtemp+1):
     # sort all snapshots according to their microstate
     print "Sorting all snapshots by microstate..."
     sortedsnapshots = sortAllSnapshots()
+    print "Average global Q of microstates: " + str(averageqofmicrostates)
     # calculate microstate probabilities (the temperature is implied by the snapshot probabilities)
     print "Calculating microstate probabilities..."
     microstateprobabilities = calculateUstateProbabilities()
@@ -901,7 +920,7 @@ for temperature in range(starttemp,endtemp+1):
     # calculate and append ranks
     ranks = []
     for i in range(len(microstatecodes)):
-        ranks.append([microstatecodes[i],calculateRank(microstatecodes[i]),microstatefreeenergies[i]])
+        ranks.append([microstatecodes[i],calculateRank(microstatecodes[i]),microstatefreeenergies[i],averageqofmicrostates[i]])
     ustateranks.append(ranks)
     minrank = findMinRank(ranks)
     maxrank = findMaxRank(ranks)
@@ -923,5 +942,5 @@ if outputMicrostateRanks:
         f = open(microstateRanksFilePrefix + "." + str(temperature), 'w')
         rankinformation = ustateranks[temperature-starttemp]
         for index in range(len(rankinformation)):
-            f.write(str(rankinformation[index][0]) + " " + str(rankinformation[index][1]) + " " + str(rankinformation[index][2]) + '\n')
+            f.write(str(rankinformation[index][0]) + " " + str(rankinformation[index][1]) + " " + str(rankinformation[index][2]) + " " + str(rankinformation[index][3]) + '\n')
         f.close()

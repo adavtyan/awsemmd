@@ -493,24 +493,20 @@ def boltzmannFactor(snapshot,temperature):
 
 def calcZ(temperature):
     Z = 0.0
-    for i in range(len(trajectories)):
-        for j in range(len(trajectories[i].snapshots)):
-            Z += boltzmannFactor(trajectories[i].snapshots[j],temperature)
+    for i in range(len(sortedsnapshots)):
+        for j in range(len(sortedsnapshots[i])):
+            Z += boltzmannFactor(sortedsnapshots[i][j],temperature)
 
     return Z
 
 def findAllUstates():
+    microstatecodes = []
     for i in range(len(trajectories)):
         for j in range(len(trajectories[i].snapshots)):
             tempustatecode = trajectories[i].snapshots[j].ustate.code
-            if len(microstatecodes) == 0:
-                microstatecodes.append(tempustatecode)
-                continue
-            for k in range(len(microstatecodes)):
-                if tempustatecode == microstatecodes[k]:
-                    break
-                if tempustatecode != microstatecodes[k] and k == len(microstatecodes)-1:
-                    microstatecodes.append(tempustatecode)
+            microstatecodes.append(tempustatecode)
+
+    microstatecodes = list(set(microstatecodes))
 
     return microstatecodes
 
@@ -518,19 +514,30 @@ def sortAllSnapshots():
     sortedsnapshots = []
     for i in range(len(microstatecodes)):
         sortedsnapshots.append([])
-        averageqofmicrostates.append(0.0)
     for i in range(len(trajectories)):
         for j in range(len(trajectories[i].snapshots)):
             for k in range(len(microstatecodes)):
                 if trajectories[i].snapshots[j].ustate.code == microstatecodes[k]:
                     sortedsnapshots[k].append(trajectories[i].snapshots[j])
-                    averageqofmicrostates[k] += float(trajectories[i].snapshots[j].Q)
+                    break
+
+    return sortedsnapshots
+
+def calculateAverageQofMicrostates():
+    averageqofmicrostates = []
+    for i in range(len(microstatecodes)):
+        averageqofmicrostates.append(0.0)
+    for i in range(len(sortedsnapshots)):
+        for j in range(len(sortedsnapshots[i])):
+            for k in range(len(microstatecodes)):
+                if sortedsnapshots[i][j].ustate.code == microstatecodes[k]:
+                    averageqofmicrostates[k] += float(sortedsnapshots[i][j].Q)
                     break
 
     for i in range(len(microstatecodes)):
         averageqofmicrostates[i] /= len(sortedsnapshots[i])
 
-    return sortedsnapshots
+    return averageqofmicrostates
 
 def calculateUstateProbabilities():
     microstateprobabilities = []
@@ -588,6 +595,8 @@ def calculateRateMatrix(temperature):
 def calculateEigenvectorsEigenvalues():
     eigenvalues, eigenvectors=LA.eig(ratematrix)
     perm = numpy.argsort(-eigenvalues)  # sort in descending order
+    for i in range(len(eigenvalues)):
+        eigenvaluesout.write("%s\n" % str(numpy.imag(eigenvalues[i])/numpy.real(eigenvalues[i])))
     return numpy.real(eigenvalues[perm]), numpy.real(numpy.transpose(eigenvectors[:, perm]))
 
 def findNativeContacts(nativesnapshot):
@@ -729,7 +738,11 @@ def findUstateStabilityGap(minrank,maxrank):
         microstateindex += 1
 
     return maxrankminfreeenergy - minrankminfreeenergy
-        
+
+def assignAllProbabilities(temperature):
+    for i in range(len(sortedsnapshots)):
+        for j in range(len(sortedsnapshots[i])):
+            sortedsnapshots[i][j].assignProbability(temperature)
 
 #############
 # Libraries #
@@ -748,7 +761,7 @@ import gc
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadatamedium'
+metadataFile = './metadataonetemp'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldons'
@@ -775,9 +788,12 @@ trajectoriespicklefile = './trajectories.pkl'
 # Heat capapcity file
 heatcapacityfile = './cv'
 # Microstate ranks file prefix
-microstateRanksFilePrefix = './microstateinfo'
+microstateInfoFilePrefix = './microstateinfo'
 # Native distance file
 nativedistancefile = './rnative.dat'
+# Eigenvalue debugging
+eigenvaluesoutfile = './eigenvalueratio.dat'
+eigenvaluesout = open(eigenvaluesoutfile,'w')
 
 #############
 # Constants #
@@ -797,21 +813,21 @@ nativeContactThreshold = 8.0
 # Contact factor: two residues are in contact if their distances is less than contactFactor*nativedistance (only used for qType = 'QC')
 contactFactor = 1.2
 # Include interface contacts? If False, only those native contacts for residues within the same foldon will be used
-includeInterfaceContacts = False
+includeInterfaceContacts = True
 # Minimum sequence separation for two residues in contact
 minSeqSep = 3
 # Foldon foldedness threshold
-foldonThreshold = 0.6
+foldonThreshold = 0.65
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 600
+starttemp = 590
 # Maximum temperature for computing overall rate
-endtemp = 600
+endtemp = 640
 # read trajectories from metadata? if not, load trajectories.pkl
 readTrajectoriesFromMetadata = True
-# output microstate free energy information?
-outputMicrostateRanks = True
+# output microstate information for each temperature?
+outputMicrostateInfo = True
 # The frequency at which to accept snapshots from the dump file
 snapshotFreq = 1
 
@@ -837,7 +853,7 @@ foldingTemperature = 0.0 # folding temperature
 unfoldedQ = 0.0 # Q of the unfolded basin
 foldedQ = 0.0   # Q of the folded basin
 stabilitygap = 0.0 # stability gap between unfolded and folded basins
-ustateranks = [] # a list of microstate ranks (degree of foldness) for each temperature
+ustateinfo = [] # a list of microstate information for each temperature
 nativedistances = [] # a list of the CA-CA distances
 minrank = 0 # minimum rank of a sampled microstate
 maxrank = 0 # maximum rank of a samples microstate
@@ -883,8 +899,22 @@ else:
     print "Loading pickled trajectories..."
     trajectories = cPickle.load(open(trajectoriespicklefile, 'rb'))
 
+# find all the microstates present
+print "Finding all microstates..."
+microstatecodes = findAllUstates()
+print "Microstate codes: " + str(microstatecodes)
+# sort all snapshots according to their microstate
+print "Sorting all snapshots by microstate..."
+sortedsnapshots = sortAllSnapshots()
+# Calculate average global Q for each microstate
+print "Calculating average global Q of microstates..."
+averageqofmicrostates = calculateAverageQofMicrostates()
+print "Average global Q of microstates: " + str(averageqofmicrostates)
+
 # loop over all desired temperatures, compute overall rate
 for temperature in range(starttemp,endtemp+1):
+    print "Microstate codes: " + str(microstatecodes)
+    print "Average global Q of microstates: " + str(averageqofmicrostates)
     print "Calculating rate for temperature: " + str(temperature)
     # find stability gap
     print "Finding stability gap..."
@@ -895,16 +925,7 @@ for temperature in range(starttemp,endtemp+1):
     print "Z: " + str(Z)
     # assign probabilities to all snapshots in all trajectories for a certain temperature
     print "Assigning snapshot probabilities..."
-    for i in range(len(trajectories)):
-        trajectories[i].assignAllProbabilities(temperature)
-    # find all the microstates present
-    print "Finding all microstates..."
-    microstatecodes = findAllUstates()
-    print "Microstate codes: " + str(microstatecodes)
-    # sort all snapshots according to their microstate
-    print "Sorting all snapshots by microstate..."
-    sortedsnapshots = sortAllSnapshots()
-    print "Average global Q of microstates: " + str(averageqofmicrostates)
+    assignAllProbabilities(temperature)
     # calculate microstate probabilities (the temperature is implied by the snapshot probabilities)
     print "Calculating microstate probabilities..."
     microstateprobabilities = calculateUstateProbabilities()
@@ -917,30 +938,30 @@ for temperature in range(starttemp,endtemp+1):
     print "Calculating rate matrix..."
     ratematrix = calculateRateMatrix(temperature)
     print "Rate Matrix: \n" + str(ratematrix)
-    # calculate and append ranks
-    ranks = []
+    # calculate and append microstate info
+    info = []
     for i in range(len(microstatecodes)):
-        ranks.append([microstatecodes[i],calculateRank(microstatecodes[i]),microstatefreeenergies[i],averageqofmicrostates[i]])
-    ustateranks.append(ranks)
-    minrank = findMinRank(ranks)
-    maxrank = findMaxRank(ranks)
+        info.append([microstatecodes[i],calculateRank(microstatecodes[i]),microstatefreeenergies[i],averageqofmicrostates[i],len(sortedsnapshots[i])])
+    ustateinfo.append(info)
+    minrank = findMinRank(info)
+    maxrank = findMaxRank(info)
     ustatestabilitygap = findUstateStabilityGap(minrank,maxrank)
     # calculate eigenvalues and eigenvectors
     print "Calculating eigenvalues and eigenvectors"
     eigenvalues, eigenvectors = calculateEigenvectorsEigenvalues()
     print "Eigenvalues: \n" + str(eigenvalues)
     print "Eigenvectors: \n " + str(eigenvectors)
-    overallrates.append([temperature,stabilitygap,ustatestabilitygap,-eigenvalues[1]])
+    overallrates.append([temperature,stabilitygap,ustatestabilitygap,-eigenvalues[1],-eigenvalues[2]])
 
 f = open(overallRateFile, 'w')
 for i in range(len(overallrates)):
-    f.write(str(overallrates[i][0]) + " " + str(overallrates[i][1]) + " " + str(overallrates[i][2]) + " " + str(overallrates[i][3]) + '\n')
+    f.write("%f %f %f %f %f \n" % (overallrates[i][0],overallrates[i][1],overallrates[i][2],overallrates[i][3],overallrates[i][4]))
 f.close()
 
-if outputMicrostateRanks:
+if outputMicrostateInfo:
     for temperature in range(starttemp,endtemp+1):
-        f = open(microstateRanksFilePrefix + "." + str(temperature), 'w')
-        rankinformation = ustateranks[temperature-starttemp]
-        for index in range(len(rankinformation)):
-            f.write(str(rankinformation[index][0]) + " " + str(rankinformation[index][1]) + " " + str(rankinformation[index][2]) + " " + str(rankinformation[index][3]) + '\n')
+        f = open(microstateInfoFilePrefix + "." + str(temperature), 'w')
+        ustateinformation = ustateinfo[temperature-starttemp]
+        for index in range(len(ustateinformation)):
+            f.write("%s %d %f %f %d \n" % (ustateinformation[index][0], ustateinformation[index][1], ustateinformation[index][2], ustateinformation[index][3], ustateinformation[index][4]))
         f.close()

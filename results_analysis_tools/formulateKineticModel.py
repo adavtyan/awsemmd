@@ -761,7 +761,7 @@ import gc
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadataonetemp'
+metadataFile = './metadatalong'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldons'
@@ -955,7 +955,7 @@ for temperature in range(starttemp,endtemp+1):
 
 f = open(overallRateFile, 'w')
 for i in range(len(overallrates)):
-    f.write("%f %f %f %f %f \n" % (overallrates[i][0],overallrates[i][1],overallrates[i][2],overallrates[i][3],overallrates[i][4]))
+    f.write("%f %f %f %e %e \n" % (overallrates[i][0],overallrates[i][1],overallrates[i][2],overallrates[i][3],overallrates[i][4]))
 f.close()
 
 if outputMicrostateInfo:

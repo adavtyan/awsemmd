@@ -596,7 +596,10 @@ def calculateEigenvectorsEigenvalues():
     eigenvalues, eigenvectors=LA.eig(ratematrix)
     perm = numpy.argsort(-eigenvalues)  # sort in descending order
     for i in range(len(eigenvalues)):
-        eigenvaluesout.write("%s\n" % str(numpy.imag(eigenvalues[i])/numpy.real(eigenvalues[i])))
+        if abs(numpy.real(eigenvalues[i])) > 0.0:
+            eigenvaluesout.write("%s\n" % str(numpy.imag(eigenvalues[i])/numpy.real(eigenvalues[i])))
+        else:
+            eigenvaluesout.write("0.0\n")
     return numpy.real(eigenvalues[perm]), numpy.real(numpy.transpose(eigenvectors[:, perm]))
 
 def findNativeContacts(nativesnapshot):
@@ -761,7 +764,7 @@ import gc
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadatalong'
+metadataFile = './metadata'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldons'
@@ -817,13 +820,13 @@ includeInterfaceContacts = True
 # Minimum sequence separation for two residues in contact
 minSeqSep = 3
 # Foldon foldedness threshold
-foldonThreshold = 0.65
+foldonThreshold = 0.6
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 590
+starttemp = 319
 # Maximum temperature for computing overall rate
-endtemp = 640
+endtemp = 319
 # read trajectories from metadata? if not, load trajectories.pkl
 readTrajectoriesFromMetadata = True
 # output microstate information for each temperature?

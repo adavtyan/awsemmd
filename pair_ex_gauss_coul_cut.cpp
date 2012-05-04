@@ -1,14 +1,12 @@
 /* ----------------------------------------------------------------------
-   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+Copyright (2010) Aram Davtyan and Garegin Papoian
 
-   Copyright (2003) Sandia Corporation.  Under the terms of Contract
-   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
-   the GNU General Public License.
+Papoian's Group, University of Maryland at Collage Park
+http://papoian.chem.umd.edu/
 
-   See the README file in the top-level LAMMPS directory.
+Gaussian Contacts Potential was contributed by Weihua Zheng
+
+Last Update: 05/01/2012
 ------------------------------------------------------------------------- */
 
 #include "math.h"

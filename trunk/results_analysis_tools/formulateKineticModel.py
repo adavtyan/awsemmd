@@ -90,6 +90,7 @@ class Foldon:
         self.numRes = len(self.residuelist)
         self.numNativeContacts = self.calculateNumNativeContacts(nativeSnapshot)
         self.nativefoldoncontactlist = []
+        self.samplingtemperature = 0.0
 
     def display(self):
         print self.residuelist
@@ -215,8 +216,8 @@ class Snapshot:
         self.ustate = ustate(microstatecode)
         return microstatecode
 
-    def assignProbability(self, temperature):
-        self.probability = boltzmannFactor(self,temperature)/Z
+    def assignProbability(self, extrapolatedtemperature):
+        self.probability = boltzmannFactor(self,extrapolatedtemperature)/Z
 
     def calculatePairwiseDistances(self):
         pairwisedistances = []
@@ -254,6 +255,7 @@ class Trajectory:
             if lineindex % snapshotFreq == 0:
                 self.snapshots[snapshotindex].Q = dataline[1]
                 self.snapshots[snapshotindex].energy = dataline[2]
+                self.snapshots[snapshotindex].samplingtemperature = dataline[3]
                 snapshotindex += 1
             lineindex += 1
 
@@ -265,9 +267,9 @@ class Trajectory:
         for i in range(len(self.snapshots)):
             self.snapshots[i].assignUstate()
 
-    def assignAllProbabilities(self,temperature):
+    def assignAllProbabilities(self,extrapolatedtemperature):
         for i in range(len(self.snapshots)):
-            self.snapshots[i].assignProbability(temperature)
+            self.snapshots[i].assignProbability(extrapolatedtemperature)
 
 def readFoldonFile(foldonFile):
     foldons = []
@@ -487,8 +489,8 @@ def FofQandT(Q,T):
 
     return interpFvalue
 
-def boltzmannFactor(snapshot,temperature):
-    exponent = (float(snapshot.energy)-float(FofQandT(snapshot.Q,temperature)))/(kb*float(temperature))
+def boltzmannFactor(snapshot,extrapolatedtemperature):
+    exponent = (float(snapshot.energy)-float(FofQandT(snapshot.Q,extrapolatedtemperature)))/(kb*float(snapshot.samplingtemperature))
     return math.exp(exponent)
 
 def calcZ(temperature):
@@ -742,10 +744,10 @@ def findUstateStabilityGap(minrank,maxrank):
 
     return maxrankminfreeenergy - minrankminfreeenergy
 
-def assignAllProbabilities(temperature):
+def assignAllProbabilities(extrapolatedtemperature):
     for i in range(len(sortedsnapshots)):
         for j in range(len(sortedsnapshots[i])):
-            sortedsnapshots[i][j].assignProbability(temperature)
+            sortedsnapshots[i][j].assignProbability(extrapolatedtemperature)
 
 #############
 # Libraries #
@@ -764,7 +766,7 @@ import gc
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadata'
+metadataFile = './metadatawtemp'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldons'
@@ -810,13 +812,13 @@ kb = 0.001987 # kcal/mol/K
 # Which type of Q calculation do you want to use? QC (a contact Q) or QW (a sum of gaussians)?
 qType = 'QW'
 # Which atom type to consider for contacts? CA or CB?
-atomType = 'CB'
+atomType = 'CA'
 # Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
 nativeContactThreshold = 8.0
 # Contact factor: two residues are in contact if their distances is less than contactFactor*nativedistance (only used for qType = 'QC')
 contactFactor = 1.2
 # Include interface contacts? If False, only those native contacts for residues within the same foldon will be used
-includeInterfaceContacts = True
+includeInterfaceContacts = False
 # Minimum sequence separation for two residues in contact
 minSeqSep = 3
 # Foldon foldedness threshold
@@ -914,7 +916,7 @@ print "Calculating average global Q of microstates..."
 averageqofmicrostates = calculateAverageQofMicrostates()
 print "Average global Q of microstates: " + str(averageqofmicrostates)
 
-# loop over all desired temperatures, compute overall rate
+# loop over all desired (extrapolated) temperatures, compute overall rate
 for temperature in range(starttemp,endtemp+1):
     print "Microstate codes: " + str(microstatecodes)
     print "Average global Q of microstates: " + str(averageqofmicrostates)

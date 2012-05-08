@@ -290,6 +290,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	frag_frust_read_flag=1; // activate "read" specific flag
 	in >> decoy_mems_file; // read in the decoy structures that will be used to generate the decoy energies
 	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
+	in >> frag_frust_well_width; // parameter to tune well width
       }
       else {
 	// throw an error if the "mode" is anything but "read" or "shuffle"
@@ -534,6 +535,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (frag_frust_flag) {
     // open fragment frustration file for writing
     fragment_frustration_file = fopen("fragment_frustration.dat","w");
+    fragment_frustration_decoy_data = fopen("fragment_frustration_decoy.dat","w");
+    fragment_frustration_native_data = fopen("fragment_frustration_native.dat","w");
 
     if (comm->me==0) print_log("Reading decoy fragments...\n");
     // create a decoy memory array by reading in the appropriate file
@@ -712,6 +715,8 @@ FixBackbone::~FixBackbone()
   // if the fragment frustratometer was on, close the fragment frustration file
   if (frag_frust_flag) {
     fclose(fragment_frustration_file);
+    fclose(fragment_frustration_decoy_data);
+    fclose(fragment_frustration_native_data);
     for (int i=0;i<n;++i) memory->sfree(decoy_mem_map[i]);
     delete [] decoy_mem_map;
     delete [] ilen_decoy_map;
@@ -2998,7 +3003,8 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 	  if (chain_no[i]!=chain_no[j]) error->all("Decoy Memory: Interaction between residues of different chains");
 	  
 	  fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
-	  
+	  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
+
 	  if (!fm_gamma->fourResTypes()) 
 	    {
 	      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
@@ -3222,7 +3228,7 @@ void FixBackbone::compute_generated_decoy_energies()
 		  jres_type = se_map[se[j_resno]-'A'];
 		  
 		  fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
-		  
+		  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
 		  if (!fm_gamma->fourResTypes()) 
 		    {
 		      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
@@ -3259,6 +3265,11 @@ void FixBackbone::compute_generated_decoy_energies()
 	}
     }
   // compute statistics on the decoy_energy array
+  for (i=0; i<n; i++)
+    {
+      fprintf(fragment_frustration_native_data,"%f ",decoy_energy[i][0]);
+    }
+
   // for every residue, average over idecoy to get frag_frust_read_mean and frag_frust_read_variance
   for (i=0; i<n; i++)
     {
@@ -3272,6 +3283,7 @@ void FixBackbone::compute_generated_decoy_energies()
       // which is why the loop starts with index 1
       for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
 	{
+	  fprintf(fragment_frustration_decoy_data," %f\n",decoy_energy[i][decoyindex]);
 	  frag_frust_read_mean[i] += decoy_energy[i][decoyindex];
 	}
       // divide sum over decoys by n_decoy_mems

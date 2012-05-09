@@ -149,6 +149,15 @@ rmin rmax dr
 1r69.mem
 1r69.gamma
 0 50 0.1
+1.0
+
+#[Fragment_Memory_Table]-
+weighting
+memory file
+gamma file
+min max spacing (angstroms)
+well width
+
 
 #[Solvent_Barrier]
 k1 (barrier height 1)

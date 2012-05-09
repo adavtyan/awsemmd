@@ -128,6 +128,7 @@ public:
 //  TBV ****fm_table;
   int tb_size, tb_nbrs;
   double tb_rmin, tb_rmax, tb_dr;
+  double frag_table_well_width;
 
   // Solvent separated barrier
   double k_solventb1, k_solventb2;

@@ -272,6 +272,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> fm_gamma_file;
       in >> tb_rmin >> tb_rmax >> tb_dr;
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
+      in >> frag_table_well_width;
     } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
       // The fragment frustratometer requires the fragment memory potential to be active
       if (!frag_mem_flag && !frag_mem_tb_flag) error->all("Cannot run Fragment_Frustratometer without Fragment_Memory or Fragment_Memory_Table.");
@@ -3347,7 +3348,8 @@ void FixBackbone::compute_fragment_memory_table()
 	//		  if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
 		  
 	fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
-		  
+	fm_sigma_sq = fm_sigma_sq*frag_table_well_width*frag_table_well_width;
+			  
 	if (!fm_gamma->fourResTypes()) {
 	  frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
 	} else {

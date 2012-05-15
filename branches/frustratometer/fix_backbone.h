@@ -121,8 +121,9 @@ public:
   char frag_frust_mode[100];
   int frag_frust_read_flag, frag_frust_shuffle_flag;
   double *frag_frust_read_mean, *frag_frust_read_variance;
-  double frag_frust_well_width;
-  
+  double frag_frust_well_width, frag_frust_seqsep_gamma;
+  int frag_frust_seqsep_flag;
+
   // Table Fragment Memory parameters
     TBV **fm_table;
 //  TBV ****fm_table;

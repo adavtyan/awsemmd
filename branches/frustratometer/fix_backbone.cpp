@@ -291,7 +291,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	frag_frust_read_flag=1; // activate "read" specific flag
 	in >> decoy_mems_file; // read in the decoy structures that will be used to generate the decoy energies
 	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
-	in >> frag_frust_well_width; // parameter to tune well width
+	in >> frag_frust_well_width; // parameter to tune well width, default is 1.0
+	in >> frag_frust_seqsep_flag >> frag_frust_seqsep_gamma; // flag and parameter to tune sequence separatation dependent gamma
       }
       else {
 	// throw an error if the "mode" is anything but "read" or "shuffle"
@@ -2942,7 +2943,7 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
   int j, js, je, i_fm, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
   int i_resno, j_resno, ires_type, jres_type;
   double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, V;
-  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma, k_seqsep;
   Fragment_Memory *frag;
   int num_frags;
   
@@ -2988,11 +2989,13 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 	  frag = decoy_mems[ decoy_mem_map[i_resno][i_fm] ];
 	}
       
-      epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
+
       
       // loop over all residues j associated with residue i for fragment i_fm 
       js = i+fm_gamma->minSep();
       je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
+      
+      epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
       
       if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in decoy memory potential");
       
@@ -3015,6 +3018,13 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 	      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
 	    }
 	  if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Decoy_Memory: Wrong call of getGamma() function");
+	  
+	  // sequence distance dependent gamma
+	  if (frag_frust_seqsep_flag)
+	    {
+	      k_seqsep = pow((abs(i_resno - j_resno)-fm_gamma->minSep()+1),-frag_frust_seqsep_gamma);
+	      frag_mem_gamma *=k_seqsep;
+	    }
 	  
 	  epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
 	  
@@ -3177,7 +3187,7 @@ void FixBackbone::compute_generated_decoy_energies()
   int i, j, js, je, i_fm, k, iatom_type[4], jatom_type[4];
   int i_resno, j_resno, ires_type, jres_type;
   double r, rf, dr, drsq, V;
-  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma, k_seqsep;
   Fragment_Memory *frag, *decoy;
   int num_frags;
 	  
@@ -3240,6 +3250,13 @@ void FixBackbone::compute_generated_decoy_energies()
 		    }
 		  if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Decoy_Memory: Wrong call of getGamma() function");
 		  
+		  // sequence distance dependent gamma
+		  if (frag_frust_seqsep_flag)
+		    {
+		      k_seqsep = pow((abs(i_resno - j_resno)-fm_gamma->minSep()+1),-frag_frust_seqsep_gamma);
+		      frag_mem_gamma *=k_seqsep;
+		    }
+
 		  epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
 		  
 		  // loop over combinations of CA, CB pairs

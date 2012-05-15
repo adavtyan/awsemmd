@@ -146,6 +146,7 @@ memory_file (containing previously generated decoy structures)
 frust_output_freq (the number of steps between each frustration calculation)
 well width, default=1.0
 sequence_separation_flag sequence_separation_gamma
+fm_energies_output_flag
 
 [Fragment_Frustratometer]
 read
@@ -153,6 +154,7 @@ decoysLAMW.mem
 1000
 1.0
 0 1.0
+0
 
 #[Solvent_Barrier]
 k1 (barrier height 1)

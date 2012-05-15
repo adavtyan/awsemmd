@@ -120,6 +120,7 @@ mem_file
 gamma_file
 rmin rmax dr
 well width, default=1.0
+fm_energies_output_flag
 
 [Fragment_Memory_Table]-
 0.005
@@ -127,6 +128,7 @@ fragsLAMW.mem
 uniform.gamma
 0 50 0.1
 1.0
+0
 
 #[Fragment_Frustratometer]
 shuffle (outputs residue specific frustration indices using a shuffling mechanism to generate decoys)
@@ -146,7 +148,6 @@ memory_file (containing previously generated decoy structures)
 frust_output_freq (the number of steps between each frustration calculation)
 well width, default=1.0
 sequence_separation_flag sequence_separation_gamma
-fm_energies_output_flag
 
 [Fragment_Frustratometer]
 read
@@ -154,7 +155,6 @@ decoysLAMW.mem
 1000
 1.0
 0 1.0
-0
 
 #[Solvent_Barrier]
 k1 (barrier height 1)

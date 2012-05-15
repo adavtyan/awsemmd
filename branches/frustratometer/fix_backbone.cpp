@@ -79,6 +79,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 7) error->all("Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
+  fmenergiesfile = fopen("fmenergies.log", "w");
 
   char buff[5];
   char forcefile[20]="";
@@ -273,6 +274,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> tb_rmin >> tb_rmax >> tb_dr;
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
       in >> frag_table_well_width;
+      in >> fm_energy_debug_flag;
     } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
       // The fragment frustratometer requires the fragment memory potential to be active
       if (!frag_mem_flag && !frag_mem_tb_flag) error->all("Cannot run Fragment_Frustratometer without Fragment_Memory or Fragment_Memory_Table.");
@@ -3400,7 +3402,7 @@ void FixBackbone::compute_fragment_memory_table()
 	    V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
 				
 	    fm_table[itb][ir].energy += V;
-				
+			
 	    fm_table[itb][ir].force += V*dr/(fm_sigma_sq*r);
 				
 	    //				fm_table[i][j-js][k][ir].energy = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
@@ -3410,6 +3412,37 @@ void FixBackbone::compute_fragment_memory_table()
 	}
       }
     }
+  }
+  if(fm_energy_debug_flag) {
+    output_fragment_memory_table();
+  }
+}
+
+// this routine outputs the contents of fm_table (only the energies) to a file called fmenergies.log
+void FixBackbone::output_fragment_memory_table()
+{
+  int itb,ir; // loop variables
+  double energyvalue;
+
+  // loop over all interactions
+  for (itb=0; itb<4*n*tb_nbrs; itb++) {
+    // loop over all distances
+    for (ir=0; ir<tb_size; ir++) {
+      // don't try to read out the energies if it was never allocated because of the exception for glycines
+      // instead, output a row of zeroes so that the row indices remain meaningful
+      if (fm_table[itb] == NULL)
+	{
+	  energyvalue = 0.0;
+	}
+      else
+	{
+	  energyvalue = fm_table[itb][ir].energy;
+	}
+      // output fm_table energies to file for debugging/visualization
+      fprintf(fmenergiesfile,"%.4f ",energyvalue);
+    }
+    // put every interaction on a new line of the file
+    fprintf(fmenergiesfile,"\n");
   }
 }
 

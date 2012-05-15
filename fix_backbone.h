@@ -130,6 +130,7 @@ public:
   int tb_size, tb_nbrs;
   double tb_rmin, tb_rmax, tb_dr;
   double frag_table_well_width;
+  int fm_energy_debug_flag;
 
   // Solvent separated barrier
   double k_solventb1, k_solventb2;
@@ -201,6 +202,7 @@ public:
   void compute_fragment_frustration();
   void compute_solvent_barrier(int i, int j);
   void compute_fragment_memory_table();
+  void output_fragment_memory_table();
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
 
@@ -238,6 +240,7 @@ public:
   WPV helix_par;
   
   FILE *efile;
+  FILE *fmenergiesfile;
 
   FILE *dout;
   int sStep, eStep;

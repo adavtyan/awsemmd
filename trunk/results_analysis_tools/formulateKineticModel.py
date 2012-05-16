@@ -766,14 +766,14 @@ import gc
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadatawtemp'
+metadataFile = './metadatashort'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldons'
 # The dump file (LAMMPS format) of the native structure coordinates
 nativeDumpFile = './dump.native'
 # The directory containing free energy files in the output format of UltimateWHAM
-freeEnergyFileDirectory = './freeenergyfiles/'
+freeEnergyFileDirectory = '/opt/home/ns24/ultimatewham/results/1n0rp1.5-250-400-qw/freeenergyfiles/'
 # Overall rate file
 overallRateFile = './overallrates'
 # Microstate codes file
@@ -791,7 +791,7 @@ eigenvectorsfile = './eigenvectors'
 # Trajectories pickle file
 trajectoriespicklefile = './trajectories.pkl'
 # Heat capapcity file
-heatcapacityfile = './cv'
+heatcapacityfile = '/opt/home/ns24/ultimatewham/results/1n0rp1.5-250-400-qw/cv'
 # Microstate ranks file prefix
 microstateInfoFilePrefix = './microstateinfo'
 # Native distance file
@@ -830,11 +830,13 @@ starttemp = 319
 # Maximum temperature for computing overall rate
 endtemp = 319
 # read trajectories from metadata? if not, load trajectories.pkl
-readTrajectoriesFromMetadata = True
+readTrajectoriesFromMetadata = False
 # output microstate information for each temperature?
 outputMicrostateInfo = True
 # The frequency at which to accept snapshots from the dump file
 snapshotFreq = 1
+# Always output rate matrix?
+alwaysOutputRateMatrix = True
 
 ########################
 # Variables and arrays #
@@ -942,6 +944,8 @@ for temperature in range(starttemp,endtemp+1):
     # calculate rate matrix, given a temperature
     print "Calculating rate matrix..."
     ratematrix = calculateRateMatrix(temperature)
+    if(alwaysOutputRateMatrix):
+        numpy.savetxt('ratematrix'+str(temperature),ratematrix)
     print "Rate Matrix: \n" + str(ratematrix)
     # calculate and append microstate info
     info = []

@@ -602,7 +602,7 @@ def calculateEigenvectorsEigenvalues():
             eigenvaluesout.write("%s\n" % str(numpy.imag(eigenvalues[i])/numpy.real(eigenvalues[i])))
         else:
             eigenvaluesout.write("0.0\n")
-    return numpy.real(eigenvalues[perm]), numpy.real(numpy.transpose(eigenvectors[:, perm]))
+    return numpy.real(eigenvalues), numpy.real(eigenvectors), numpy.real(eigenvalues[perm]), numpy.real(numpy.transpose(eigenvectors[:, perm]))
 
 def findNativeContacts(nativesnapshot):
     numNativeContacts = 0
@@ -749,6 +749,9 @@ def assignAllProbabilities(extrapolatedtemperature):
         for j in range(len(sortedsnapshots[i])):
             sortedsnapshots[i][j].assignProbability(extrapolatedtemperature)
 
+def findUnfoldedAndFoldedStates():
+    return len(foldons)*'0', len(foldons)*'1'
+
 #############
 # Libraries #
 #############
@@ -760,6 +763,7 @@ import sys
 from numpy import linalg as LA
 import cPickle
 import gc
+import time as timefunctions
 
 #########
 # Files #
@@ -776,26 +780,12 @@ nativeDumpFile = './dump.native'
 freeEnergyFileDirectory = '/opt/home/ns24/ultimatewham/results/1n0rp1.5-250-400-qw/freeenergyfiles/'
 # Overall rate file
 overallRateFile = './overallrates'
-# Microstate codes file
-microstatecodesfile = './microstatecodes'
-# Microstate probabilities file
-microstateprobabilitiesfile = './microstateprobabilities'
-# Microstate free energies file
-microstatefreeenergiesfile = './microstatefreeenergies'
-# Partition sum file
-partitionsumfile = './partitionsum'
-# Rate matrix file
-ratematrixfile = './ratematrix'
-# Eigenvalues and eigenvectors file
-eigenvectorsfile = './eigenvectors'
 # Trajectories pickle file
 trajectoriespicklefile = './trajectories.pkl'
 # Heat capapcity file
 heatcapacityfile = '/opt/home/ns24/ultimatewham/results/1n0rp1.5-250-400-qw/cv'
 # Microstate ranks file prefix
 microstateInfoFilePrefix = './microstateinfo'
-# Native distance file
-nativedistancefile = './rnative.dat'
 # Eigenvalue debugging
 eigenvaluesoutfile = './eigenvalueratio.dat'
 eigenvaluesout = open(eigenvaluesoutfile,'w')
@@ -837,6 +827,22 @@ outputMicrostateInfo = True
 snapshotFreq = 1
 # Always output rate matrix?
 alwaysOutputRateMatrix = True
+# Calculate time evolution and fluxes?
+calculateTimeEvolutionAndFluxes = True
+# Automatically determine folding or unfolding simulation?
+autoDetermineFoldingOrUnfolding = True # folding if below the folding temperature, unfolding if above
+# Folding or unfolding simulation for calulating fluxes, not used if autoDetermineFoldingOrUnfolding = True
+foldingSimulation = True # if false, assume unfolding
+# Time range and time step for calculating evolution and fluxes
+startTime = 0 # time evolution will start at this time
+endTime = 0.0001 # time evolution will end at this time and the integrated flux will be calculated
+timeStep = 0.00001 # the concentration of the states will be calculated this often
+# Automatically determine time evolution interval?
+autoDetermineEvolutionInterval = True # if True, startTime, endTime and timeStep (above) are not used
+numTimeSteps = 100 # number of points to plot on time evolution if the interval is automatically determined
+numRelaxationTimes = 5 # number of relaxation times (negative inverse of the smallest nonzero eigenvalue) to integrate out to
+# Show graphical evolution of concentration of states?
+graphicalEvolution = True
 
 ########################
 # Variables and arrays #
@@ -851,7 +857,9 @@ microstatefreeenergies = []  # a list containing all (sampled) microstate free e
 Z = 0.0 # the partition sum
 ratematrix = []   # the rate matrix
 eigenvectors = [] # eigenvectors of the rate matrix
-eigenvalues = []  # eigenvalues of the rate matrix
+eigenvalues = []  # eigenvalues of the rate matrix 
+sortedeigenvectors = [] # eigenvectors of the rate matrix sorted by eigenvalue
+sortedeigenvalues = []  # eigenvalues of the rate matrix sorted in decreasing order
 overallrates = [] # stores all temperature/overall rate pairs calculated
 nativecontactlist = [] # stores all native contact pairs
 foldons = [] # a list of all foldons
@@ -867,6 +875,11 @@ maxrank = 0 # maximum rank of a samples microstate
 ustatestabilitygap = 0.0 # free energy gap between microstate with minimum rank, minimum
                          # free energy and maximum rank, minimum free energy
 averageqofmicrostates = [] # the average Q of a given microstate
+fluxes = [] # fluxes between states
+initialconcentrations = [] # initial concentration of states
+unfoldedstate = "" # unfolded microstate code
+foldedstate = ""   # folded microstate code
+concentrations = [] # time dependence of the concentrations
 
 ################
 # Main program #
@@ -910,6 +923,8 @@ else:
 print "Finding all microstates..."
 microstatecodes = findAllUstates()
 print "Microstate codes: " + str(microstatecodes)
+# finding folded and unfolded states
+unfoldedstate, foldedstate = findUnfoldedAndFoldedStates()
 # sort all snapshots according to their microstate
 print "Sorting all snapshots by microstate..."
 sortedsnapshots = sortAllSnapshots()
@@ -957,10 +972,59 @@ for temperature in range(starttemp,endtemp+1):
     ustatestabilitygap = findUstateStabilityGap(minrank,maxrank)
     # calculate eigenvalues and eigenvectors
     print "Calculating eigenvalues and eigenvectors"
-    eigenvalues, eigenvectors = calculateEigenvectorsEigenvalues()
-    print "Eigenvalues: \n" + str(eigenvalues)
-    print "Eigenvectors: \n " + str(eigenvectors)
-    overallrates.append([temperature,stabilitygap,ustatestabilitygap,-eigenvalues[1],-eigenvalues[2]])
+    eigenvalues, eigenvectors, sortedeigenvalues, sortedeigenvectors = calculateEigenvectorsEigenvalues()
+    print "Eigenvalues: \n" + str(sortedeigenvalues)
+    print "Eigenvectors: \n " + str(sortedeigenvectors)
+    overallrates.append([temperature,stabilitygap,ustatestabilitygap,-sortedeigenvalues[1],-sortedeigenvalues[2]])
+    #############################################
+    # Begin time evolution and flux calculation #
+    #############################################
+    if(calculateTimeEvolutionAndFluxes):
+        if(autoDetermineEvolutionInterval):
+            startTime = 0.0
+            endTime = numRelaxationTimes*(1/-sortedeigenvalues[1])
+            timeStep = (endTime-startTime)/numTimeSteps
+        else:
+            numTimeSteps = int((endTime-startTime)/timeStep)
+        print "Starting time evolution and flux calculation..."
+        print "Start time: %s\n" % str(startTime)
+        print "End time: %s\n" % str(endTime)
+        print "Time step: %s\n" % str(timeStep)
+        concentrations = numpy.zeros((len(microstatecodes),numTimeSteps))
+        if(autoDetermineFoldingOrUnfolding):
+            print "Determining if this will be a folding or unfolding calculation based on folding temperature..."
+            if(temperature < foldingtemperature):
+                print "Starting folding calculation..."
+                foldingSimulation = True
+            else:
+                print "Starting unfolding calculation..."
+                foldingSimulation = False
+        print "Setting initial concentrations..."
+        initialconcentrations = numpy.zeros(len(microstatecodes))
+        if(foldingSimulation):
+            initialconcentrations[microstatecodes.index(unfoldedstate)] = 1.0
+        else:
+            initialconcentrations[microstatecodes.index(foldedstate)] = 1.0
+        initialconcentrations = initialconcentrations[:,numpy.newaxis]
+        print "Initial concentrations: \n%s\n" % str(initialconcentrations)
+        coefficients = numpy.dot(LA.inv(eigenvectors),initialconcentrations)
+        print "Coefficents: \n%s\n" % str(coefficients)
+        print "Calculating time evolution..."
+        timeIndex = 0
+        for time in floatRange(startTime,endTime,timeStep):
+            if(graphicalEvolution):
+                print "Concentration of states:"
+            for state in range(len(microstatecodes)):
+                total = 0
+                for eigenvalueindex in range(len(eigenvalues)):
+                    total += coefficients[eigenvalueindex]*eigenvectors[state,eigenvalueindex]*numpy.exp(eigenvalues[eigenvalueindex]*float(time))
+                concentrations[state,timeIndex] = total
+                if(graphicalEvolution):
+                    print str(microstatecodes[state]) + ": " + int(concentrations[state,timeIndex]*100)*'#'
+            timeIndex += 1
+            if(graphicalEvolution):
+                timefunctions.sleep(0.1)
+            numpy.savetxt('concentrations'+str(temperature),concentrations.transpose())
 
 f = open(overallRateFile, 'w')
 for i in range(len(overallrates)):

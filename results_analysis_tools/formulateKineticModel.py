@@ -816,9 +816,9 @@ foldonThreshold = 0.6
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 319
+starttemp = 310
 # Maximum temperature for computing overall rate
-endtemp = 319
+endtemp = 330
 # Temperature incremement
 tempinc = 1
 # read trajectories from metadata? if not, load trajectories.pkl
@@ -1035,6 +1035,10 @@ for temperature in range(starttemp,endtemp+1,tempinc):
                 total = 0.0
                 for eigenvalueindex in range(len(eigenvalues)):
                     ev = eigenvalues[eigenvalueindex]
+                    # if you encounter a zero eigenvalue, continue to avoid dividing by zero
+                    # (the contribution should be zero anyway)
+                    if(ev == 0):
+                        continue
                     c = coefficients[eigenvalueindex]
                     rm21 = ratematrix[state2][state1]
                     rm12 = ratematrix[state1][state2]
@@ -1053,9 +1057,9 @@ for i in range(len(overallrates)):
 f.close()
 
 if outputMicrostateInfo:
-    for temperature in range(starttemp,endtemp+1):
+    for temperature in range(starttemp,endtemp+1,tempinc):
         f = open(microstateInfoFilePrefix + "." + str(temperature), 'w')
-        ustateinformation = ustateinfo[temperature-starttemp]
+        ustateinformation = ustateinfo[int((temperature-starttemp)/tempinc)]
         for index in range(len(ustateinformation)):
             f.write("%s %d %f %f %d \n" % (ustateinformation[index][0], ustateinformation[index][1], ustateinformation[index][2], ustateinformation[index][3], ustateinformation[index][4]))
         f.close()

@@ -819,6 +819,8 @@ k0 = 1000000
 starttemp = 319
 # Maximum temperature for computing overall rate
 endtemp = 319
+# Temperature incremement
+tempinc = 1
 # read trajectories from metadata? if not, load trajectories.pkl
 readTrajectoriesFromMetadata = False
 # output microstate information for each temperature?
@@ -842,7 +844,7 @@ autoDetermineEvolutionInterval = True # if True, startTime, endTime and timeStep
 numTimeSteps = 100 # number of points to plot on time evolution if the interval is automatically determined
 numRelaxationTimes = 5 # number of relaxation times (negative inverse of the smallest nonzero eigenvalue) to integrate out to
 # Show graphical evolution of concentration of states?
-graphicalEvolution = True
+graphicalEvolution = False
 
 ########################
 # Variables and arrays #
@@ -934,7 +936,7 @@ averageqofmicrostates = calculateAverageQofMicrostates()
 print "Average global Q of microstates: " + str(averageqofmicrostates)
 
 # loop over all desired (extrapolated) temperatures, compute overall rate
-for temperature in range(starttemp,endtemp+1):
+for temperature in range(starttemp,endtemp+1,tempinc):
     print "Microstate codes: " + str(microstatecodes)
     print "Average global Q of microstates: " + str(averageqofmicrostates)
     print "Calculating rate for temperature: " + str(temperature)
@@ -980,6 +982,7 @@ for temperature in range(starttemp,endtemp+1):
     # Begin time evolution and flux calculation #
     #############################################
     if(calculateTimeEvolutionAndFluxes):
+        fluxes = numpy.zeros((len(microstatecodes),len(microstatecodes)))
         if(autoDetermineEvolutionInterval):
             startTime = 0.0
             endTime = numRelaxationTimes*(1/-sortedeigenvalues[1])
@@ -1025,6 +1028,24 @@ for temperature in range(starttemp,endtemp+1):
             if(graphicalEvolution):
                 timefunctions.sleep(0.1)
             numpy.savetxt('concentrations'+str(temperature),concentrations.transpose())
+
+        # calculate integrated flux at the end of the time evolution
+        for state1 in range(len(microstatecodes)):
+            for state2 in range(len(microstatecodes)):
+                total = 0.0
+                for eigenvalueindex in range(len(eigenvalues)):
+                    ev = eigenvalues[eigenvalueindex]
+                    c = coefficients[eigenvalueindex]
+                    rm21 = ratematrix[state2][state1]
+                    rm12 = ratematrix[state1][state2]
+                    ev1 = eigenvectors[state1,eigenvalueindex]
+                    ev2 = eigenvectors[state2,eigenvalueindex]
+                    total += c/-ev*(1-numpy.exp(ev*float(endTime)))*(rm21*ev1-rm12*ev2)
+                fluxes[state1][state2] = total
+
+        print "Fluxes: \n%s\n" % str(fluxes)
+        numpy.savetxt('fluxes'+str(temperature),fluxes)
+        cPickle.dump(fluxes, open('fluxes'+str(temperature)+'.pkl', 'wb')) 
 
 f = open(overallRateFile, 'w')
 for i in range(len(overallrates)):

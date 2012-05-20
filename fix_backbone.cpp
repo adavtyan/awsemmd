@@ -2875,7 +2875,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       
       if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
       
-      fm_sigma_sq = pow(abs(i_resno-j_resno), 2*m_sigma_exp);
+      fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
       
       if (!fm_gamma->fourResTypes()) {
 	frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);

@@ -2875,7 +2875,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       
       if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
       
-      fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
+      fm_sigma_sq = pow(abs(i_resno-j_resno), 2*m_sigma_exp);
       
       if (!fm_gamma->fourResTypes()) {
 	frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
@@ -3015,7 +3015,7 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 	  
 	  if (chain_no[i]!=chain_no[j]) error->all("Decoy Memory: Interaction between residues of different chains");
 	  
-	  fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
+	  fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
 	  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
 
 	  if (!fm_gamma->fourResTypes()) 
@@ -3256,7 +3256,7 @@ void FixBackbone::compute_generated_decoy_energies()
 		  j_resno = res_no[j]-1;
 		  jres_type = se_map[se[j_resno]-'A'];
 		  
-		  fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
+		  fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
 		  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
 		  if (!fm_gamma->fourResTypes()) 
 		    {
@@ -3387,7 +3387,7 @@ void FixBackbone::compute_fragment_memory_table()
 		  
 	//		  if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
 		  
-	fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
+	fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
 	fm_sigma_sq = fm_sigma_sq*frag_table_well_width*frag_table_well_width;
 			  
 	if (!fm_gamma->fourResTypes()) {

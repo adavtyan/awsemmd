@@ -113,6 +113,7 @@ NOTE: If you use AMH-Go you need to make sure that neigbour list cutoff and skin
 1.0
 1r69.mem
 1r69.gamma
+0.15
 
 #[Fragment_Memory_Table]
 scaling_factor
@@ -121,6 +122,7 @@ gamma_file
 rmin rmax dr
 well width, default=1.0
 fm_energies_output_flag
+fm_sigma_exp
 
 [Fragment_Memory_Table]-
 0.005
@@ -129,6 +131,7 @@ uniform.gamma
 0 50 0.1
 1.0
 0
+0.15
 
 #[Fragment_Frustratometer]
 shuffle (outputs residue specific frustration indices using a shuffling mechanism to generate decoys)
@@ -148,6 +151,7 @@ memory_file (containing previously generated decoy structures)
 frust_output_freq (the number of steps between each frustration calculation)
 well width, default=1.0
 sequence_separation_flag sequence_separation_gamma
+normalize_interaction (flag that determines whether or not the interaction strength is normalized by the width of the interaction)
 
 [Fragment_Frustratometer]
 read
@@ -155,6 +159,7 @@ decoysLAMW.mem
 1000
 1.0
 0 1.0
+0
 
 #[Solvent_Barrier]
 k1 (barrier height 1)

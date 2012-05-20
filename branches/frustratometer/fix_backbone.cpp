@@ -265,6 +265,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_frag_mem;
       in >> frag_mems_file;
       in >> fm_gamma_file;
+      in >> fm_sigma_exp;
     } else if (strcmp(varsection, "[Fragment_Memory_Table]")==0) {
       frag_mem_tb_flag = 1;
       if (comm->me==0) print_log("Fragment_Memory_Table flag on\n");
@@ -275,6 +276,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
       in >> frag_table_well_width;
       in >> fm_energy_debug_flag;
+      in >> fm_sigma_exp;
     } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
       // The fragment frustratometer requires the fragment memory potential to be active
       if (!frag_mem_flag && !frag_mem_tb_flag) error->all("Cannot run Fragment_Frustratometer without Fragment_Memory or Fragment_Memory_Table.");
@@ -295,6 +297,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
 	in >> frag_frust_well_width; // parameter to tune well width, default is 1.0
 	in >> frag_frust_seqsep_flag >> frag_frust_seqsep_gamma; // flag and parameter to tune sequence separatation dependent gamma
+	in >> frag_frust_normalizeInteraction; // flag that determines whether or not the fragment interaction is normalized by the width of the interaction
       }
       else {
 	// throw an error if the "mode" is anything but "read" or "shuffle"
@@ -539,6 +542,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (frag_frust_flag) {
     // open fragment frustration file for writing
     fragment_frustration_file = fopen("fragment_frustration.dat","w");
+    fragment_frustration_gap_file = fopen("fragment_frustration_gap.dat","w");
+    fragment_frustration_variance_file = fopen("fragment_frustration_variance.dat","w");
     fragment_frustration_decoy_data = fopen("fragment_frustration_decoy.dat","w");
     fragment_frustration_native_data = fopen("fragment_frustration_native.dat","w");
 
@@ -719,6 +724,8 @@ FixBackbone::~FixBackbone()
   // if the fragment frustratometer was on, close the fragment frustration file
   if (frag_frust_flag) {
     fclose(fragment_frustration_file);
+    fclose(fragment_frustration_gap_file);
+    fclose(fragment_frustration_variance_file);
     fclose(fragment_frustration_decoy_data);
     fclose(fragment_frustration_native_data);
     for (int i=0;i<n;++i) memory->sfree(decoy_mem_map[i]);
@@ -2868,7 +2875,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       
       if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
       
-      fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+      fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
       
       if (!fm_gamma->fourResTypes()) {
 	frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
@@ -3008,7 +3015,7 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 	  
 	  if (chain_no[i]!=chain_no[j]) error->all("Decoy Memory: Interaction between residues of different chains");
 	  
-	  fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+	  fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
 	  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
 
 	  if (!fm_gamma->fourResTypes()) 
@@ -3049,6 +3056,11 @@ void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
 	    if (frag->error==frag->ERR_CALL) error->all("Fragment_Frustratometer: Wrong call of Rf() function");
 	    dr = r - rf;
 	    drsq = dr*dr;
+
+	    if(frag_frust_normalizeInteraction)
+	      {
+		V *= 1/sqrt(fm_sigma_sq);
+	      }
 	    
 	    V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
 	    
@@ -3176,9 +3188,13 @@ void FixBackbone::compute_fragment_frustration()
       frustrationindex = (nativeenergy-averagedecoyenergy)/(sqrt(variancedecoyenergy));
       // print out the frustration index to the fragment_frustration file
       fprintf(fragment_frustration_file, "%f ",frustrationindex);
+      fprintf(fragment_frustration_gap_file, "%f ",(nativeenergy-averagedecoyenergy));
+      fprintf(fragment_frustration_variance_file, "%f ",sqrt(variancedecoyenergy));
     }
   // print a new line for each new frustration calculation
   fprintf(fragment_frustration_file, "\n");
+  fprintf(fragment_frustration_gap_file, "\n");
+  fprintf(fragment_frustration_variance_file, "\n");
 }
 
 // This routine is used in "read" mode to calculate the decoy energy distribution
@@ -3240,7 +3256,7 @@ void FixBackbone::compute_generated_decoy_energies()
 		  j_resno = res_no[j]-1;
 		  jres_type = se_map[se[j_resno]-'A'];
 		  
-		  fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+		  fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
 		  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
 		  if (!fm_gamma->fourResTypes()) 
 		    {
@@ -3274,6 +3290,11 @@ void FixBackbone::compute_generated_decoy_energies()
 		      dr = r - rf;
 		      drsq = dr*dr;
 		      
+		      if(frag_frust_normalizeInteraction)
+			{
+			  V *= 1/sqrt(fm_sigma_sq);
+			}
+
 		      V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
 		      
 		      // add decoy memory energy to both residue i and j 
@@ -3366,7 +3387,7 @@ void FixBackbone::compute_fragment_memory_table()
 		  
 	//		  if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
 		  
-	fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+	fm_sigma_sq = pow(abs(i_resno-j_resno), pow(fm_sigma_exp,2));
 	fm_sigma_sq = fm_sigma_sq*frag_table_well_width*frag_table_well_width;
 			  
 	if (!fm_gamma->fourResTypes()) {

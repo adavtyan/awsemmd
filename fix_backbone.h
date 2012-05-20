@@ -110,6 +110,7 @@ public:
   Gamma_Array *fm_gamma;
   char frag_mems_file[100];
   char fm_gamma_file[100];
+  double fm_sigma_exp;
 
   // Fragment Frustratometer parameters
   int n_decoy_mems, **decoy_mem_map, *ilen_decoy_map;
@@ -123,6 +124,7 @@ public:
   double *frag_frust_read_mean, *frag_frust_read_variance;
   double frag_frust_well_width, frag_frust_seqsep_gamma;
   int frag_frust_seqsep_flag;
+  bool frag_frust_normalizeInteraction; 
 
   // Table Fragment Memory parameters
     TBV **fm_table;
@@ -247,6 +249,8 @@ public:
   void print_forces(int coord=0);
 
   FILE *fragment_frustration_file;
+  FILE *fragment_frustration_gap_file;
+  FILE *fragment_frustration_variance_file;
   FILE *fragment_frustration_decoy_data;
   FILE *fragment_frustration_native_data;
   };

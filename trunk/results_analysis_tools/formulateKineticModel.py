@@ -773,7 +773,7 @@ import time as timefunctions
 metadataFile = './metadatashort'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
-foldonFile = './foldons'
+foldonFile = './foldonshalfank'
 # The dump file (LAMMPS format) of the native structure coordinates
 nativeDumpFile = './dump.native'
 # The directory containing free energy files in the output format of UltimateWHAM
@@ -822,7 +822,7 @@ endtemp = 330
 # Temperature incremement
 tempinc = 1
 # read trajectories from metadata? if not, load trajectories.pkl
-readTrajectoriesFromMetadata = False
+readTrajectoriesFromMetadata = True
 # output microstate information for each temperature?
 outputMicrostateInfo = True
 # The frequency at which to accept snapshots from the dump file
@@ -845,6 +845,8 @@ numTimeSteps = 100 # number of points to plot on time evolution if the interval 
 numRelaxationTimes = 5 # number of relaxation times (negative inverse of the smallest nonzero eigenvalue) to integrate out to
 # Show graphical evolution of concentration of states?
 graphicalEvolution = False
+# Calculate equilibrium flux? Otherwise, calculate net flux at end of time evolution
+calculateEquilibriumFlux = False
 
 ########################
 # Variables and arrays #
@@ -1028,6 +1030,8 @@ for temperature in range(starttemp,endtemp+1,tempinc):
             if(graphicalEvolution):
                 timefunctions.sleep(0.1)
             numpy.savetxt('concentrations'+str(temperature),concentrations.transpose())
+            if(timeIndex >= numTimeSteps):
+                break
 
         # calculate integrated flux at the end of the time evolution
         for state1 in range(len(microstatecodes)):
@@ -1044,7 +1048,10 @@ for temperature in range(starttemp,endtemp+1,tempinc):
                     rm12 = ratematrix[state1][state2]
                     ev1 = eigenvectors[state1,eigenvalueindex]
                     ev2 = eigenvectors[state2,eigenvalueindex]
-                    total += c/-ev*(1-numpy.exp(ev*float(endTime)))*(rm21*ev1-rm12*ev2)
+                    if(calculateEquilibriumFlux):
+                        total += c/-ev*(rm21*ev1-rm12*ev2)
+                    else:
+                        total += c/-ev*(1-numpy.exp(ev*float(endTime)))*(rm21*ev1-rm12*ev2)
                 fluxes[state1][state2] = total
 
         print "Fluxes: \n%s\n" % str(fluxes)

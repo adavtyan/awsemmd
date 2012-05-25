@@ -770,20 +770,20 @@ import time as timefunctions
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadatashort'
+metadataFile = './metadata'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldonshalfank'
 # The dump file (LAMMPS format) of the native structure coordinates
 nativeDumpFile = './dump.native'
 # The directory containing free energy files in the output format of UltimateWHAM
-freeEnergyFileDirectory = '/opt/home/ns24/ultimatewham/results/1n0rp1.5-250-400-qw/freeenergyfiles/'
+freeEnergyFileDirectory = '/opt/home/ns24/ultimatewham/results/1n0ramhgop2.0longep0.5extra-200-500-qw/freeenergyfiles/'
 # Overall rate file
 overallRateFile = './overallrates'
 # Trajectories pickle file
 trajectoriespicklefile = './trajectories.pkl'
 # Heat capapcity file
-heatcapacityfile = '/opt/home/ns24/ultimatewham/results/1n0rp1.5-250-400-qw/cv'
+heatcapacityfile = '/opt/home/ns24/ultimatewham/results/1n0ramhgop2.0longep0.5extra-200-500-qw/cv'
 # Microstate ranks file prefix
 microstateInfoFilePrefix = './microstateinfo'
 # Eigenvalue debugging
@@ -816,13 +816,13 @@ foldonThreshold = 0.6
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 310
+starttemp = 280
 # Maximum temperature for computing overall rate
-endtemp = 330
+endtemp = 320
 # Temperature incremement
 tempinc = 1
 # read trajectories from metadata? if not, load trajectories.pkl
-readTrajectoriesFromMetadata = True
+readTrajectoriesFromMetadata = False
 # output microstate information for each temperature?
 outputMicrostateInfo = True
 # The frequency at which to accept snapshots from the dump file
@@ -841,12 +841,12 @@ endTime = 0.0001 # time evolution will end at this time and the integrated flux 
 timeStep = 0.00001 # the concentration of the states will be calculated this often
 # Automatically determine time evolution interval?
 autoDetermineEvolutionInterval = True # if True, startTime, endTime and timeStep (above) are not used
-numTimeSteps = 100 # number of points to plot on time evolution if the interval is automatically determined
+numTimeSteps = 1 # number of points to plot on time evolution if the interval is automatically determined
 numRelaxationTimes = 5 # number of relaxation times (negative inverse of the smallest nonzero eigenvalue) to integrate out to
 # Show graphical evolution of concentration of states?
 graphicalEvolution = False
 # Calculate equilibrium flux? Otherwise, calculate net flux at end of time evolution
-calculateEquilibriumFlux = False
+calculateEquilibriumFlux = True
 
 ########################
 # Variables and arrays #
@@ -1039,9 +1039,9 @@ for temperature in range(starttemp,endtemp+1,tempinc):
                 total = 0.0
                 for eigenvalueindex in range(len(eigenvalues)):
                     ev = eigenvalues[eigenvalueindex]
-                    # if you encounter a zero eigenvalue, continue to avoid dividing by zero
-                    # (the contribution should be zero anyway)
-                    if(ev == 0):
+                    # Skip the smallest eigenvalue because the equilibrium eigenvector
+                    # doesn't contribute to the flux
+                    if(ev == sortedeigenvalues[0]):
                         continue
                     c = coefficients[eigenvalueindex]
                     rm21 = ratematrix[state2][state1]
@@ -1052,6 +1052,7 @@ for temperature in range(starttemp,endtemp+1,tempinc):
                         total += c/-ev*(rm21*ev1-rm12*ev2)
                     else:
                         total += c/-ev*(1-numpy.exp(ev*float(endTime)))*(rm21*ev1-rm12*ev2)
+
                 fluxes[state1][state2] = total
 
         print "Fluxes: \n%s\n" % str(fluxes)

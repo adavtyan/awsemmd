@@ -22,6 +22,9 @@ Last Update: 05/01/2012
 #include "memory.h"
 #include "error.h"
 
+//Need to delete
+#include "update.h"
+
 #include <string>
 
 using std::ifstream;
@@ -108,6 +111,11 @@ void PairExGaussCoulCut::compute(int eflag, int vflag)
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;
       jtype = type[j];
+      
+      if (update->ntimestep==2000001) {
+          parameters &ppij = par[itype][jtype];
+	      fprintf(screen, "itype %d jtype %d ex_flag %d ng %d\n", itype, jtype, ppij.ex_flag, ppij.ng);
+	  }
 
       if (rsq < cutsq[itype][jtype]) {
 	r2inv = 1.0/rsq;
@@ -213,16 +221,13 @@ void PairExGaussCoulCut::allocate()
 void PairExGaussCoulCut::settings(int narg, char **arg)
 {
   fprintf(screen, "\nSETTINGS\n");
+  fprintf(screen,"\n ExGaussCoulCut NARG=%d\n",narg);
 
-  if (narg < 2 || narg > 3) error->all("Illegal pair_style command");
-  
-  int len = strlen(arg[0]) + 1;
-  parfile = new char[len];
-  strcpy(parfile, arg[0]);
+  if (narg < 1 || narg > 2) error->all("Illegal pair_style command");
 
-  cut_ex_global = force->numeric(arg[1]);
-  if (narg == 2) cut_coul_global = cut_ex_global;
-  else cut_coul_global = force->numeric(arg[2]);
+  cut_ex_global = force->numeric(arg[0]);
+  if (narg == 1) cut_coul_global = cut_ex_global;
+  else cut_coul_global = force->numeric(arg[1]);
 
   // reset cutoffs that have been explicitly set
 
@@ -251,17 +256,23 @@ void PairExGaussCoulCut::coeff(int narg, char **arg)
 {
   fprintf(screen, "\nCOEFF\n");
 
-  if (narg < 2 || narg > 4) error->all("Incorrect args for pair coefficients2");
+  if (narg < 3 || narg > 5) error->all("Incorrect args for pair coefficients2");
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
   force->bounds(arg[0],atom->ntypes,ilo,ihi);
   force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  
+  int len = strlen(arg[2]) + 1;
+  parfile = new char[len];
+  strcpy(parfile, arg[2]);
+  
+  fprintf(screen, "\nFILE: %s\n", parfile);
 
   double cut_ex_one = cut_ex_global;
   double cut_coul_one = cut_coul_global;
-  if (narg >= 3) cut_coul_one = cut_ex_one = force->numeric(arg[2]);
-  if (narg == 4) cut_coul_one = force->numeric(arg[3]);
+  if (narg >= 4) cut_coul_one = cut_ex_one = force->numeric(arg[3]);
+  if (narg == 5) cut_coul_one = force->numeric(arg[4]);
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
@@ -367,16 +378,29 @@ void PairExGaussCoulCut::read_parameters()
         	force->bounds(arg[1],atom->ntypes,jlo,jhi);
         	numG = atoi(arg[2]);
         	iG = 0;
+
+        	fprintf(screen, ">>> %d %d %d %d\n", ilo, ihi, jlo, jhi);
+	        fprintf(screen, ">>> %s %s %d %d\n", arg[0], arg[1], numG, atom->ntypes);
         	
         	// Allocate B, C and R arrays
 			count = 0;
 			for (i = ilo; i <= ihi; i++) {
 				for (j = MAX(jlo,i); j <= jhi; j++) {
+				
 				  par[i][j].ng = numG;
 				  if (!par[i][j].B) {
 					par[i][j].B = new double[numG];
 					par[i][j].C = new double[numG];
 					par[i][j].R = new double[numG];
+				  }
+				  
+				  if (i!=j) {
+				    par[j][i].ng = numG;
+				    if (!par[j][i].B) {
+				      par[j][i].B = new double[numG];
+					  par[j][i].C = new double[numG];
+					  par[j][i].R = new double[numG];
+				    }
 				  }
 				  
 				  count++;
@@ -386,8 +410,6 @@ void PairExGaussCoulCut::read_parameters()
 
         	file_state=FS_GAUSS_BCR;
         	
-        	fprintf(screen, ">>> %d %d %d %d\n", ilo, ihi, jlo, jhi);
-	        fprintf(screen, ">>> %s %s %d %d\n", arg[0], arg[1], numG, atom->ntypes);
 		} else if (file_state==FS_GAUSS_BCR) {
 			if (numG<=0) error->all("Pair_style Ex/Gauss/Coul/Cut: Error reading coefficient file");
 			
@@ -400,6 +422,12 @@ void PairExGaussCoulCut::read_parameters()
 	              par[i][j].B[iG] = B_val;
     	    	  par[i][j].C[iG] = C_val;
 			      par[i][j].R[iG] = R_val;
+			      
+			      if (i!=j) {
+			        par[j][i].B[iG] = B_val;
+    	    	    par[j][i].C[iG] = C_val;
+    	    	    par[j][i].R[iG] = R_val;
+			      }
 		    	}
 		    }
 			
@@ -432,6 +460,12 @@ void PairExGaussCoulCut::read_parameters()
 				par[i][j].ex_flag = true;
 				par[i][j].A = A_val;
 				par[i][j].l = l_val;
+				
+				if (i!=j) {
+				  par[j][i].ex_flag = true;
+				  par[j][i].A = A_val;
+				  par[j][i].l = l_val;
+				}
 			}
 		}
     	
@@ -450,7 +484,7 @@ void PairExGaussCoulCut::read_parameters()
   for (i = 1; i <= atom->ntypes; i++) {
       for (j = 1; j <= atom->ntypes; j++) {
       		fprintf(screen, "> %d %d\n", i, j);
-      		fprintf(screen, "A=%f l=%d ng=%d\n", par[i][j].A, par[i][j].l, par[i][j].ng);
+      		fprintf(screen, "A=%f l=%d ex_flag=%d ng=%d\n", par[i][j].A, par[i][j].l, par[i][j].ex_flag, par[i][j].ng);
       		for (int k=0;k<par[i][j].ng;k++) {
       			fprintf(screen, "%f %f %f\n", par[i][j].B[k], par[i][j].C[k], par[i][j].R[k]);
       		}

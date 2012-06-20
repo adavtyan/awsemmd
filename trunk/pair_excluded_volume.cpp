@@ -93,6 +93,11 @@ void PairExcludedVolume::compute(int eflag, int vflag)
 
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
+      factor_lj = special_lj[sbmask(j)];
+      j &= NEIGHMASK;
+      
+//      fprintf(screen, "VEXCLUDED: i %d j %d ii %d jj %d itype %d\n", i, j, ii, jj, itype);
+//	  fprintf(screen, "VEXCLUDED: itype %d jtype %d\n", itype, type[j]);
 
       imol = atom->molecule[i];
       jmol = atom->molecule[j];
@@ -100,21 +105,25 @@ void PairExcludedVolume::compute(int eflag, int vflag)
       ires = atom->residue[i];
       jres = atom->residue[j];
 
-      if (j < nall) factor_lj = 1.0;
+/*      if (j < nall) factor_lj = 1.0;
       else {
 	factor_lj = special_lj[j/nall];
 	j %= nall;
-      }
-
+      }*/
+      
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;
       r = sqrt(rsq);
       jtype = type[j];
+      
+//      fprintf(screen, "VEXCLUDED: itype %d jtype %d imol %d jmol %d ires %d jres %d\n", itype, jtype, imol, jmol, ires, jres);
 
       if (abs(ires-jres)<5 && imol==jmol) rcut = cut_short[itype][jtype];
       else rcut = cut_long[itype][jtype];
+      
+//      fprintf(screen, "VEXCLUDED: rcut %f r %f\n",rcut, r);
 
       if (r < rcut) {
 	dr = r - rcut;
@@ -149,6 +158,8 @@ void PairExcludedVolume::compute(int eflag, int vflag)
 
 void PairExcludedVolume::allocate()
 {
+  fprintf(screen,"\nExcluded ALLOCATE\n");
+
   allocated = 1;
   int n = atom->ntypes;
 
@@ -180,6 +191,9 @@ void PairExcludedVolume::allocate()
 
 void PairExcludedVolume::settings(int narg, char **arg)
 {
+  fprintf(screen,"\nExcluded SETTINGS\n");
+  fprintf(screen,"Excluded NARG=%d\n",narg);
+  
   if (narg != 3) error->all("Illegal pair_style command");
 
   p = atoi(arg[0]);
@@ -205,6 +219,8 @@ void PairExcludedVolume::settings(int narg, char **arg)
 
 void PairExcludedVolume::coeff(int narg, char **arg)
 {
+  fprintf(screen,"\nExcluded COEFF\n");
+
   if (narg != 3 && narg != 5) error->all("Incorrect args for pair coefficients");
   if (!allocated) allocate();
 

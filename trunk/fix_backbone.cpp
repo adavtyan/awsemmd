@@ -737,7 +737,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
   for (i = 0; i < n; ++i) {
     int min[3] = {-1, -1, -1}, jm[3] = {-1, -1, -1}, amin = -1;
     for (int j = 0; j < nall; ++j) {
-      if (i==0 && res_tag[j]<=0)
+      if (i==0 && res_tag[j]<=0 && (mask[j] & groupbit || mask[j] & group2bit || mask[j] & group3bit) )
 	error->all("Molecular tag must be positive in fix backbone");
 			
       if ( (mask[j] & groupbit) && res_tag[j]>last ) {

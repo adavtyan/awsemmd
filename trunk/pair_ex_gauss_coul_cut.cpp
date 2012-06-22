@@ -111,11 +111,6 @@ void PairExGaussCoulCut::compute(int eflag, int vflag)
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;
       jtype = type[j];
-      
-      if (update->ntimestep==2000001) {
-          parameters &ppij = par[itype][jtype];
-	      fprintf(screen, "itype %d jtype %d ex_flag %d ng %d\n", itype, jtype, ppij.ex_flag, ppij.ng);
-	  }
 
       if (rsq < cutsq[itype][jtype]) {
 	r2inv = 1.0/rsq;
@@ -153,8 +148,8 @@ void PairExGaussCoulCut::compute(int eflag, int vflag)
 	}
 	
 //	double Ft=fpair*sqrt(delx*delx+dely*dely+delz*delz);
-	double Ft=(factor_coul*force_coul + factor_ex*force_ex) * rinv + factor_gauss*force_gauss;
-    fprintf(fout, "{%f, %f},", sqrt(rsq), Ft);
+//	double Ft=(factor_coul*force_coul + factor_ex*force_ex) * rinv + factor_gauss*force_gauss;
+//    fprintf(fout, "{%f, %f},", sqrt(rsq), Ft);
 
 	if (eflag) {
 	  if (el_flag && rsq < cut_coulsq[itype][jtype])
@@ -190,7 +185,7 @@ void PairExGaussCoulCut::compute(int eflag, int vflag)
 
 void PairExGaussCoulCut::allocate()
 {
-  fprintf(screen, "\nALLOCATE\n");
+//  fprintf(screen, "\nALLOCATE\n");
 
   allocated = 1;
   int n = atom->ntypes;
@@ -220,10 +215,10 @@ void PairExGaussCoulCut::allocate()
 
 void PairExGaussCoulCut::settings(int narg, char **arg)
 {
-  fprintf(screen, "\nSETTINGS\n");
-  fprintf(screen,"\n ExGaussCoulCut NARG=%d\n",narg);
+//  fprintf(screen, "\nSETTINGS\n");
+//  fprintf(screen,"\n ExGaussCoulCut NARG=%d\n",narg);
 
-  if (narg < 1 || narg > 2) error->all("Illegal pair_style command");
+  if (narg < 1 || narg > 2) error->all("Pair_style Ex/Gauss/Coul/Cut: Illegal pair_style command");
 
   cut_ex_global = force->numeric(arg[0]);
   if (narg == 1) cut_coul_global = cut_ex_global;
@@ -254,9 +249,9 @@ void PairExGaussCoulCut::settings(int narg, char **arg)
 
 void PairExGaussCoulCut::coeff(int narg, char **arg)
 {
-  fprintf(screen, "\nCOEFF\n");
+//  fprintf(screen, "\nCOEFF\n");
 
-  if (narg < 3 || narg > 5) error->all("Incorrect args for pair coefficients2");
+  if (narg < 3 || narg > 5) error->all("Pair_style Ex/Gauss/Coul/Cut: Incorrect args for pair coefficients");
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -267,7 +262,7 @@ void PairExGaussCoulCut::coeff(int narg, char **arg)
   parfile = new char[len];
   strcpy(parfile, arg[2]);
   
-  fprintf(screen, "\nFILE: %s\n", parfile);
+//  fprintf(screen, "\nFILE: %s\n", parfile);
 
   double cut_ex_one = cut_ex_global;
   double cut_coul_one = cut_coul_global;
@@ -286,7 +281,7 @@ void PairExGaussCoulCut::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all("Incorrect args for pair coefficients");
+  if (count == 0) error->all("Pair_style Ex/Gauss/Coul/Cut: Incorrect args for pair coefficients");
   
   if (read_par_flag) read_parameters();
 }
@@ -333,7 +328,7 @@ void PairExGaussCoulCut::read_parameters()
 {
   // Read parameter file
   
-  fprintf(screen, "\nREAD_PARAMETERS\n");
+//  fprintf(screen, "\nREAD_PARAMETERS\n");
   
   read_par_flag = false;
   
@@ -370,7 +365,7 @@ void PairExGaussCoulCut::read_parameters()
 			if (narg>3) break;
 			arg[narg] = strtok(NULL," \t\n");
 		}
-		fprintf(screen, "Gauss narg=%d\n", narg);
+//		fprintf(screen, "Gauss narg=%d\n", narg);
 		if (narg!=3) error->all("Pair_style Ex/Gauss/Coul/Cut: Wrong format in coefficient file (Gauss coeff).");
 		
 		if (file_state==FS_GAUSS) {
@@ -379,8 +374,8 @@ void PairExGaussCoulCut::read_parameters()
         	numG = atoi(arg[2]);
         	iG = 0;
 
-        	fprintf(screen, ">>> %d %d %d %d\n", ilo, ihi, jlo, jhi);
-	        fprintf(screen, ">>> %s %s %d %d\n", arg[0], arg[1], numG, atom->ntypes);
+//        	fprintf(screen, ">>> %d %d %d %d\n", ilo, ihi, jlo, jhi);
+//	        fprintf(screen, ">>> %s %s %d %d\n", arg[0], arg[1], numG, atom->ntypes);
         	
         	// Allocate B, C and R arrays
 			count = 0;
@@ -446,7 +441,7 @@ void PairExGaussCoulCut::read_parameters()
 			arg[narg] = strtok(NULL," \t\n");
 		}
 		if (narg!=4) error->all("Pair_style Ex/Gauss/Coul/Cut: Wrong format in coefficient file (Excluded Volume coeff).");
-		fprintf(screen, "EX narg=%d\n", narg);
+//		fprintf(screen, "EX narg=%d\n", narg);
     	
     	force->bounds(arg[0],atom->ntypes,ilo,ihi);
         force->bounds(arg[1],atom->ntypes,jlo,jhi);
@@ -479,7 +474,7 @@ void PairExGaussCoulCut::read_parameters()
     }
   }
   
-  fprintf(screen, "\nEL_FLAG=%d\n\n", el_flag);
+/*  fprintf(screen, "\nEL_FLAG=%d\n\n", el_flag);
   
   for (i = 1; i <= atom->ntypes; i++) {
       for (j = 1; j <= atom->ntypes; j++) {
@@ -490,7 +485,7 @@ void PairExGaussCoulCut::read_parameters()
       		}
       		fprintf(screen, "\n");
       }
-  }
+  }*/
 }
 
 /*void PairExGaussCoulCut::read_parameters()
@@ -595,7 +590,7 @@ void PairExGaussCoulCut::read_parameters()
 
 void PairExGaussCoulCut::init_style()
 {
-  fprintf(screen, "\nINIT_STYLE\n");
+//  fprintf(screen, "\nINIT_STYLE\n");
 
   if (!atom->q_flag)
     error->all("Pair style ex/gauss/coul/cut requires atom attribute q");
@@ -609,7 +604,7 @@ void PairExGaussCoulCut::init_style()
 
 double PairExGaussCoulCut::init_one(int i, int j)
 {
-  fprintf(screen, "\nINIT_ONE\n");
+//  fprintf(screen, "\nINIT_ONE\n");
 
   if (setflag[i][j] == 0) {
 //    epsilon[i][j] = mix_energy(epsilon[i][i],epsilon[j][j],

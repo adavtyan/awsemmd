@@ -68,7 +68,6 @@ class PairExGaussCoulCut : public Pair {
   double cut_ex_global,cut_coul_global;
   double **cut_ex,**cut_exsq;
   double **cut_coul,**cut_coulsq;
-//  double **epsilon,**sigma;
   double **offset;
   
   parameters **par;

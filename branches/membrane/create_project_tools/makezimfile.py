@@ -34,7 +34,6 @@ for line in file:
 
 for line in zim_array:
 	num_res = int(line[4])-int(line[3])+1
-	print num_res
 	if line[2]=='outside':
 		zim_writer('1')
 	elif line[2]=='TMhelix':

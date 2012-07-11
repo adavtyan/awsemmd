@@ -23,7 +23,7 @@ This document explains how to generate Fragment Library based on sequence alignm
 == Obtaining and preparing protein database ==
 To generate Fragment Library you need a database of well defined structures in BLASTable format and a FASTA file which contains the sequences of those structures. The FASTA file should have the same prefix as the database. If you already have a FASTA file you can convert it to BLASTable format using _makeblastdb_ executable, which comes with _psiblast_. 
 {{{
-makeblastdb -in database_name.fasta -out database_name
+makeblastdb -in database_name.fasta -out database_name -dbtype prot
 }}}
 This should generate 3 files; _database_name.phr_, _database_name.pin_ and _database_name.psq_.
 

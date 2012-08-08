@@ -116,6 +116,10 @@ public:
 //  TBV ****fm_table;
   int tb_size, tb_nbrs;
   double tb_rmin, tb_rmax, tb_dr;
+  
+  // Vector Fragment Memory
+  double k_vec_frag_mem;
+  double vfm_sigma, vfm_sigma_sq;
 
   // Solvent separated barrier
   double k_solventb1, k_solventb2;
@@ -147,7 +151,7 @@ public:
   bool abc_flag, chain_flag, shake_flag, chi_flag, rama_flag, rama_p_flag, excluded_flag, p_excluded_flag, r6_excluded_flag;
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
   bool phosph_flag;
-  bool frag_mem_tb_flag;
+  bool frag_mem_tb_flag, vec_frag_mem_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -158,11 +162,11 @@ public:
   
   double energy[15], energy_all[15];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
-                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_SSB, nEnergyTerms};
+                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_SSB, nEnergyTerms};
   
   double ctime[15], previous_time;
   enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
-  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_SSB, TIME_N};
+  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_SSB, TIME_N};
   
  private:
   void compute_backbone();
@@ -184,6 +188,7 @@ public:
   void compute_fragment_memory_table();
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
+  void compute_vector_fragment_memory_potential(int i);
 
   void allocate();
   inline void Construct_Computational_Arrays();

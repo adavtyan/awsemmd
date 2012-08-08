@@ -16,6 +16,9 @@ Last Update: 03/04/2011
 #include <string.h>
 #include <math.h>
 
+#include <iostream>
+using namespace std;
+
 
 // {"ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"};
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
@@ -28,7 +31,7 @@ int fm_se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15
 // 4) HPB: Hydrophobic (CYS, ILE, LEU, MET, PHE, TRP, TYR, VAL) or (C, I, L, M, F, W, Y, V)  or {4, 9, 10, 12, 13, 17, 18, 19}
 int four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4, 4};
 
-Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
+Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bool vec_fm_flag)
 {
   int i, j, nAtoms, ires, iatom, nca=0, ncb=0;
   double x, y, z, **xca, **xcb;
@@ -46,15 +49,18 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
   mpos = p + len/2 + len%2;
   fpos = pf;
   weight = w;
+  vfm_flag = vec_fm_flag;
   
   se = new char[len];
   rf[0] = new double*[len];
   rf[1] = new double*[len];
+  if (vfm_flag) vmf = new double*[len];
   xca = new double*[len];
   xcb = new double*[len];
   for (i=0;i<len;++i) {
     rf[0][i] = new double[len];
     rf[1][i] = new double[len];
+    if (vfm_flag) vmf[i] = new double[len];
     xca[i] = new double[3];
     xcb[i] = new double[3];
   }
@@ -107,6 +113,9 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname)
     for (j=0;j<len;++j) {
       rf[0][i][j] = ( i<j ? R(xca[i],xca[j]) : ( i>j ? R(xcb[i],xcb[j]) : 0.0 ) );
       rf[1][i][j] = R(xca[i],xcb[j]);
+      
+      if (vfm_flag)
+      	vmf[i][j] = VM(xca[i],xcb[i],xca[j],xcb[j]); // Multiplication (normalized) of CA-CB vectors between residue i and j
     }
   }
   
@@ -146,6 +155,16 @@ double Fragment_Memory::Rf(int ires, int iatom, int jres, int jatom)
   }
 }
 
+double Fragment_Memory::VMf(int ires, int jres)
+{
+  ires -= pos;
+  jres -= pos;
+  if (!vfm_flag || ires<0 || ires>=len || jres<0 || jres>=len) { error = ERR_CALL; return 0.0; }
+  if (se[ires]=='G' || se[jres]=='G') { error = ERR_VFM_GLY; return 0.0; }
+
+  return vmf[ires][jres];
+}
+
 char Fragment_Memory::getSe(int resno)
 {
   return se[resno - pos];
@@ -169,6 +188,12 @@ inline int Fragment_Memory::max(int a, int b)
 inline double Fragment_Memory::R(double *r1, double *r2)
 {
   return sqrt((r1[0]-r2[0])*(r1[0]-r2[0]) + (r1[1]-r2[1])*(r1[1]-r2[1]) + (r1[2]-r2[2])*(r1[2]-r2[2]));
+}
+
+// Calculates theta angle between vectors (r11, r12) and (r21, r22)
+inline double Fragment_Memory::VM(double *r11, double *r12, double *r21, double *r22)
+{
+  return acos(((r12[0]-r11[0])*(r22[0]-r21[0]) + (r12[1]-r11[1])*(r22[1]-r21[1]) + (r12[2]-r11[2])*(r22[2]-r21[2]))/(R(r11,r12)*R(r21,r22)));
 }
 
 char Fragment_Memory::ThreeLetterToOne(char *tl_resty)

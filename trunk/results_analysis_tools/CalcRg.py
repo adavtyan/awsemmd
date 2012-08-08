@@ -49,7 +49,7 @@ class Atom:
 
 if len(sys.argv)!=3:
 	print "\nCalcQValue.py Input_file Output_file\n"
-	exit()
+	sys.exit()
 
 input_file = sys.argv[1]
 

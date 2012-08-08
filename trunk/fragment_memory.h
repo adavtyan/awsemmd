@@ -30,7 +30,7 @@ int four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4
 
 class Fragment_Memory {
 public:
-  Fragment_Memory(int p, int pf, int l, double w, char *fname);
+  Fragment_Memory(int p, int pf, int l, double w, char *fname, bool vec_fm_flag=false);
   ~Fragment_Memory();
   int pos;    // Position of the first residue in target sequance
   int mpos;   // Middle residue position (in target)
@@ -38,20 +38,24 @@ public:
   int len;    // Length of the fragment
   double weight;  // Weight for the particular fragment
   char *se;
+  int vfm_flag; // Vector Fragment Memory flag
   char getSe(int resno); // residue name in one letter code corresponding to resno in target
   double Rf(int ires, int iatom, int jres, int jatom); // distance between atoms in residues i and j
+  double VMf(int ires, int jres); // Angle between normalized CA->CB vectors of residues i and j
   int resType(int resno); // return type of fragment residue corresponding to resno in target
   char ThreeLetterToOne(char *tl_resty);
   int min(int, int);
   int max(int, int);
   int error;
-  enum Errors {ERR_NONE=0, ERR_FILE, ERR_ATOM_COUNT, ERR_RES, ERR_CALL};
+  enum Errors {ERR_NONE=0, ERR_FILE, ERR_ATOM_COUNT, ERR_RES, ERR_CALL, ERR_VFM_GLY};
   enum FM_AtomTypes { FM_CA=1, FM_CB };
 private:
   // rf[0][i][j] are CA-CA (i<j) and CB-CB (i>j) distances
   // rf[1][ica][jcb] are CA-CB distances
   double **rf[2];
+  double **vmf;
   inline double R(double *r1, double *r2);
+  inline double VM(double *r11, double *r12, double *r21, double *r22);
 };
 
 #endif

@@ -1,81 +1,3 @@
-# This script was started by Nick Schafer on 4/14/12.
-# The goal is to be able to calculate formulate a coarse-grained
-# kinetic model based on foldon, connectivity and rate assumptions
-# using umbrella sampled data. A definition of a contact and the
-# native structure of the protein is also required.
-
-# The input is a set of snapshots from simulation. For each snapshot,
-# the coordinates, biasing energy, and global Q value are required.
-# {X_i}, V_i, Q_i
-
-# Each protein is, prior to the simulation, divided into foldons,
-# which are sets of residues. The only requirements are that this
-# set of residues have at least one native contact, either within
-# the foldon or with residues in another foldon, and that every
-# residue in the protein belong to exactly one foldon.
-
-# Foldon definition input file format:
-# 1 2 3 4 5 <-- first foldon
-# 6 7 8     <-- second foldon
-# 9 10      <-- third foldon
-# The above foldons happen to be contiguous in sequence, but this
-# isn't required.
-
-# The contact definition to be used will be as simple as possible:
-# A threshold distance will be defined and two residues are in contact
-# if their C-alpha atoms are within that threshold distance. The same
-# threshold is used on the native structure to define the native contacts.
-
-# The number of foldons defines the possible coarse-grained microstates.
-# If there are three foldons, the possible coarse grained microstates are:
-# 000
-# 100
-# 010
-# 001
-# 110
-# 011
-# 101
-# 111
-# There are 2^(# of foldons) possible coarse-grained microstates. If the
-# fraction of native contacts for a foldon exceeds a predefined threshold,
-# then that foldon in the microstate is given a "1"; if not, it is "0". So,
-# a conformation where the threshold is exceeded for the first and third
-# foldons but not the second will be represented by "101".
-
-# The free energy of each microstate can be calculated by:
-# First, summing the Boltzmann factor e^[(V_i-F(Q_i))/kT] over all the
-# structures to obtain Z then the probability of any particular structure
-# is given by e^[(V_i-F(Q_i))/kT]/Z. Finally, by summing these probabilities
-# over all structures that correspond to a certain microstate and taking the
-# negative logarithm, F=-kTlog(P), the free energy of all microstates can
-# be obtained.
-
-# The coarse-grained microstates are then connected using a Hamming distance
-# of 1 condition, i.e., only two states that can be interconverted by one 1->0 
-# or 0->1 change are considered directly connected.
-
-# For those pairs of coarse-grained microstates that are found to be present
-# in the simulation data and connected by the Hamming distance condition,
-# a rate is assigned using the following assumption:
-# The rate of going from state i to state j is 
-# kij = k0 if F_i > F_j or kij = k0e^[(F_i-F_j)/kT] if F_i < F_j.
-# k0 is also predefined.
-
-# A (perhaps sparse) rate matrix is then formulated using kij as the off
-# diagonal elements and the negative sum of the off diagonal elements as
-# the diagonal elements (to satisfy detailed balance). The eigenvalues
-# of this matrix should be real and non-positive, with one 0 eigenvalue
-# whose eigenvector corresponds to the equilibrium probability distribution
-# of the model.
-
-# The global free energy F(Q) is temperature dependent, and so therefore
-# are the microstate probabilities and the rate matrix. By performing this
-# calculation for a range of temperatures, and assuming that the relaxation
-# process is exponential (which is satisfied so long as the first non-zero
-# eigenvalue is well separated from all the rest), one can obtain "thermal
-# chevron plots" by plotting (the negative of) the first non-zero eigenvalue
-# as a function of temperature.
-
 #########################
 # Classes and Functions #
 #########################
@@ -180,30 +102,33 @@ class Residue:
 class Snapshot:
     numRes = 0
     residues = []
-    energy = 0.0
+    biasingenergy = 0.0
+    internalenergy = 0.0
+    reducedenergy = 0.0
     Q = 0.0
     ustate = ustate("")
-    probability = 0.0
     
     def __init__(self, residues):
         self.numRes = len(residues)
         self.residues = residues                                           
-        self.energy = 0.0
+        self.biasingenergy = 0.0
+        self.internalenergy = 0.0
+        self.reducedenergy = 0.0
         self.Q = 0.0
         self.ustate = 0
         self.ustate = ustate("")
-        self.probability = 0.0
 
     def display(self):
         print "Ca coordinates:"
         for i in range(self.numRes):
             print "residue " + str(i) + ": " + str(self.residues[i].x) + " " + str(self.residues[i].y) + " " + str(self.residues[i].z)
             
-        print "Energy: " + str(self.energy)
+        print "Biasing energy: " + str(self.biasingenergy)
+        print "Internal energy: " + str(self.internalenergy)
+        print "Reduced energy: " + str(self.reducedenergy)
         print "Qvalue: " + str(self.Q)
         print "Microstate code:"
         self.ustate.display()
-        print "Probability: " + str(self.probability)
 
     def assignUstate(self):
         microstatecode = ""
@@ -215,9 +140,6 @@ class Snapshot:
 
         self.ustate = ustate(microstatecode)
         return microstatecode
-
-    def assignProbability(self, extrapolatedtemperature):
-        self.probability = boltzmannFactor(self,extrapolatedtemperature)/Z
 
     def calculatePairwiseDistances(self):
         pairwisedistances = []
@@ -234,6 +156,9 @@ class Snapshot:
                 pairwisedistances[i].append(dist)
 
         return pairwisedistances
+    
+    def computeReducedEnergy(self):
+        return (float(self.internalenergy)+float(self.biasingenergy))/kb*float(self.samplingtemperature)
                            
 class Trajectory:
     dumpFile = ""
@@ -254,8 +179,10 @@ class Trajectory:
                 continue
             if lineindex % snapshotFreq == 0:
                 self.snapshots[snapshotindex].Q = dataline[1]
-                self.snapshots[snapshotindex].energy = dataline[2]
-                self.snapshots[snapshotindex].samplingtemperature = dataline[3]
+                self.snapshots[snapshotindex].internalenergy = dataline[2]
+                self.snapshots[snapshotindex].biasingenergy = dataline[3]
+                self.snapshots[snapshotindex].samplingtemperature = dataline[4]
+                self.snapshots[snapshotindex].reducedenergy = self.snapshots[snapshotindex].computeReducedEnergy()
                 snapshotindex += 1
             lineindex += 1
 
@@ -266,10 +193,6 @@ class Trajectory:
     def assignAllUstates(self):
         for i in range(len(self.snapshots)):
             self.snapshots[i].assignUstate()
-
-    def assignAllProbabilities(self,extrapolatedtemperature):
-        for i in range(len(self.snapshots)):
-            self.snapshots[i].assignProbability(extrapolatedtemperature)
 
 def readFoldonFile(foldonFile):
     foldons = []
@@ -444,120 +367,26 @@ def readAllTrajectories(metadataFile):
     f = open(metadataFile, 'r')
     for line in f:
         line=line.split()
-        print "Creating trajectory for " + line[0] + "..."
+        print "Creating trajectory for " + line[0] + " ..."
         trajectory = Trajectory(line[0],line[1])
         trajectories.append(trajectory)
-
-def readAllFreeEnergies(freeEnergyDirectory):
-    print "Reading free energy files in: " + str(freeEnergyDirectory)
-    path = freeEnergyDirectory
-    listing = os.listdir(path)
-    mintemp = 99999
-    for infile in listing:
-        temp = int(infile)/10
-        temperaturearray.append(int(infile)/10)
-        if temp < mintemp:
-            mintemp = temp
-
-    temperaturearray.sort()
-
-    for i in range(len(temperaturearray)):
-        fofqandt.append([])
-
-    for infile in listing:
-        f = open(freeEnergyDirectory+'/'+infile, 'r')
-        for line in f:
-            line=line.split()
-            q = line[0]
-            fofq = line[1]
-            index = int(infile)/10-mintemp
-            fofqandt[index].append([q, fofq])
-
-    # fofqandt[temperature-mintemp][q/fofqindex][0=qvalue,1=fofqvalue]
-    return mintemp
-
-def FofQandT(Q,T):
-    fofq = fofqandt[T-mintemp]
-    index = 0
-    for i in range(len(fofq)):
-        tempQ = fofq[i][0]
-        if float(tempQ) > float(Q):
-            index = i
-            break
-    
-    interpFvalue = float(fofq[index-1][1]) + ((float(fofq[index][1])-float(fofq[index-1][1]))/(float(fofq[index][0])-float(fofq[index-1][0])))*(float(Q)-float(fofq[index-1][0]))
-
-    return interpFvalue
-
-def boltzmannFactor(snapshot,extrapolatedtemperature):
-    exponent = (float(snapshot.energy)-float(FofQandT(snapshot.Q,extrapolatedtemperature)))/(kb*float(snapshot.samplingtemperature))
-    return math.exp(exponent)
-
-def calcZ(temperature):
-    Z = 0.0
-    for i in range(len(sortedsnapshots)):
-        for j in range(len(sortedsnapshots[i])):
-            Z += boltzmannFactor(sortedsnapshots[i][j],temperature)
-
-    return Z
+        samplingtemperature.append(float(line[2]))
+        Kbias.append(float(line[3]))
+        biasing_value.append(float(line[4]))
 
 def findAllUstates():
     microstatecodes = []
-    for i in range(len(trajectories)):
-        for j in range(len(trajectories[i].snapshots)):
-            tempustatecode = trajectories[i].snapshots[j].ustate.code
+    binmicrostatecodes = []
+    for k in range(K):
+        for n in range(N_k[k]):
+            tempustatecode = ustate_kn[k,n]
             microstatecodes.append(tempustatecode)
 
     microstatecodes = list(set(microstatecodes))
-
-    return microstatecodes
-
-def sortAllSnapshots():
-    sortedsnapshots = []
     for i in range(len(microstatecodes)):
-        sortedsnapshots.append([])
-    for i in range(len(trajectories)):
-        for j in range(len(trajectories[i].snapshots)):
-            for k in range(len(microstatecodes)):
-                if trajectories[i].snapshots[j].ustate.code == microstatecodes[k]:
-                    sortedsnapshots[k].append(trajectories[i].snapshots[j])
-                    break
+        binmicrostatecodes.append(binaryfoldonstate(microstatecodes[i]))
 
-    return sortedsnapshots
-
-def calculateAverageQofMicrostates():
-    averageqofmicrostates = []
-    for i in range(len(microstatecodes)):
-        averageqofmicrostates.append(0.0)
-    for i in range(len(sortedsnapshots)):
-        for j in range(len(sortedsnapshots[i])):
-            for k in range(len(microstatecodes)):
-                if sortedsnapshots[i][j].ustate.code == microstatecodes[k]:
-                    averageqofmicrostates[k] += float(sortedsnapshots[i][j].Q)
-                    break
-
-    for i in range(len(microstatecodes)):
-        averageqofmicrostates[i] /= len(sortedsnapshots[i])
-
-    return averageqofmicrostates
-
-def calculateUstateProbabilities():
-    microstateprobabilities = []
-    for i in range(len(sortedsnapshots)):
-        ustateprob = 0.0
-        for j in range(len(sortedsnapshots[i])):
-            ustateprob += sortedsnapshots[i][j].probability
-
-        microstateprobabilities.append(ustateprob)
-
-    return microstateprobabilities
-
-def calculateUstateFreeEnergies(temperature):
-    microstatefreeenergies = []
-    for i in range(len(microstatecodes)):
-        microstatefreeenergies.append(-kb*float(temperature)*numpy.log(microstateprobabilities[i]))
-
-    return microstatefreeenergies
+    return (microstatecodes, binmicrostatecodes)
 
 def ustateDistance(code1,code2):
     distance = 0
@@ -572,16 +401,16 @@ def areConnected(code1,code2):
     else:
         return False
 
-def calculateRateMatrix(temperature):
+def calculateRateMatrix():
     ratematrix = numpy.zeros((len(microstatecodes),len(microstatecodes)),dtype=numpy.float64)
 
     for i in range(len(microstatecodes)):
         for j in range(len(microstatecodes)):
             rate = 0.0
-            if areConnected(microstatecodes[i],microstatecodes[j]):
+            if areConnected(binmicrostatecodes[i],binmicrostatecodes[j]):
                 rate = k0
                 if microstatefreeenergies[i] < microstatefreeenergies[j]:
-                    rate = k0*numpy.exp(-(microstatefreeenergies[j]-microstatefreeenergies[i])/(kb*float(temperature)))
+                    rate = k0*numpy.exp(-(microstatefreeenergies[j]-microstatefreeenergies[i]))
                 
             ratematrix[i][j] = rate
 
@@ -642,44 +471,6 @@ def sortNativeContactsByFoldon():
             print "Native contacts being monitored:"
             print foldon.nativefoldoncontactlist
 
-def readHeatCapacityFile(heatcapacityfile):
-    heatcapacity = []
-    f = open(heatcapacityfile, 'r')
-    for line in f:
-        line = line.split()
-        heatcapacity.append([line[0],line[1]])
-
-    return heatcapacity
-
-def findFoldingTemperature(heatcapacity):
-    foldingtemperature = 0.0
-    maxheatcapacity = 0.0
-    for index in range(len(heatcapacity)):
-        if float(heatcapacity[index][1]) > float(maxheatcapacity):
-            maxheatcapacity = heatcapacity[index][1]
-            foldingtemperature = heatcapacity[index][0]
-    
-    return int(float(foldingtemperature))
-
-def findBasins(foldingtemperature):
-    unfoldedQ = 0.0
-    foldedQ = 0.0
-    minfreeenergy = 100000
-    for Q in floatRange(0.0,0.5,0.01):
-        freeenergy = FofQandT(Q,foldingtemperature)
-        if freeenergy < minfreeenergy:
-            minfreeenergy = freeenergy
-            unfoldedQ = Q
-
-    minfreeenergy = 100000
-    for Q in floatRange(0.5,1.0,0.01):
-        freeenergy = FofQandT(Q,foldingtemperature)
-        if freeenergy < minfreeenergy:
-            minfreeenergy = freeenergy
-            foldedQ = Q
-
-    return unfoldedQ, foldedQ
-
 def floatRange(a, b, inc):
     try: x = [float(a)]
     except: return False
@@ -687,9 +478,6 @@ def floatRange(a, b, inc):
         x. append(a + i * inc)
     
     return x
-
-def findStabilityGap(unfoldedQ,foldedQ,temperature):
-    return FofQandT(foldedQ,temperature) - FofQandT(unfoldedQ,temperature)
 
 def calculateRank(ustatecode):
     rank = 0;
@@ -731,7 +519,7 @@ def findUstateStabilityGap(minrank,maxrank):
     minrankminfreeenergy = 9999999.9
     maxrankminfreeenergy = 9999999.9
     microstateindex = 0
-    for microstate in microstatecodes:
+    for microstate in binmicrostatecodes:
         if calculateRank(microstate) == minrank:
             if microstatefreeenergies[microstateindex] < minrankminfreeenergy:
                 minrankminfreeenergy = microstatefreeenergies[microstateindex]
@@ -744,13 +532,65 @@ def findUstateStabilityGap(minrank,maxrank):
 
     return maxrankminfreeenergy - minrankminfreeenergy
 
-def assignAllProbabilities(extrapolatedtemperature):
-    for i in range(len(sortedsnapshots)):
-        for j in range(len(sortedsnapshots[i])):
-            sortedsnapshots[i][j].assignProbability(extrapolatedtemperature)
-
 def findUnfoldedAndFoldedStates():
     return len(foldons)*'0', len(foldons)*'1'
+
+def subsampleTrajectories():
+    for k in range(K):
+        N = len(trajectories[k].snapshots)
+        for n in range(N):
+            snapshot = trajectories[k].snapshots[n]
+            qw_kt[k,n] = snapshot.Q
+            reducedU_kt[k,n] = snapshot.reducedenergy
+            U_kt[k,n] = snapshot.internalenergy
+            UB_kt[k,n] = snapshot.biasingenergy
+            ustate_kt[k,n] = decimalfoldonstate(snapshot.ustate.code)
+        # Extract timeseries.
+        A_t = qw_kt[k,:]
+        # Compute statistical inefficiency.
+        try:
+            g = timeseries.statisticalInefficiency(A_t)
+        except Exception as e:
+            print str(e)
+            print A_t
+        
+        # Subsample data.
+        if subsample:
+            indices = timeseries.subsampleCorrelatedData(A_t, g=g)
+        else:
+            indices = timeseries.subsampleCorrelatedData(A_t, g=1)
+        N_uncorr = len(indices) # number of uncorrlated samples
+        print "k = %5d : g = %.1f, N_uncorr = %d" % (k, g, N_uncorr)
+        qw_kn[k,0:N_uncorr] = qw_kt[k,indices]
+        U_kn[k,0:N_uncorr] = U_kt[k,indices]
+        reducedU_kn[k,0:N_uncorr] = reducedU_kt[k,indices]
+        UB_kn[k,0:N_uncorr] = UB_kt[k,indices]
+        ustate_kn[k,0:N_uncorr] = ustate_kt[k,indices]
+        N_k[k] = N_uncorr # number of uncorrelated samples
+
+def decimalfoldonstate(binaryfoldonstate):
+    decimalfoldonstate = 0
+    for i in range(len(binaryfoldonstate)):
+        decimalfoldonstate += pow(2,i)*int(binaryfoldonstate[i])
+    return decimalfoldonstate
+
+def binaryfoldonstate(decimalfoldonstate):
+    return bin(decimalfoldonstate)[2:].zfill(len(foldons))
+
+def computeReducedEnergies():
+    # Compute reduced potentials from all simulations in all thermodynamic states.
+    print "Computing reduced potentials..."
+    u_kln = numpy.zeros([K,K,N_max], numpy.float32) # u_kln[k,l,n] is reduced biased potential of uncorrelated snapshot n from simulation k in thermodynamic state l
+    for k in range(K):
+        N = N_k[k] # number of uncorrelated snapshots
+        # Compute reduced potential in all other temperatures and biasing potentials indexed by l.
+        for l in range(K):
+            kT = kb * samplingtemperature[l] # thermal energy (in kcal/mol)
+            beta = 1.0 / kT # inverse temperature (in 1 / (kcal/mol))
+            Ubias = (Kbias[l]/2.0) * (qw_kn[k,0:N] - biasing_value[l])**2
+            u_kln[k,l,0:N] = beta * (U_kn[k,0:N] + Ubias)
+    
+    return u_kln
 
 #############
 # Libraries #
@@ -765,25 +605,27 @@ import cPickle
 import gc
 import time as timefunctions
 
+# pymbar imports
+import timeseries
+import pymbar
+
 #########
 # Files #
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadata'
+metadataFile = './metadatashort'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
-foldonFile = './foldonshalfank'
+foldonFile = './foldonsfullank'
 # The dump file (LAMMPS format) of the native structure coordinates
 nativeDumpFile = './dump.native'
-# The directory containing free energy files in the output format of UltimateWHAM
-freeEnergyFileDirectory = '/opt/home/ns24/ultimatewham/results/1n0ramhgop2.0longep0.5extra-200-500-qw/freeenergyfiles/'
 # Overall rate file
 overallRateFile = './overallrates'
 # Trajectories pickle file
 trajectoriespicklefile = './trajectories.pkl'
-# Heat capapcity file
-heatcapacityfile = '/opt/home/ns24/ultimatewham/results/1n0ramhgop2.0longep0.5extra-200-500-qw/cv'
+# MBAR pickle file
+mbarpicklefile = './mbar.pkl'
 # Microstate ranks file prefix
 microstateInfoFilePrefix = './microstateinfo'
 # Eigenvalue debugging
@@ -816,17 +658,17 @@ foldonThreshold = 0.6
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 280
+starttemp = 250
 # Maximum temperature for computing overall rate
-endtemp = 320
+endtemp = 300
 # Temperature incremement
 tempinc = 1
-# read trajectories from metadata? if not, load trajectories.pkl
-readTrajectoriesFromMetadata = False
+# Temperature array
+temperatures = range(starttemp,endtemp+1,tempinc)
 # output microstate information for each temperature?
 outputMicrostateInfo = True
 # The frequency at which to accept snapshots from the dump file
-snapshotFreq = 1
+snapshotFreq = 1 # WARNING: Because of recent changes, using snapshotFreq != 1 may break something (because of the subsampling)
 # Always output rate matrix?
 alwaysOutputRateMatrix = True
 # Calculate time evolution and fluxes?
@@ -841,12 +683,21 @@ endTime = 0.0001 # time evolution will end at this time and the integrated flux 
 timeStep = 0.00001 # the concentration of the states will be calculated this often
 # Automatically determine time evolution interval?
 autoDetermineEvolutionInterval = True # if True, startTime, endTime and timeStep (above) are not used
-numTimeSteps = 1 # number of points to plot on time evolution if the interval is automatically determined
+numTimeSteps = 100 # number of points to plot on time evolution if the interval is automatically determined
 numRelaxationTimes = 5 # number of relaxation times (negative inverse of the smallest nonzero eigenvalue) to integrate out to
 # Show graphical evolution of concentration of states?
 graphicalEvolution = False
 # Calculate equilibrium flux? Otherwise, calculate net flux at end of time evolution
 calculateEquilibriumFlux = True
+
+# Time saving variables
+# read trajectories from metadata? if not, load trajectories.pkl
+readTrajectoriesFromMetadata = False
+# Initialize MBAR? Otherwise, load from pickle file
+initializeMBAR = True
+
+# MBAR parameters
+subsample = False
 
 ########################
 # Variables and arrays #
@@ -855,9 +706,10 @@ trajectories = []     # a list of Trajectory objects
 temperaturearray = [] # a list of temperature values for which free energies are available
 fofqandt = []         # a list containing all values of the free energy at all temperatures
 microstatecodes = []  # a list containing all (sampled) microstate codes
-sortedsnapshots = []  # a 2D list containing all snapshots corresponding to a given microstate code
+binmicrostatecodes = []  # a list containing all (sampled) microstate codes in binary
 microstateprobabilities = [] # a list containing all (sampled) microstate probabilities
 microstatefreeenergies = []  # a list containing all (sampled) microstate free energies
+microstateuncertainties = []  # a list containing all (sampled) microstate free energy uncertainties
 Z = 0.0 # the partition sum
 ratematrix = []   # the rate matrix
 eigenvectors = [] # eigenvectors of the rate matrix
@@ -868,36 +720,45 @@ overallrates = [] # stores all temperature/overall rate pairs calculated
 nativecontactlist = [] # stores all native contact pairs
 foldons = [] # a list of all foldons
 heatcapacity = [] # heat capacity array
-foldingTemperature = 0.0 # folding temperature
+foldingtemperature = 0.0 # folding temperature
 unfoldedQ = 0.0 # Q of the unfolded basin
 foldedQ = 0.0   # Q of the folded basin
-stabilitygap = 0.0 # stability gap between unfolded and folded basins
 ustateinfo = [] # a list of microstate information for each temperature
 nativedistances = [] # a list of the CA-CA distances
 minrank = 0 # minimum rank of a sampled microstate
 maxrank = 0 # maximum rank of a samples microstate
 ustatestabilitygap = 0.0 # free energy gap between microstate with minimum rank, minimum
                          # free energy and maximum rank, minimum free energy
-averageqofmicrostates = [] # the average Q of a given microstate
 fluxes = [] # fluxes between states
 initialconcentrations = [] # initial concentration of states
 unfoldedstate = "" # unfolded microstate code
 foldedstate = ""   # folded microstate code
 concentrations = [] # time dependence of the concentrations
 
+# MBAR related variables
+K = 18 # number of simulations/trajectories
+N_max = 10001 # maximum number of snapshots per trajectory
+N_k = numpy.zeros([K], numpy.int32) 
+qw_kt = numpy.zeros([K,N_max], numpy.float32) 
+U_kt = numpy.zeros([K,N_max], numpy.float32)
+reducedU_kt = numpy.zeros([K,N_max], numpy.float32)
+reducedU_kn = numpy.zeros([K,N_max], numpy.float32)
+UB_kt = numpy.zeros([K,N_max], numpy.float32)
+ustate_kt = numpy.zeros([K,N_max], numpy.int32)
+qw_kn = numpy.zeros([K,N_max], numpy.float32)
+U_kn = numpy.zeros([K,N_max], numpy.float32)
+UB_kn = numpy.zeros([K,N_max], numpy.float32)
+ustate_kn = -1 * numpy.ones([K,N_max], numpy.int32) 
+Kbias = []
+samplingtemperature = []
+biasing_value = []
+
 ################
 # Main program #
 ################
-# read heat capacity file
-heatcapacity = readHeatCapacityFile(heatcapacityfile)
-# read in all the free energy information, return minimum temperature (for indexing purposes)
-print "Reading free energy files..."
-mintemp = readAllFreeEnergies(freeEnergyFileDirectory)
 # find folding temperature
-foldingtemperature = findFoldingTemperature(heatcapacity)
+foldingtemperature = 267
 print "Folding temperature: " + str(foldingtemperature)
-# find folded and unfolded basins
-unfoldedQ, foldedQ = findBasins(foldingtemperature)
 # read in native coordinates for the purposes of computing contacts
 print "Reading native dump file..."
 nativeSnapshot = readNativeDumpFile(nativeDumpFile)[0]
@@ -918,58 +779,82 @@ if readTrajectoriesFromMetadata:
     # Pickle trajectories list for reading later
     print "Pickling trajectories..."
     cPickle.dump(trajectories, open(trajectoriespicklefile, 'wb')) 
+    cPickle.dump(Kbias, open('./kbias.pkl', 'wb'))
+    cPickle.dump(samplingtemperature, open('./samplingtemperature.pkl', 'wb'))
+    cPickle.dump(biasing_value, open('./biasingvalue.pkl', 'wb'))
+
 else:
     # load trajectories from existing Pickle file
     print "Loading pickled trajectories..."
     trajectories = cPickle.load(open(trajectoriespicklefile, 'rb'))
+    Kbias = cPickle.load(open('./kbias.pkl', 'rb'))
+    samplingtemperature = cPickle.load(open('./samplingtemperature.pkl', 'rb'))
+    biasing_value = cPickle.load(open('./biasingvalue.pkl', 'rb'))
+
+# subsample data because of time correlations in trajectories
+subsampleTrajectories()
 
 # find all the microstates present
 print "Finding all microstates..."
-microstatecodes = findAllUstates()
-print "Microstate codes: " + str(microstatecodes)
+(microstatecodes, binmicrostatecodes) = findAllUstates()
+print "Microstate codes: " + str(binmicrostatecodes)
 # finding folded and unfolded states
 unfoldedstate, foldedstate = findUnfoldedAndFoldedStates()
-# sort all snapshots according to their microstate
-print "Sorting all snapshots by microstate..."
-sortedsnapshots = sortAllSnapshots()
-# Calculate average global Q for each microstate
-print "Calculating average global Q of microstates..."
-averageqofmicrostates = calculateAverageQofMicrostates()
-print "Average global Q of microstates: " + str(averageqofmicrostates)
+# Make sure all bins are populated.
+print "Counting number of samples per bin..."
+nbins = len(microstatecodes)
+bin_counts = numpy.zeros([nbins], numpy.int32)
+for i in range(nbins):
+    code = microstatecodes[i]
+    bin_counts[i] = (ustate_kn == code).sum()
+print "Number of samples per microstate code: " + str(bin_counts)
+print "Computing reduced energies of all samples in all states..."
+u_kln = computeReducedEnergies()
+
+# Initialize or load MBAR.
+if initializeMBAR:
+    print "Initializing MBAR for the calculation of free energies..."
+    mbar = pymbar.MBAR(u_kln, N_k)
+    cPickle.dump(mbar, open(mbarpicklefile, 'wb')) 
+else:
+    # load MBAR object
+    print "Loading MBAR object..."
+    mbar = cPickle.load(open(mbarpicklefile, 'rb'))
+
+# Bin data
+bin_kn = -1 * numpy.ones([K,N_max], numpy.int32) # bin_kn[k,n] is bin index of sample n from simulation k; otherwise -1
+for k in range(K):
+    N = N_k[k]
+    # Compute bin assignment.
+    for n in range(N):
+        bin_kn[k,n] = microstatecodes.index(ustate_kn[k,n])
 
 # loop over all desired (extrapolated) temperatures, compute overall rate
-for temperature in range(starttemp,endtemp+1,tempinc):
-    print "Microstate codes: " + str(microstatecodes)
-    print "Average global Q of microstates: " + str(averageqofmicrostates)
+for temperature in temperatures:
+    print "Microstate codes: " + str(binmicrostatecodes)
     print "Calculating rate for temperature: " + str(temperature)
-    # find stability gap
-    print "Finding stability gap..."
-    stabilitygap = findStabilityGap(unfoldedQ,foldedQ,temperature)
-    # calculate partition function for a certain temperature
-    print "Calculating the partition function..."
-    Z = calcZ(temperature)
-    print "Z: " + str(Z)
-    # assign probabilities to all snapshots in all trajectories for a certain temperature
-    print "Assigning snapshot probabilities..."
-    assignAllProbabilities(temperature)
-    # calculate microstate probabilities (the temperature is implied by the snapshot probabilities)
-    print "Calculating microstate probabilities..."
-    microstateprobabilities = calculateUstateProbabilities()
-    print "Microstate probabilities: " + str(microstateprobabilities)
+    # Compute perturbed reduced potential at temperature of interest in absence of biasing potential.
+    print "Computing perturbed reduced potential at temperature of interest..."
+    u_kn = numpy.zeros([K,N_max], numpy.float32) # u_kn[k,n] is the unbiased reduced potential energy of snapshot n of umbrella simulation k at conditions of interest
+    kT = kb * temperature
+    beta = 1.0 / kT # reduced temperature
+    for k in range(K):
+        N = N_k[k]
+        u_kn[k,0:N] = beta * U_kn[k,0:N] # unbiased reduced potential at desired temperature
     # calculate microstate free energies for a certain temperature
     print "Calculating microstate free energies..."
-    microstatefreeenergies = calculateUstateFreeEnergies(temperature)
+    (microstatefreeenergies, microstateuncertainties) = mbar.computePMF(u_kn, bin_kn, nbins)  # Compute PMF in unbiased potential (in units of kT).
     print "Microstate free energies: " + str(microstatefreeenergies)
     # calculate rate matrix, given a temperature
     print "Calculating rate matrix..."
-    ratematrix = calculateRateMatrix(temperature)
+    ratematrix = calculateRateMatrix()
     if(alwaysOutputRateMatrix):
         numpy.savetxt('ratematrix'+str(temperature),ratematrix)
     print "Rate Matrix: \n" + str(ratematrix)
     # calculate and append microstate info
     info = []
     for i in range(len(microstatecodes)):
-        info.append([microstatecodes[i],calculateRank(microstatecodes[i]),microstatefreeenergies[i],averageqofmicrostates[i],len(sortedsnapshots[i])])
+        info.append([binmicrostatecodes[i],calculateRank(binmicrostatecodes[i]),microstatefreeenergies[i]])
     ustateinfo.append(info)
     minrank = findMinRank(info)
     maxrank = findMaxRank(info)
@@ -979,7 +864,7 @@ for temperature in range(starttemp,endtemp+1,tempinc):
     eigenvalues, eigenvectors, sortedeigenvalues, sortedeigenvectors = calculateEigenvectorsEigenvalues()
     print "Eigenvalues: \n" + str(sortedeigenvalues)
     print "Eigenvectors: \n " + str(sortedeigenvectors)
-    overallrates.append([temperature,stabilitygap,ustatestabilitygap,-sortedeigenvalues[1],-sortedeigenvalues[2]])
+    overallrates.append([temperature,ustatestabilitygap,numpy.log(-1*sortedeigenvalues[1]),numpy.log(-1*sortedeigenvalues[2])])
     #############################################
     # Begin time evolution and flux calculation #
     #############################################
@@ -1007,9 +892,9 @@ for temperature in range(starttemp,endtemp+1,tempinc):
         print "Setting initial concentrations..."
         initialconcentrations = numpy.zeros(len(microstatecodes))
         if(foldingSimulation):
-            initialconcentrations[microstatecodes.index(unfoldedstate)] = 1.0
+            initialconcentrations[binmicrostatecodes.index(unfoldedstate)] = 1.0
         else:
-            initialconcentrations[microstatecodes.index(foldedstate)] = 1.0
+            initialconcentrations[binmicrostatecodes.index(foldedstate)] = 1.0
         initialconcentrations = initialconcentrations[:,numpy.newaxis]
         print "Initial concentrations: \n%s\n" % str(initialconcentrations)
         coefficients = numpy.dot(LA.inv(eigenvectors),initialconcentrations)
@@ -1025,7 +910,7 @@ for temperature in range(starttemp,endtemp+1,tempinc):
                     total += coefficients[eigenvalueindex]*eigenvectors[state,eigenvalueindex]*numpy.exp(eigenvalues[eigenvalueindex]*float(time))
                 concentrations[state,timeIndex] = total
                 if(graphicalEvolution):
-                    print str(microstatecodes[state]) + ": " + int(concentrations[state,timeIndex]*100)*'#'
+                    print str(binmicrostatecodes[state]) + ": " + int(concentrations[state,timeIndex]*100)*'#'
             timeIndex += 1
             if(graphicalEvolution):
                 timefunctions.sleep(0.1)
@@ -1060,14 +945,16 @@ for temperature in range(starttemp,endtemp+1,tempinc):
         cPickle.dump(fluxes, open('fluxes'+str(temperature)+'.pkl', 'wb')) 
 
 f = open(overallRateFile, 'w')
+f.write("# temperature stability-gap first-rate second-rate\n")
 for i in range(len(overallrates)):
-    f.write("%f %f %f %e %e \n" % (overallrates[i][0],overallrates[i][1],overallrates[i][2],overallrates[i][3],overallrates[i][4]))
+    f.write("%f %f %e %e \n" % (overallrates[i][0],overallrates[i][1],overallrates[i][2],overallrates[i][3]))
 f.close()
 
 if outputMicrostateInfo:
     for temperature in range(starttemp,endtemp+1,tempinc):
         f = open(microstateInfoFilePrefix + "." + str(temperature), 'w')
+        f.write("# macrobasin rank free-energy-in-kT\n")
         ustateinformation = ustateinfo[int((temperature-starttemp)/tempinc)]
         for index in range(len(ustateinformation)):
-            f.write("%s %d %f %f %d \n" % (ustateinformation[index][0], ustateinformation[index][1], ustateinformation[index][2], ustateinformation[index][3], ustateinformation[index][4]))
+            f.write("%s %d %f \n" % (ustateinformation[index][0], ustateinformation[index][1], ustateinformation[index][2]))
         f.close()

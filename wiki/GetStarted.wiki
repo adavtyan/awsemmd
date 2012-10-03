@@ -7,7 +7,7 @@
 
 
 == What do you need ==
-  * *October 2012 7th* version of LAMMPS: http://lammps.sandia.gov/tars/lammps-7Oct12.tar.gz
+  * *October 2012* version of LAMMPS: http://lammps.sandia.gov/tars/lammps-7Oct12.tar.gz
   * FFTW 2.1.5: http://www.fftw.org/fftw-2.1.5.tar.gz
   * AWSEM code (see Source->Checkout)
 

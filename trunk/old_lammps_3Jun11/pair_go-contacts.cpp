@@ -31,6 +31,9 @@ using std::ifstream;
 
 using namespace LAMMPS_NS;
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
 /* ---------------------------------------------------------------------- */
 
 PairGoContacts::PairGoContacts(LAMMPS *lmp) : Pair(lmp)
@@ -195,7 +198,7 @@ void PairGoContacts::compute(int eflag, int vflag)
     }
   }
   
-  if (vflag_fdotr) virial_fdotr_compute();
+  if (vflag_fdotr) virial_compute();
 }
 
 /* ----------------------------------------------------------------------
@@ -224,7 +227,7 @@ void PairGoContacts::allocate()
 
 void PairGoContacts::settings(int narg, char **arg)
 {
-  if (narg != 2) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 2) error->all("Illegal pair_style command");
 
   int i,j,len;
 
@@ -254,7 +257,7 @@ void PairGoContacts::settings(int narg, char **arg)
   
   char varsection[100];
   ifstream in(parfile);
-  if (!in) error->all(FLERR,"Coefficient file was not found!");
+  if (!in) error->all("Coefficient file was not found!");
   while (!in.eof()) {
   	in >> varsection;
   	if (strcmp(varsection, "[Go-Model_LJ]")==0) {
@@ -279,7 +282,7 @@ void PairGoContacts::settings(int narg, char **arg)
   			in >> ires >> jres >> rn;
   			
   			if (ires>=nres || jres>=nres || ires<0 || jres<0 || abs(jres-ires)<=3)
-  				error->all(FLERR,"Pair style go-contacts: wrong residue index in contact map file");
+  				error->all("Pair style go-contacts: wrong residue index in contact map file");
   			
   			isNative[ires][jres] = isNative[jres][ires] = 1;
   			sigma[ires][jres] = sigma[jres][ires] = rn;
@@ -337,7 +340,7 @@ void PairGoContacts::settings(int narg, char **arg)
 
 void PairGoContacts::coeff(int narg, char **arg)
 {
-  if (narg != 2 && narg != 3) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (narg != 2 && narg != 3) error->all("Incorrect args for pair coefficients");
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -359,7 +362,7 @@ void PairGoContacts::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all("Incorrect args for pair coefficients");
 }
 
 /* ----------------------------------------------------------------------

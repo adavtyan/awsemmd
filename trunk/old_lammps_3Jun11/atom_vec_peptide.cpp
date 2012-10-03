@@ -11,10 +11,10 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
+#include "lmptype.h"
 #include "stdlib.h"
 #include "atom_vec_peptide.h"
 #include "atom.h"
-#include "comm.h"
 #include "domain.h"
 #include "modify.h"
 #include "fix.h"
@@ -22,6 +22,9 @@
 #include "error.h"
 
 using namespace LAMMPS_NS;
+
+#define MIN(A,B) ((A) < (B)) ? (A) : (B)
+#define MAX(A,B) ((A) > (B)) ? (A) : (B)
 
 #define DELTA 10000
 
@@ -58,7 +61,7 @@ void AtomVecPeptide::grow(int n)
   else nmax = n;
   atom->nmax = nmax;
   if (nmax < 0 || nmax > MAXSMALLINT)
-    error->one(FLERR,"Per-processor system is too big");
+    error->one("Per-processor system is too big");
 
   tag = memory->grow(atom->tag,nmax,"atom:tag");
   type = memory->grow(atom->type,nmax,"atom:type");
@@ -66,7 +69,7 @@ void AtomVecPeptide::grow(int n)
   image = memory->grow(atom->image,nmax,"atom:image");
   x = memory->grow(atom->x,nmax,3,"atom:x");
   v = memory->grow(atom->v,nmax,3,"atom:v");
-  f = memory->grow(atom->f,nmax*comm->nthreads,3,"atom:f");
+  f = memory->grow(atom->f,nmax,3,"atom:f");
 
   q = memory->grow(atom->q,nmax,"atom:q");
   molecule = memory->grow(atom->molecule,nmax,"atom:molecule");
@@ -608,7 +611,7 @@ int AtomVecPeptide::pack_exchange(int i, double *buf)
   buf[m++] = tag[i];
   buf[m++] = type[i];
   buf[m++] = mask[i];
-  *((tagint *) &buf[m++]) = image[i];
+  buf[m++] = image[i];
 
   buf[m++] = q[i];
   buf[m++] = molecule[i];
@@ -678,7 +681,7 @@ int AtomVecPeptide::unpack_exchange(double *buf)
   tag[nlocal] = static_cast<int> (buf[m++]);
   type[nlocal] = static_cast<int> (buf[m++]);
   mask[nlocal] = static_cast<int> (buf[m++]);
-  image[nlocal] = *((tagint *) &buf[m++]);
+  image[nlocal] = static_cast<int> (buf[m++]);
 
   q[nlocal] = buf[m++];
   molecule[nlocal] = static_cast<int> (buf[m++]);
@@ -771,7 +774,7 @@ int AtomVecPeptide::pack_restart(int i, double *buf)
   buf[m++] = tag[i];
   buf[m++] = type[i];
   buf[m++] = mask[i];
-  *((tagint *) &buf[m++]) = image[i];
+  buf[m++] = image[i];
   buf[m++] = v[i][0];
   buf[m++] = v[i][1];
   buf[m++] = v[i][2];
@@ -842,7 +845,7 @@ int AtomVecPeptide::unpack_restart(double *buf)
   tag[nlocal] = static_cast<int> (buf[m++]);
   type[nlocal] = static_cast<int> (buf[m++]);
   mask[nlocal] = static_cast<int> (buf[m++]);
-  image[nlocal] = *((tagint *) &buf[m++]);
+  image[nlocal] = static_cast<int> (buf[m++]);
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
@@ -909,8 +912,7 @@ void AtomVecPeptide::create_atom(int itype, double *coord)
   x[nlocal][1] = coord[1];
   x[nlocal][2] = coord[2];
   mask[nlocal] = 1;
-  image[nlocal] = ((tagint) IMGMAX << IMG2BITS) |
-    ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+  image[nlocal] = (512 << 20) | (512 << 10) | 512;
   v[nlocal][0] = 0.0;
   v[nlocal][1] = 0.0;
   v[nlocal][2] = 0.0;
@@ -932,21 +934,21 @@ void AtomVecPeptide::create_atom(int itype, double *coord)
    initialize other atom quantities
 ------------------------------------------------------------------------- */
 
-void AtomVecPeptide::data_atom(double *coord, tagint imagetmp, char **values)
+void AtomVecPeptide::data_atom(double *coord, int imagetmp, char **values)
 {
   int nlocal = atom->nlocal;
   if (nlocal == nmax) grow(0);
 
   tag[nlocal] = atoi(values[0]);
   if (tag[nlocal] <= 0)
-    error->one(FLERR,"Invalid atom ID in Atoms section of data file");
+    error->one("Invalid atom ID in Atoms section of data file");
 
   molecule[nlocal] = atoi(values[1]);
   residue[nlocal] = atoi(values[2]);
 
   type[nlocal] = atoi(values[3]);
   if (type[nlocal] <= 0 || type[nlocal] > atom->ntypes)
-    error->one(FLERR,"Invalid atom type in Atoms section of data file");
+    error->one("Invalid atom type in Atoms section of data file");
 
   q[nlocal] = atof(values[4]);
 
@@ -1001,7 +1003,7 @@ bigint AtomVecPeptide::memory_usage()
   if (atom->memcheck("image")) bytes += memory->usage(image,nmax);
   if (atom->memcheck("x")) bytes += memory->usage(x,nmax,3);
   if (atom->memcheck("v")) bytes += memory->usage(v,nmax,3);
-  if (atom->memcheck("f")) bytes += memory->usage(f,nmax*comm->nthreads,3);
+  if (atom->memcheck("f")) bytes += memory->usage(f,nmax,3);
 
   if (atom->memcheck("q")) bytes += memory->usage(q,nmax);
   if (atom->memcheck("molecule")) bytes += memory->usage(molecule,nmax);

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under
+   certain rights in this software.  This software is distributed under 
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -49,13 +49,12 @@ class AtomVecPeptide : public AtomVec {
   int pack_restart(int, double *);
   int unpack_restart(double *);
   void create_atom(int, double *);
-  void data_atom(double *, tagint, char **);
+  void data_atom(double *, int, char **);
   int data_atom_hybrid(int, char **);
   bigint memory_usage();
 
  protected:
-  int *tag,*type,*mask;
-  tagint *image;
+  int *tag,*type,*mask,*image;
   double **x,**v,**f;
   double *q;
   int *molecule;
@@ -78,20 +77,3 @@ class AtomVecPeptide : public AtomVec {
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Per-processor system is too big
-
-The number of owned atoms plus ghost atoms on a single
-processor must fit in 32-bit integer.
-
-E: Invalid atom ID in Atoms section of data file
-
-Atom IDs must be positive integers.
-
-E: Invalid atom type in Atoms section of data file
-
-Atom types must range from 1 to specified # of types.
-
-*/

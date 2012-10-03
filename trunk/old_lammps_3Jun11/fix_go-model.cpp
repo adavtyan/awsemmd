@@ -30,7 +30,6 @@ Last Update: 03/23/2011
 using std::ifstream;
 
 using namespace LAMMPS_NS;
-using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
@@ -47,7 +46,7 @@ inline void FixGoModel::print_log(char *line)
 FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
-	if (narg != 4) error->all(FLERR,"Illegal fix go-model command");
+	if (narg != 4) error->all("Illegal fix go-model command");
 	
 	efile = fopen("energyGO.log", "w");
 	
@@ -88,17 +87,17 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 
 	char varsection[100];
 	ifstream in(arg[3]);
-	if (!in) error->all(FLERR,"Coefficient file was not found!");
+	if (!in) error->all("Coefficient file was not found!");
 	while (!in.eof()) {
 		in >> varsection;
 		if (strcmp(varsection, "[Go-Model_LJ]")==0) {
-			if(gaussian_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all(FLERR,"Conflict in definition of contact potential !!");
+			if(gaussian_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
 			lj_contacts_flag = 1;
 			print_log("LJ Go-Model flag on\n");
 			allocate_contact();
 			in >> epsilon >> epsilon2 ;
 		} else if (strcmp(varsection, "[Go-Model_Gaussian]")==0) {
-			if(lj_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all(FLERR,"Conflict in definition of contact potential !!");
+			if(lj_contacts_flag || bonds_flag || angles_flag || dihedrals_flag || contacts_flag ) error->all("Conflict in definition of contact potential !!");
 			gaussian_contacts_flag = 1;
 			print_log("Gaussian Go-Model flag on\n");
 			in >> epsilon >> epsilon2 ;
@@ -147,7 +146,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 				}
 			}
 		} else if (strcmp(varsection, "[Contacts]")==0) {
-			if (!lj_contacts_flag && !gaussian_contacts_flag) error->all(FLERR,"Conflict in definition of contact potential !!");
+			if (!lj_contacts_flag && !gaussian_contacts_flag) error->all("Conflict in definition of contact potential !!");
 		
 			//allocate_contact();
 			contacts_flag = 1;
@@ -276,6 +275,18 @@ FixGoModel::~FixGoModel()
 }
 
 /* ---------------------------------------------------------------------- */
+inline int MIN(int a, int b)
+{
+	if ((a<b && a!=-1) || b==-1) return a;
+	else return b;
+}
+
+inline int MAX(int a, int b)
+{
+	if ((a>b && a!=-1) || b==-1) return a;
+	else return b;
+}
+
 inline bool FixGoModel::isFirst(int index)
 {
 	if (res_no[index]==1) return true;
@@ -310,7 +321,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 		int min = -1, jm = -1;
 		for (int j = 0; j < nall; ++j) {
 			if (i==0 && res_tag[j]<=0)
-				error->all(FLERR,"Residue index must be positive in fix go-model");
+				error->all("Residue index must be positive in fix go-model");
 			
 			if ( (mask[j] & groupbit) && res_tag[j]>last ) {
 				if (res_tag[j]<min || min==-1) {
@@ -340,10 +351,10 @@ inline void FixGoModel::Construct_Computational_Arrays()
 	
 		if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
 			if (lastResType==LOCAL && res_no[i]!=n)
-				error->all(FLERR,"Missing neighbor atoms in fix go-model (code: 001)");
+				error->all("Missing neighbor atoms in fix go-model (code: 001)");
 			if (lastResType==GHOST) {
 				if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
-					error->all(FLERR,"Missing neighbor atoms in fix go-model (code: 002)");
+					error->all("Missing neighbor atoms in fix go-model (code: 002)");
 			}
 			
 			iLastLocal = -1;
@@ -357,7 +368,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 			
 			if (alpha_carbons[i]<nlocal) {
 				if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
-					error->all(FLERR,"Missing neighbor atoms in fix go-model  (code: 003)");
+					error->all("Missing neighbor atoms in fix go-model  (code: 003)");
 				}
 				iLastLocal = i;
 				res_info[i] = LOCAL;
@@ -372,10 +383,10 @@ inline void FixGoModel::Construct_Computational_Arrays()
 		lastResType = res_info[i];
 	}
 	if (lastResType==LOCAL && res_no[nn-1]!=n)
-		error->all(FLERR,"Missing neighbor atoms in fix go-model  (code: 004)");
+		error->all("Missing neighbor atoms in fix go-model  (code: 004)");
 	if (lastResType==GHOST) {
 		if (iLastLocal!=-1 && nn-nMinNeighbours<=iLastLocal)
-			error->all(FLERR,"Missing neighbor atoms in fix go-model  (code: 005)");
+			error->all("Missing neighbor atoms in fix go-model  (code: 005)");
 	}
 }
 
@@ -444,7 +455,7 @@ int FixGoModel::setmask()
 
 void FixGoModel::init()
 {
-	if (strstr(update->integrate_style,"respa"))
+	if (strcmp(update->integrate_style,"respa") == 0)
 		nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }
 
@@ -452,7 +463,7 @@ void FixGoModel::init()
 
 void FixGoModel::setup(int vflag)
 {
-	if (strstr(update->integrate_style,"verlet"))
+	if (strcmp(update->integrate_style,"verlet") == 0)
 		post_force(vflag);
 	else {
 		((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
@@ -511,7 +522,7 @@ void FixGoModel::compute_bond(int i)
 {
 	int i_resno = res_no[i]-1;
 
-	if (i_resno>=n-1) error->all(FLERR,"Wrong use of compute_bond() in fix go-model");
+	if (i_resno>=n-1) error->all("Wrong use of compute_bond() in fix go-model");
 
 	double dx[3], r, dr, force;
 
@@ -537,7 +548,7 @@ void FixGoModel::compute_angle(int i)
 {
 	int i_resno = res_no[i]-1;
 
-	if (i_resno>=n-2) error->all(FLERR,"Wrong use of compute_angle() in fix go-model");
+	if (i_resno>=n-2) error->all("Wrong use of compute_angle() in fix go-model");
 
 	double a[3], b[3], a2, b2, A, B, AB, adb, alpha;
 	double theta, dtheta, force, factor[2][3];
@@ -590,7 +601,7 @@ void FixGoModel::compute_dihedral(int i)
 {
 	int i_resno = res_no[i]-1;
 
-	if (i_resno>=n-3) error->all(FLERR,"Wrong use of compute_dihedral() in fix go-model");
+	if (i_resno>=n-3) error->all("Wrong use of compute_dihedral() in fix go-model");
 
 	double phi, dphi, y_slope[4][3], x_slope[4][3], force, V;
 	double a[3], b[3], c[3];
@@ -707,7 +718,7 @@ void FixGoModel::compute_contact(int i, int j)
 	int i_resno = res_no[i]-1;
 	int j_resno = res_no[j]-1;
 
-	if (i_resno>=n-4 || j_resno<=i_resno+3) error->all(FLERR,"Wrong use of compute_contact() in fix go-model");
+	if (i_resno>=n-4 || j_resno<=i_resno+3) error->all("Wrong use of compute_contact() in fix go-model");
 
 	double dx[3], rsq, sgrinvsq, sgrinv12, sgrinv10;
 	double V, force, contact_epsilon;
@@ -759,7 +770,7 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 	int j_resno = res_no[j]-1;
 	int k, l;
 
-	if (i_resno>=n-4 || j_resno<=i_resno+3) error->all(FLERR,"Wrong use of compute_contact_gaussian() in fix go-model");
+	if (i_resno>=n-4 || j_resno<=i_resno+3) error->all("Wrong use of compute_contact_gaussian() in fix go-model");
 
 	double dx[3], r, dr, rsq;
 	double V, force, contact_epsilon;

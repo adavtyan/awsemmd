@@ -34,7 +34,7 @@ using namespace LAMMPS_NS;
 ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
-  if (narg != 5 && narg != 6 && narg != 7) error->all(FLERR,"Illegal compute qonuchic command");
+  if (narg != 5 && narg != 6 && narg != 7) error->all("Illegal compute qonuchic command");
 
   int len;
   char *ctype;
@@ -47,7 +47,7 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   igroup = group->find(arg[1]);
   groupbit = group->bitmask[igroup];
   if (igroup == -1) 
-		error->all(FLERR,"Could not find compute qonuchic group ID"); 
+		error->all("Could not find compute qonuchic group ID"); 
   
   len = strlen(arg[3]) + 1;
   ctype = new char[len];
@@ -56,10 +56,10 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   if (strcmp(ctype, "cutoff")==0 || strcmp(ctype, "cutoff/gauss")==0) {
   	if (strcmp(ctype, "cutoff")==0) {
 	  	cp_type = T_CUTOFF;
-	  	if (narg != 7) error->all(FLERR,"Illegal compute qonuchic command");
+	  	if (narg != 7) error->all("Illegal compute qonuchic command");
 	} else {
 		cp_type = T_CUTOFF_GAUSS;
-		if (narg != 6) error->all(FLERR,"Illegal compute qonuchic command");
+		if (narg != 6) error->all("Illegal compute qonuchic command");
 	}
 
   	r_contact = atof(arg[4]);
@@ -73,10 +73,10 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   } else if (strcmp(ctype, "shadow")==0 || strcmp(ctype, "shadow/gauss")==0) {
   	if (strcmp(ctype, "shadow")==0) {
   		cp_type = T_SHADOW;
-  		if (narg != 6) error->all(FLERR,"Illegal compute qonuchic command");
+  		if (narg != 6) error->all("Illegal compute qonuchic command");
   	} else {
   		cp_type = T_SHADOW_GAUSS;
-  		if (narg != 5) error->all(FLERR,"Illegal compute qonuchic command");
+  		if (narg != 5) error->all("Illegal compute qonuchic command");
   	}
   	
   	len = strlen(arg[4]) + 1;
@@ -85,7 +85,7 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   	
  	if (cp_type==T_SHADOW) factor = atof(arg[5]);
   } else {
-  	error->all(FLERR,"Wrong type for compute qonuchic"); 
+  	error->all("Wrong type for compute qonuchic"); 
   }
   
   sigmaexp = 0.15;
@@ -137,7 +137,7 @@ ComputeQOnuchic::~ComputeQOnuchic()
 void ComputeQOnuchic::init()
 {
   if (atom->tag_enable == 0)
-    error->all(FLERR,"Cannot use compute qonuchic unless atoms have IDs");
+    error->all("Cannot use compute qonuchic unless atoms have IDs");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -150,7 +150,7 @@ void ComputeQOnuchic::createContactArrays()
 	  FILE *fnative;
 	  
 	  fnative = fopen(datafile, "r");
-	  if (!fnative) error->all(FLERR,"Compute qonuchic: can't read native coordinates");
+	  if (!fnative) error->all("Compute qonuchic: can't read native coordinates");
 	  fscanf(fnative, "%d",&nAtoms);
 	  allocate();
 	  for (i=0;i<nAtoms;++i) {
@@ -159,7 +159,7 @@ void ComputeQOnuchic::createContactArrays()
 	  fclose(fnative);
 	  
 	  if (group->count(igroup)!=nAtoms)
-		error->all(FLERR,"Compute qonuchic: atom number mismatch");
+		error->all("Compute qonuchic: atom number mismatch");
 	  
 	  double dx[3];
 	  qnorm = 0.0;
@@ -197,14 +197,14 @@ void ComputeQOnuchic::createContactArrays()
   	
   	qnorm = 0.0;  	
   	fshadow = fopen(datafile, "r");
-  	if (!fshadow) error->all(FLERR,"Compute qonuchic: can't read contact map file");
+  	if (!fshadow) error->all("Compute qonuchic: can't read contact map file");
   	while (!feof(fshadow)) {
   		fscanf(fshadow, "%d %d %lf\n",&ires, &jres, &rn);
   		ires--;
   		jres--;
   		
   		if (ires>=nAtoms || jres>=nAtoms || ires<0 || jres<0 || abs(jres-ires)<=3)
-  			error->all(FLERR,"Compute qonuchic: wrong residue index in shadow contact map file");
+  			error->all("Compute qonuchic: wrong residue index in shadow contact map file");
   		
   		is_native[ires][jres] = true;
   		rsq_native[ires][jres] = rn*rn;

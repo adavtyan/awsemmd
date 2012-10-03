@@ -9,7 +9,7 @@
 #include "mpi.h"
 #include "math.h"
 #include "string.h"
-#include "compute_pairdistmat.h"
+#include "compute_contactmap.h"
 #include "atom.h"
 #include "update.h"
 #include "domain.h"
@@ -23,20 +23,25 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- 
 
-   This routine can be used to compute pairwise distance matrices on the fly.
+   This routine can be used to compute contact maps on the fly.
 
    To perform this compute, insert a line like this in your input file:
-   compute 	pairdistmat alpha_carbons pairdistmat 
+   compute 	contactmap alpha_carbons contactmap 8.5
+
+   Note that 8.5 is an example of the distance threshold to be considered
+   in contact.
 
    ---------------------------------------------------------------------- */
 
-ComputePairdistmat::ComputePairdistmat(LAMMPS *lmp, int narg, char **arg) :
+ComputeContactmap::ComputeContactmap(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
   // If the incorrect number of arguments are given in the compute command, quit
-  // the 3 arguments that come after "compute" in the input file are:
-  // compute-ID group-ID pairdistmat
-  if (narg != 3) error->all(FLERR,"Illegal compute pairdistmat command, incorrect number of arguments");
+  // the 4 arguments that come after "compute" in the input file are:
+  // compute-ID group-ID contactmap cutoff
+  // cutoff is the threshold distance for two CA atoms to be considered to
+  // be in contact 
+  if (narg != 4) error->all("Illegal compute contactmap command");
 
   int len; // used below to store lengths of strings
   
@@ -49,43 +54,46 @@ ComputePairdistmat::ComputePairdistmat(LAMMPS *lmp, int narg, char **arg) :
 
   // Send an error if the ID is not properly specified
   if (igroup == -1) 
-    error->all(FLERR,"Could not find compute totalcontacts group ID"); 
+    error->all("Could not find compute totalcontacts group ID"); 
 
   // find the number of residues in the group
   numres = (int)(group->count(igroup)+1e-12);
 
+  // make variable based on cutoff and sep
+  cutoff = atof(arg[3]);
+
   // create file to store contact map timeseries
-  pairdistmatfile = fopen("pairdistmattimeseries", "w");
+  contactmapfile = fopen("contactmaptimeseries", "w");
 }
 
 /* ---------------------------------------------------------------------- */
 
-ComputePairdistmat::~ComputePairdistmat()
+ComputeContactmap::~ComputeContactmap()
 {
   
 }
 
 /* ---------------------------------------------------------------------- */
 
-void ComputePairdistmat::init()
+void ComputeContactmap::init()
 {
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
-    error->all(FLERR,"Cannot use compute pairdistmat unless atoms have IDs");
+    error->all("Cannot use compute contactmap unless atoms have IDs");
 }
 
 /* ---------------------------------------------------------------------- */
 
-double ComputePairdistmat::compute_scalar()
+double ComputeContactmap::compute_scalar()
 {
   // loop variables and residue numbers
   int i, j, ires, jres;
   // instantaneous distance of atoms i and j
   double rij;
-  // pairwise distance array
-  double** pairdistmat = new double*[numres];
+  // contact map array
+  int** contactmap = new int*[numres];
   for(int i = 0; i < numres; ++i)
-    pairdistmat[i] = new double[numres];
+    contactmap[i] = new int[numres];
 
 
   double **x = atom->x; // atom positions
@@ -109,21 +117,28 @@ double ComputePairdistmat::compute_scalar()
       jres = residue[j]-1;
       // get the instantaneous distance
       rij=sqrt(pow(x[i][0]-x[j][0],2)+pow(x[i][1]-x[j][1],2)+pow(x[i][2]-x[j][2],2));
-      pairdistmat[ires][jres]=rij;
-      pairdistmat[jres][ires]=rij;
-
+      // check to see if instantaneous distance is less than threshold
+      if (rij<cutoff) {
+	// add the contribution to tc
+	contactmap[ires][jres]=1;
+	contactmap[jres][ires]=1;
+      }
+      else {
+	contactmap[ires][jres]=0;
+	contactmap[jres][ires]=0;
+      }    
     }
   }
 
   int ntimestep=update->ntimestep;
 
-  fprintf(pairdistmatfile,"timestep %d\n",ntimestep); 
-  // print pairwise distance matrix to file
+  fprintf(contactmapfile,"timestep %d\n",ntimestep); 
+  // print contact map to file
   for(i=0; i<numres; i++) {
     for(j=0; j<numres; j++) {
-      fprintf(pairdistmatfile,"%.3f ", pairdistmat[i][j]);
+      fprintf(contactmapfile,"%d ", contactmap[i][j]);
     }
-    fprintf(pairdistmatfile,"\n");
+    fprintf(contactmapfile,"\n");
   }
   
   // make a variable to return

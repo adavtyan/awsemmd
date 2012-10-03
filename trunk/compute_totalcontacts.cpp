@@ -44,7 +44,7 @@ ComputeTotalcontacts::ComputeTotalcontacts(LAMMPS *lmp, int narg, char **arg) :
   // cutoff is the threshold distance for two CA atoms to be considered to
   // be in contact and sep is the minimum number of residues separating any two
   // residues that can be considered to be in contact
-  if (narg != 5) error->all("Illegal compute totalcontacts command");
+  if (narg != 5) error->all(FLERR,"Illegal compute totalcontacts command");
 
   int len; // used below to store lengths of strings
   
@@ -57,7 +57,7 @@ ComputeTotalcontacts::ComputeTotalcontacts(LAMMPS *lmp, int narg, char **arg) :
 
   // Send an error if the ID is not properly specified
   if (igroup == -1) 
-    error->all("Could not find compute totalcontacts group ID"); 
+    error->all(FLERR,"Could not find compute totalcontacts group ID"); 
 
   // find the number of residues in the group
   numres = (int)(group->count(igroup)+1e-12);
@@ -80,7 +80,7 @@ void ComputeTotalcontacts::init()
 {
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
-    error->all("Cannot use compute totalcontacts unless atoms have IDs");
+    error->all(FLERR,"Cannot use compute totalcontacts unless atoms have IDs");
 }
 
 /* ---------------------------------------------------------------------- */

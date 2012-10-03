@@ -21,6 +21,9 @@ Last Update: 12/01/2010
 
 using namespace LAMMPS_NS;
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
 /* ---------------------------------------------------------------------- */
 
 PairExcludedVolume::PairExcludedVolume(LAMMPS *lmp) : Pair(lmp)
@@ -99,6 +102,12 @@ void PairExcludedVolume::compute(int eflag, int vflag)
       ires = atom->residue[i];
       jres = atom->residue[j];
 
+/*      if (j < nall) factor_lj = 1.0;
+      else {
+	factor_lj = special_lj[j/nall];
+	j %= nall;
+      }*/
+      
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
@@ -133,7 +142,7 @@ void PairExcludedVolume::compute(int eflag, int vflag)
     }
   }
 
-  if (vflag_fdotr) virial_fdotr_compute();
+  if (vflag_fdotr) virial_compute();
 }
 
 /* ----------------------------------------------------------------------
@@ -173,7 +182,7 @@ void PairExcludedVolume::allocate()
 
 void PairExcludedVolume::settings(int narg, char **arg)
 { 
-  if (narg != 3) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 3) error->all("Illegal pair_style command");
 
   p = atoi(arg[0]);
   cut_global[0] = atof(arg[1]);
@@ -198,7 +207,7 @@ void PairExcludedVolume::settings(int narg, char **arg)
 
 void PairExcludedVolume::coeff(int narg, char **arg)
 {
-  if (narg != 3 && narg != 5) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (narg != 3 && narg != 5) error->all("Incorrect args for pair coefficients");
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -227,7 +236,7 @@ void PairExcludedVolume::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all("Incorrect args for pair coefficients");
 }
 
 /* ----------------------------------------------------------------------

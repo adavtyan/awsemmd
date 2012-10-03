@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -26,6 +26,7 @@ class Atom : protected Pointers {
   // atom counts
 
   bigint natoms;                // total # of atoms in system, could be 0
+                                // natoms may not be current if atoms lost
   int nlocal,nghost;            // # of owned and ghost atoms on this proc
   int nmax;                     // max # of owned+ghost in arrays on this proc
   int tag_enable;               // 0/1 if atom ID tags are defined
@@ -43,7 +44,8 @@ class Atom : protected Pointers {
   // per-atom arrays
   // customize by adding new array
 
-  int *tag,*type,*mask,*image;
+  int *tag,*type,*mask;
+  tagint *image;
   double **x,**v,**f;
 
   int *molecule;
@@ -52,9 +54,15 @@ class Atom : protected Pointers {
   double **omega,**angmom,**torque;
   double *radius,*rmass,*vfrac,*s0;
   double **x0;
-  int *ellipsoid;
+  int *ellipsoid,*line,*tri;
   int *spin;
-  double *eradius,*ervel,*erforce;
+  double *eradius,*ervel,*erforce,*ervelforce;
+  double *cs,*csforce,*vforce;
+  int *etag;
+  double *rho, *drho;
+  double *e, *de;
+  double **vest;
+  double *cv;
 
   int **nspecial;               // 0,1,2 = cummulative # of 1-2,1-3,1-4 neighs
   int **special;                // IDs of 1-2,1-3,1-4 neighs of each atom
@@ -76,16 +84,22 @@ class Atom : protected Pointers {
   int **improper_type;
   int **improper_atom1,**improper_atom2,**improper_atom3,**improper_atom4;
 
+  unsigned int datamask;
+  unsigned int datamask_ext;
+
   // atom style and per-atom array existence flags
   // customize by adding new flag
 
-  int sphere_flag,ellipsoid_flag,peri_flag,electron_flag;
+  int sphere_flag,ellipsoid_flag,line_flag,tri_flag,peri_flag,electron_flag;
+  int wavepacket_flag,sph_flag;
 
   int molecule_flag,q_flag,mu_flag, residue_flag;
   int rmass_flag,radius_flag,omega_flag,torque_flag,angmom_flag;
   int vfrac_flag,spin_flag,eradius_flag,ervel_flag,erforce_flag;
+  int cs_flag,csforce_flag,vforce_flag,ervelforce_flag,etag_flag;
+  int rho_flag,e_flag,cv_flag,vest_flag;
 
-  // extra peratom info in restart file destined for fix & diag 
+  // extra peratom info in restart file destined for fix & diag
 
   double **extra;
 
@@ -108,6 +122,10 @@ class Atom : protected Pointers {
 
   int sortfreq;             // sort atoms every this many steps, 0 = off
   bigint nextsort;          // next timestep to sort on
+
+  // indices of atoms with same ID
+
+  int *sametag;      // sametag[I] = next atom with same ID, -1 if no more
 
   // functions
 
@@ -164,7 +182,7 @@ class Atom : protected Pointers {
 
   // functions for global to local ID mapping
   // map lookup function inlined for efficiency
-  
+
   inline int map(int global) {
     if (map_style == 1) return map_array[global];
     else return map_find_hash(global);
@@ -181,8 +199,9 @@ class Atom : protected Pointers {
 
   // global to local ID mapping
 
-  int map_tag_max;
-  int *map_array;
+  int map_tag_max;      // size of map_array
+  int *map_array;       // direct map of length max atom ID + 1
+  int smax;             // max size of sametag
 
   struct HashElem {
     int global;                   // key to search on = global ID
@@ -195,8 +214,6 @@ class Atom : protected Pointers {
   int map_nbucket;                // # of hash buckets
   int *map_bucket;                // ptr to 1st entry in each bucket
   HashElem *map_hash;             // hash table
-  int *primes;                    // table of prime #s for hashing
-  int nprimes;                    // # of primes
 
   // spatial sorting of atoms
 
@@ -215,8 +232,142 @@ class Atom : protected Pointers {
   char *memstr;                   // string of array names already counted
 
   void setup_sort_bins();
+  int next_prime(int);
 };
 
 }
 
 #endif
+
+/* ERROR/WARNING messages:
+
+E: Invalid atom style
+
+The choice of atom style is unknown.
+
+E: Could not find atom_modify first group ID
+
+Self-explanatory.
+
+E: Illegal ... command
+
+Self-explanatory.  Check the input script syntax and compare to the
+documentation for the command.  You can use -echo screen as a
+command-line option when running LAMMPS to see the offending line.
+
+E: Atom_modify map command after simulation box is defined
+
+The atom_modify map command cannot be used after a read_data,
+read_restart, or create_box command.
+
+E: Atom_modify sort and first options cannot be used together
+
+Self-explanatory.
+
+E: Incorrect atom format in data file
+
+Number of values per atom line in the data file is not consistent with
+the atom style.
+
+E: Incorrect velocity format in data file
+
+Each atom style defines a format for the Velocity section
+of the data file.  The read-in lines do not match.
+
+E: Invalid atom ID in Velocities section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
+E: Incorrect bonus data format in data file
+
+See the read_data doc page for a description of how various kinds of
+bonus data must be formatted for certain atom styles.
+
+E: Invalid atom ID in Bonus section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
+E: Invalid atom ID in Bonds section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
+E: Invalid bond type in Bonds section of data file
+
+Bond type must be positive integer and within range of specified bond
+types.
+
+E: Invalid atom ID in Angles section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
+E: Invalid angle type in Angles section of data file
+
+Angle type must be positive integer and within range of specified angle
+types.
+
+E: Invalid atom ID in Dihedrals section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
+E: Invalid dihedral type in Dihedrals section of data file
+
+Dihedral type must be positive integer and within range of specified
+dihedral types.
+
+E: Invalid atom ID in Impropers section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
+E: Invalid improper type in Impropers section of data file
+
+Improper type must be positive integer and within range of specified
+improper types.
+
+E: Cannot set mass for this atom style
+
+This atom style does not support mass settings for each atom type.
+Instead they are defined on a per-atom basis in the data file.
+
+E: Invalid mass line in data file
+
+Self-explanatory.
+
+E: Invalid type for mass set
+
+Mass command must set a type from 1-N where N is the number of atom
+types.
+
+E: Invalid mass value
+
+Self-explanatory.
+
+E: All masses are not set
+
+For atom styles that define masses for each atom type, all masses must
+be set in the data file or by the mass command before running a
+simulation.  They must also be set before using the velocity
+command.
+
+E: Atom sort did not operate correctly
+
+This is an internal LAMMPS error.  Please report it to the
+developers.
+
+E: Atom sorting has bin size = 0.0
+
+The neighbor cutoff is being used as the bin size, but it is zero.
+Thus you must explicitly list a bin size in the atom_modify sort
+command or turn off sorting.
+
+E: Too many atom sorting bins
+
+This is likely due to an immense simulation box that has blown up
+to a large size.
+
+*/

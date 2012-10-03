@@ -28,7 +28,6 @@ Last Update: 12/01/2010
 using std::ifstream;
 
 using namespace LAMMPS_NS;
-using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
@@ -41,7 +40,7 @@ inline void FixQBias::print_log(char *line)
 FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
-	if (narg != 4) error->all(FLERR,"Illegal fix qbias command");
+	if (narg != 4) error->all("Illegal fix qbias command");
 	
 	efile = fopen("energyQ.log", "w");
 	
@@ -75,7 +74,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 	int i, j;
 	char varsection[30];
 	ifstream in(arg[3]);
-	if (!in) error->all(FLERR,"Coefficient file was not found!");
+	if (!in) error->all("Coefficient file was not found!");
 	while (!in.eof()) {
 		in >> varsection;
 		if (strcmp(varsection, "[Epsilon]")==0) {
@@ -117,7 +116,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 	print_log("\n");
 
 	ifstream in_rnative("rnative.dat");
-	if (!in_rnative) error->all(FLERR,"File rnative.dat can't be read");
+	if (!in_rnative) error->all("File rnative.dat can't be read");
 	for (i=0;i<n;++i)
 		for (j=0;j<n;++j)
 			in_rnative >> rN[i][j];
@@ -175,6 +174,18 @@ FixQBias::~FixQBias()
 }
 
 /* ---------------------------------------------------------------------- */
+inline int MIN(int a, int b)
+{
+	if ((a<b && a!=-1) || b==-1) return a;
+	else return b;
+}
+
+inline int MAX(int a, int b)
+{
+	if ((a>b && a!=-1) || b==-1) return a;
+	else return b;
+}
+
 inline bool FixQBias::isFirst(int index)
 {
 	if (res_no[index]==1) return true;
@@ -209,7 +220,7 @@ inline void FixQBias::Construct_Computational_Arrays()
 		int min = -1, jm = -1;
 		for (int j = 0; j < nall; ++j) {
 			if (i==0 && res_tag[j]<=0)
-				error->all(FLERR,"Residue index must be positive in fix qbias");
+				error->all("Residue index must be positive in fix qbias");
 			
 			if ( (mask[j] & groupbit) && res_tag[j]>last ) {
 				if (res_tag[j]<min || min==-1) {
@@ -239,10 +250,10 @@ inline void FixQBias::Construct_Computational_Arrays()
 	
 		if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
 			if (lastResType==LOCAL && res_no[i]!=n)
-				error->all(FLERR,"Missing neighbor atoms in fix qbias (code: 001)");
+				error->all("Missing neighbor atoms in fix qbias (code: 001)");
 			if (lastResType==GHOST) {
 				if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
-					error->all(FLERR,"Missing neighbor atoms in fix qbias (code: 002)");
+					error->all("Missing neighbor atoms in fix qbias (code: 002)");
 			}
 			
 			iLastLocal = -1;
@@ -256,7 +267,7 @@ inline void FixQBias::Construct_Computational_Arrays()
 		
 			if (alpha_carbons[i]<nlocal) {
 				if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
-					error->all(FLERR,"Missing neighbor atoms in fix qbias  (code: 003)");
+					error->all("Missing neighbor atoms in fix qbias  (code: 003)");
 				}
 				iLastLocal = i;
 				res_info[i] = LOCAL;
@@ -271,10 +282,10 @@ inline void FixQBias::Construct_Computational_Arrays()
 		lastResType = res_info[i];
 	}
 	if (lastResType==LOCAL && res_no[nn-1]!=n)
-		error->all(FLERR,"Missing neighbor atoms in fix qbias  (code: 004)");
+		error->all("Missing neighbor atoms in fix qbias  (code: 004)");
 	if (lastResType==GHOST) {
 		if (iLastLocal!=-1 && nn-nMinNeighbours<=iLastLocal)
-			error->all(FLERR,"Missing neighbor atoms in fix qbias  (code: 005)");
+			error->all("Missing neighbor atoms in fix qbias  (code: 005)");
 	}
 }
 
@@ -319,7 +330,7 @@ int FixQBias::setmask()
 
 void FixQBias::init()
 {
-	if (strstr(update->integrate_style,"respa"))
+	if (strcmp(update->integrate_style,"respa") == 0)
 		nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }
 
@@ -327,7 +338,7 @@ void FixQBias::init()
 
 void FixQBias::setup(int vflag)
 {
-	if (strstr(update->integrate_style,"verlet"))
+	if (strcmp(update->integrate_style,"verlet") == 0)
 		post_force(vflag);
 	else {
 		((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);

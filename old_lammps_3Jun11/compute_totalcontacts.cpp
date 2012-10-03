@@ -3,13 +3,13 @@
 
    Wolynes Group, Rice University
 
-   Created on: 2/22/12
+   Last Update: 09/23/2011
    ------------------------------------------------------------------------- */
 
 #include "mpi.h"
 #include "math.h"
 #include "string.h"
-#include "compute_pairdistmat.h"
+#include "compute_totalcontacts.h"
 #include "atom.h"
 #include "update.h"
 #include "domain.h"
@@ -23,20 +23,28 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- 
 
-   This routine can be used to compute pairwise distance matrices on the fly.
+   This routine can be used to compute the total number of contacts.
 
-   To perform this compute, insert a line like this in your input file:
-   compute 	pairdistmat alpha_carbons pairdistmat 
+   To output this compute to a file:
+   compute 	1 beta_atoms totalcontacts 6.5 2
+   variable	tc equal c_1
+   fix  		 tc all print 100 "${tc}" file tc.dat screen no
+
+   Note that 6.5 and 2 above are examples of the distance threshold
+   and sequence separation, respectively.
 
    ---------------------------------------------------------------------- */
 
-ComputePairdistmat::ComputePairdistmat(LAMMPS *lmp, int narg, char **arg) :
+ComputeTotalcontacts::ComputeTotalcontacts(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg)
 {
   // If the incorrect number of arguments are given in the compute command, quit
-  // the 3 arguments that come after "compute" in the input file are:
-  // compute-ID group-ID pairdistmat
-  if (narg != 3) error->all(FLERR,"Illegal compute pairdistmat command, incorrect number of arguments");
+  // the 5 arguments that come after "compute" in the input file are:
+  // compute-ID group-ID totalcontacts cutoff sep
+  // cutoff is the threshold distance for two CA atoms to be considered to
+  // be in contact and sep is the minimum number of residues separating any two
+  // residues that can be considered to be in contact
+  if (narg != 5) error->all("Illegal compute totalcontacts command");
 
   int len; // used below to store lengths of strings
   
@@ -49,44 +57,42 @@ ComputePairdistmat::ComputePairdistmat(LAMMPS *lmp, int narg, char **arg) :
 
   // Send an error if the ID is not properly specified
   if (igroup == -1) 
-    error->all(FLERR,"Could not find compute totalcontacts group ID"); 
+    error->all("Could not find compute totalcontacts group ID"); 
 
   // find the number of residues in the group
   numres = (int)(group->count(igroup)+1e-12);
 
-  // create file to store contact map timeseries
-  pairdistmatfile = fopen("pairdistmattimeseries", "w");
+  // make variable based on cutoff and sep
+  cutoff = atof(arg[3]);
+  sep = atoi(arg[4]);
 }
 
 /* ---------------------------------------------------------------------- */
 
-ComputePairdistmat::~ComputePairdistmat()
+ComputeTotalcontacts::~ComputeTotalcontacts()
 {
   
 }
 
 /* ---------------------------------------------------------------------- */
 
-void ComputePairdistmat::init()
+void ComputeTotalcontacts::init()
 {
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
-    error->all(FLERR,"Cannot use compute pairdistmat unless atoms have IDs");
+    error->all("Cannot use compute totalcontacts unless atoms have IDs");
 }
 
 /* ---------------------------------------------------------------------- */
 
-double ComputePairdistmat::compute_scalar()
+double ComputeTotalcontacts::compute_scalar()
 {
   // loop variables and residue numbers
   int i, j, ires, jres;
   // instantaneous distance of atoms i and j
   double rij;
-  // pairwise distance array
-  double** pairdistmat = new double*[numres];
-  for(int i = 0; i < numres; ++i)
-    pairdistmat[i] = new double[numres];
-
+  // total contacts
+  double tc=0.0;
 
   double **x = atom->x; // atom positions
   int *mask = atom->mask; // atom mask (?)
@@ -102,33 +108,26 @@ double ComputePairdistmat::compute_scalar()
     // get residue number of atom i
     ires = residue[i]-1;
     // loop over all pairs of atoms
-    for (j=i;j<nall;j++) {
+    for (j=i+1;j<nall;j++) {
       // check to make sure this atom is also in the group
       if (!(mask[j] & groupbit)) continue;
       // get residue number of atom j
       jres = residue[j]-1;
-      // get the instantaneous distance
-      rij=sqrt(pow(x[i][0]-x[j][0],2)+pow(x[i][1]-x[j][1],2)+pow(x[i][2]-x[j][2],2));
-      pairdistmat[ires][jres]=rij;
-      pairdistmat[jres][ires]=rij;
-
+      // check to make sure the atoms are separated by sep residues
+      if (abs(jres-ires)>sep) {
+	// get the instantaneous distance
+	rij=sqrt(pow(x[i][0]-x[j][0],2)+pow(x[i][1]-x[j][1],2)+pow(x[i][2]-x[j][2],2));
+	// check to see if instantaneous distance is less than threshold
+	if (rij<cutoff) {
+	  // add the contribution to tc
+	  tc=tc+1;
+	}
+      }
     }
   }
 
-  int ntimestep=update->ntimestep;
-
-  fprintf(pairdistmatfile,"timestep %d\n",ntimestep); 
-  // print pairwise distance matrix to file
-  for(i=0; i<numres; i++) {
-    for(j=0; j<numres; j++) {
-      fprintf(pairdistmatfile,"%.3f ", pairdistmat[i][j]);
-    }
-    fprintf(pairdistmatfile,"\n");
-  }
-  
-  // make a variable to return
-  scalar=1; 
-
+  // reduce tc across processors, store in scalar
+  MPI_Allreduce(&tc,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
   // return the number of totalcontacts
   return scalar;
 }

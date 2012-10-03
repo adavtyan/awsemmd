@@ -36,7 +36,7 @@ ComputePairdistmat::ComputePairdistmat(LAMMPS *lmp, int narg, char **arg) :
   // If the incorrect number of arguments are given in the compute command, quit
   // the 3 arguments that come after "compute" in the input file are:
   // compute-ID group-ID pairdistmat
-  if (narg != 3) error->all(FLERR,"Illegal compute pairdistmat command, incorrect number of arguments");
+  if (narg != 3) error->all("Illegal compute pairdistmat command, incorrect number of arguments");
 
   int len; // used below to store lengths of strings
   
@@ -49,7 +49,7 @@ ComputePairdistmat::ComputePairdistmat(LAMMPS *lmp, int narg, char **arg) :
 
   // Send an error if the ID is not properly specified
   if (igroup == -1) 
-    error->all(FLERR,"Could not find compute totalcontacts group ID"); 
+    error->all("Could not find compute totalcontacts group ID"); 
 
   // find the number of residues in the group
   numres = (int)(group->count(igroup)+1e-12);
@@ -71,7 +71,7 @@ void ComputePairdistmat::init()
 {
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
-    error->all(FLERR,"Cannot use compute pairdistmat unless atoms have IDs");
+    error->all("Cannot use compute pairdistmat unless atoms have IDs");
 }
 
 /* ---------------------------------------------------------------------- */

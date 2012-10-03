@@ -36,7 +36,6 @@ using std::ifstream;
 #define delta 0.00001
 
 using namespace LAMMPS_NS;
-using namespace FixConst;
 
 //double fm_f[100][2][3], tfm_f[100][2][3];
 //double err=0.0, err_max=0.0, err_max2=0.0;
@@ -77,7 +76,7 @@ inline void FixBackbone::print_log(char *line)
 FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
-  if (narg != 7) error->all(FLERR,"Illegal fix backbone command");
+  if (narg != 7) error->all("Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
 	
@@ -119,20 +118,20 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
   igroup2 = group->find(arg[3]);
   if (igroup2 == -1) 
-    error->all(FLERR,"Could not find fix backbone beta atoms group ID"); 
+    error->all("Could not find fix backbone beta atoms group ID"); 
   igroup3 = group->find(arg[4]);
   if (igroup3 == -1) 
-    error->all(FLERR,"Could not find fix backbone oxygen atoms group ID"); 
+    error->all("Could not find fix backbone oxygen atoms group ID"); 
   if (igroup2 == igroup || igroup3 == igroup || igroup2 == igroup3) 
-    error->all(FLERR,"Two groups cannot be the same in fix backbone"); 
+    error->all("Two groups cannot be the same in fix backbone"); 
   if (group->count(igroup)!=group->count(igroup2) || group->count(igroup2)!=group->count(igroup3))
-    error->all(FLERR,"All groups must contain the same # of atoms in fix backbone");
+    error->all("All groups must contain the same # of atoms in fix backbone");
   group2bit = group->bitmask[igroup2];
   group3bit = group->bitmask[igroup3];
 	
   char varsection[30];
   ifstream in(arg[5]);
-  if (!in) error->all(FLERR,"Coefficient file was not found!");
+  if (!in) error->all("Coefficient file was not found!");
   while (!in.eof()) {
     in >> varsection;
     if (strcmp(varsection, "[ABC]")==0) {
@@ -289,12 +288,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       for (int j=0;j<20;++j)
         in >> ssb_rshift[j];
     } else if (strcmp(varsection, "[Phosphorylation]")==0) {
-      if (!water_flag) error->all(FLERR,"Cannot run phosphorylation without water potential");
+      if (!water_flag) error->all("Cannot run phosphorylation without water potential");
       phosph_flag = 1;
       if (comm->me==0) print_log("Phosphorylation flag on\n");
       in >> k_hypercharge;
       in >> n_phosph_res;
-      if (n_phosph_res > 20) error->all(FLERR,"Number of phosphorylated residues may not exceed 20");
+      if (n_phosph_res > 20) error->all("Number of phosphorylated residues may not exceed 20");
       for (int i=0;i<n_phosph_res;++i)
 	in >> phosph_res[i];
       
@@ -307,7 +306,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 
   // Read sequance file
   ifstream ins(arg[6]);
-  if (!ins) error->all(FLERR,"Sequence file was not found");
+  if (!ins) error->all("Sequence file was not found");
   char buf[1000];
   se[0]='\0';
   nch = 0;
@@ -346,11 +345,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     ifstream in_para_one("para_one");
     ifstream in_anti_one("anti_one");
     
-    if (!in_anti_HB) error->all(FLERR,"File anti_HB doesn't exist");
-    if (!in_anti_NHB) error->all(FLERR,"File anti_NHB doesn't exist");
-    if (!in_para_HB) error->all(FLERR,"File para_HB doesn't exist");
-    if (!in_para_one) error->all(FLERR,"File para_one doesn't exist");
-    if (!in_anti_one) error->all(FLERR,"File anti_one doesn't exist");
+    if (!in_anti_HB) error->all("File anti_HB doesn't exist");
+    if (!in_anti_NHB) error->all("File anti_NHB doesn't exist");
+    if (!in_para_HB) error->all("File para_HB doesn't exist");
+    if (!in_para_one) error->all("File para_one doesn't exist");
+    if (!in_anti_one) error->all("File anti_one doesn't exist");
     
     for (i=0;i<20;++i) {
       in_para_one >> m_para_one[i];
@@ -377,7 +376,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 
   if (ssweight_flag) {
     ifstream in_ssw("ssweight");
-    if (!in_ssw) error->all(FLERR,"File ssweight doesn't exist");
+    if (!in_ssw) error->all("File ssweight doesn't exist");
     for (j=0;j<n;++j) {
       for (i=0;i<12;++i) {
 	if (ssweight[i]) in_ssw >> aps[i][j]; else aps[i][j] = 0.0;
@@ -388,7 +387,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 
   if (water_flag) {
     ifstream in_wg("gamma.dat");
-    if (!in_wg) error->all(FLERR,"File gamma.dat doesn't exist");
+    if (!in_wg) error->all("File gamma.dat doesn't exist");
     for (int i_well=0;i_well<n_wells;++i_well) {
       for (i=0;i<20;++i) {
 	for (j=i;j<20;++j) {
@@ -444,7 +443,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
   if (burial_flag) {
     ifstream in_brg("burial_gamma.dat");
-    if (!in_brg) error->all(FLERR,"File burial_gamma.dat doesn't exist");
+    if (!in_brg) error->all("File burial_gamma.dat doesn't exist");
     for (i=0;i<20;++i) {
       in_brg >> burial_gamma[i][0] >> burial_gamma[i][1] >> burial_gamma[i][2];
     }
@@ -454,17 +453,17 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (amh_go_flag) {
     char amhgo_gamma_file[] = "amh-go.gamma";
     amh_go_gamma = new Gamma_Array(amhgo_gamma_file);
-    if (amh_go_gamma->error==amh_go_gamma->ERR_FILE) error->all(FLERR,"Cannot read file amh-go.gamma");
-    if (amh_go_gamma->error==amh_go_gamma->ERR_CLASS_DEF) error->all(FLERR,"AMH_Go: Wrong definition of sequance separation classes");
-    if (amh_go_gamma->error==amh_go_gamma->ERR_GAMMA) error->all(FLERR,"AMH_Go: Incorrect entery in gamma file");
-    if (amh_go_gamma->error==amh_go_gamma->ERR_G_CLASS) error->all(FLERR,"AMH_Go: Wrong sequance separation class tag");
-    if (amh_go_gamma->error==amh_go_gamma->ERR_ASSIGN) error->all(FLERR,"AMH_Go: Cannot build gamma array");
+    if (amh_go_gamma->error==amh_go_gamma->ERR_FILE) error->all("Cannot read file amh-go.gamma");
+    if (amh_go_gamma->error==amh_go_gamma->ERR_CLASS_DEF) error->all("AMH_Go: Wrong definition of sequance separation classes");
+    if (amh_go_gamma->error==amh_go_gamma->ERR_GAMMA) error->all("AMH_Go: Incorrect entery in gamma file");
+    if (amh_go_gamma->error==amh_go_gamma->ERR_G_CLASS) error->all("AMH_Go: Wrong sequance separation class tag");
+    if (amh_go_gamma->error==amh_go_gamma->ERR_ASSIGN) error->all("AMH_Go: Cannot build gamma array");
     
     char amhgo_mem_file[] = "amh-go.gro";
     m_amh_go = new Fragment_Memory(0, 0, n, 1.0, amhgo_mem_file);
-    if (m_amh_go->error==m_amh_go->ERR_FILE) error->all(FLERR,"Cannot read file amh-go.gro");
-    if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all(FLERR,"AMH_Go: Wrong atom count in memory structure file");
-    if (m_amh_go->error==m_amh_go->ERR_RES) error->all(FLERR,"AMH_Go: Unknown residue");
+    if (m_amh_go->error==m_amh_go->ERR_FILE) error->all("Cannot read file amh-go.gro");
+    if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all("AMH_Go: Wrong atom count in memory structure file");
+    if (m_amh_go->error==m_amh_go->ERR_RES) error->all("AMH_Go: Unknown residue");
 		
     // Calculate normalization factor for AMH-GO potential
     compute_amhgo_normalization();
@@ -475,11 +474,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     if (comm->me==0) print_log("Reading fragments...\n");
 		
     fm_gamma = new Gamma_Array(fm_gamma_file);
-    if (fm_gamma->error==fm_gamma->ERR_FILE) error->all(FLERR,"Fragment_Memory: Cannot read gamma file");
-    if (fm_gamma->error==fm_gamma->ERR_CLASS_DEF) error->all(FLERR,"Fragment_Memory: Wrong definition of sequance separation classes");
-    if (fm_gamma->error==fm_gamma->ERR_GAMMA) error->all(FLERR,"Fragment_Memory: Incorrect entery in gamma file");
-    if (fm_gamma->error==fm_gamma->ERR_G_CLASS) error->all(FLERR,"Fragment_Memory: Wrong sequance separation class tag");
-    if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all(FLERR,"Fragment_Memory: Cannot build gamma array");
+    if (fm_gamma->error==fm_gamma->ERR_FILE) error->all("Fragment_Memory: Cannot read gamma file");
+    if (fm_gamma->error==fm_gamma->ERR_CLASS_DEF) error->all("Fragment_Memory: Wrong definition of sequance separation classes");
+    if (fm_gamma->error==fm_gamma->ERR_GAMMA) error->all("Fragment_Memory: Incorrect entery in gamma file");
+    if (fm_gamma->error==fm_gamma->ERR_G_CLASS) error->all("Fragment_Memory: Wrong sequance separation class tag");
+    if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all("Fragment_Memory: Cannot build gamma array");
 		
     // read frag_mems_file and create a list of the fragments
     frag_mems = read_mems(frag_mems_file, n_frag_mems);
@@ -501,7 +500,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       
       if (pos+len>n) {
 	fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
-	error->all(FLERR,"Fragment_Memory: Incorrectly defined memory fragment");
+	error->all("Fragment_Memory: Incorrectly defined memory fragment");
       }
       
       for (i=pos; i<pos+len-min_sep; ++i) {
@@ -701,6 +700,12 @@ void FixBackbone::allocate()
 }
 
 /* ---------------------------------------------------------------------- */
+inline int MIN(int a, int b)
+{
+  if ((a<b && a!=-1) || b==-1) return a;
+  else return b;
+}
+
 inline bool FixBackbone::isFirst(int index)
 {
   if (ch_pos[chain_no[index]-1]==res_no[index]) return true;
@@ -739,7 +744,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
     int min[3] = {-1, -1, -1}, jm[3] = {-1, -1, -1}, amin = -1;
     for (int j = 0; j < nall; ++j) {
       if (i==0 && res_tag[j]<=0 && (mask[j] & groupbit || mask[j] & group2bit || mask[j] & group3bit) )
-	error->all(FLERR,"Molecular tag must be positive in fix backbone");
+	error->all("Molecular tag must be positive in fix backbone");
 			
       if ( (mask[j] & groupbit) && res_tag[j]>last ) {
 	if (res_tag[j]<min[0] || min[0]==-1) {
@@ -785,30 +790,30 @@ inline void FixBackbone::Construct_Computational_Arrays()
       // Making sure chain tags match for same residue atoms
       if ( (beta_atoms[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[beta_atoms[i]]) ||
 	   (oxygens[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[oxygens[i]]) ) {
-	error->all(FLERR,"Atoms in a residue have different chain tag");
+	error->all("Atoms in a residue have different chain tag");
       }			
       chain_no[i] = mol_tag[alpha_carbons[i]];
 			
       if (chain_no[i]<=0 || chain_no[i]>nch)
-	error->all(FLERR,"Chain tag is out of range");
+	error->all("Chain tag is out of range");
 			
       // Checking for correct residue numbering
       if ( res_no[i]<ch_pos[chain_no[i]-1] || res_no[i]>ch_pos[chain_no[i]-1]+ch_len[chain_no[i]-1]-1 )
-	error->all(FLERR,"Residue tag is out of range");
+	error->all("Residue tag is out of range");
 
       if (alpha_carbons[i]<nlocal) {
 	if (beta_atoms[i]==-1 || oxygens[i]==-1) {
-	  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 001)");
+	  error->all("Missing neighbor atoms in fix backbone (Code 001)");
 	}
 	if ( !isFirst(i) && (i==0 || res_info[i-1]==OFF) ) {
-	  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 002)");
+	  error->all("Missing neighbor atoms in fix backbone (Code 002)");
 	}
 	res_info[i] = LOCAL;
       } else {
 	if ( i>0 && !isFirst(i) && res_info[i-1]==LOCAL ) res_info[i] = GHOST;
 	else if (i<nn-1 && !isLast(i) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
 	  if (oxygens[i]==-1) {
-	    error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 003)");
+	    error->all("Missing neighbor atoms in fix backbone (Code 003)");
 	  }
 	  res_info[i] = GHOST;
 	} else if (oxygens[i]==-1 || beta_atoms[i]==-1) {
@@ -819,7 +824,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
     } else res_info[i] = OFF;
 		
     if (i>0 && res_info[i-1]==LOCAL && res_info[i]==OFF) {
-      error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 004)");
+      error->all("Missing neighbor atoms in fix backbone (Code 004)");
     }
   }
 	
@@ -846,7 +851,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
   int min[3] = {-1, -1, -1}, jm[3] = {-1, -1, -1}, amin = -1;
   for (int j = 0; j < nall; ++j) {
   if (i==0 && mol_tag[j]<=0)
-  error->all(FLERR,"Molecular tag must be positive in fix backbone");
+  error->all("Molecular tag must be positive in fix backbone");
 			
   if ( (mask[j] & groupbit) && mol_tag[j]>last ) {
   if (mol_tag[j]<min[0] || min[0]==-1) {
@@ -888,17 +893,17 @@ inline void FixBackbone::Construct_Computational_Arrays()
   if (alpha_carbons[i]!=-1) {
   if (alpha_carbons[i]<nlocal) {
   if (beta_atoms[i]==-1 || oxygens[i]==-1) {
-  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 001)");
+  error->all("Missing neighbor atoms in fix backbone (Code 001)");
   }
   if ( !isFirst(i) && (i==0 || res_info[i-1]==OFF) ) {
-  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 002)");
+  error->all("Missing neighbor atoms in fix backbone (Code 002)");
   }
   res_info[i] = LOCAL;
   } else {
   if ( i>0 && !isFirst(i) && res_info[i-1]==LOCAL ) res_info[i] = GHOST;
   else if (i<nn-1 && !isLast(i) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
   if (oxygens[i]==-1) {
-  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 003)");
+  error->all("Missing neighbor atoms in fix backbone (Code 003)");
   }
   res_info[i] = GHOST;
   } else res_info[i] = OFF;
@@ -907,7 +912,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
   } else res_info[i] = OFF;
 		
   if (i>0 && res_info[i-1]==LOCAL && res_info[i]==OFF) {
-  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 004)");
+  error->all("Missing neighbor atoms in fix backbone (Code 004)");
   }
   }
   }*/
@@ -928,7 +933,7 @@ int FixBackbone::setmask()
 
 void FixBackbone::init()
 {
-  if (strstr(update->integrate_style,"respa"))
+  if (strcmp(update->integrate_style,"respa") == 0)
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 	
   int irequest = neighbor->request((void *) this);
@@ -951,7 +956,7 @@ void FixBackbone::init_list(int id, NeighList *ptr)
 
 void FixBackbone::setup(int vflag)
 {
-  if (strstr(update->integrate_style,"verlet"))
+  if (strcmp(update->integrate_style,"verlet") == 0)
     post_force(vflag);
   else {
     ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
@@ -1055,7 +1060,7 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
   enum File_States{FS_NONE=0, FS_TARGET, FS_MEMS};
   
   file = fopen(mems_file,"r");
-  if (!file) error->all(FLERR,"Fragment_Memory: Error opening mem file");
+  if (!file) error->all("Fragment_Memory: Error opening mem file");
   
   n_mems = 0;
   file_state = FS_NONE;
@@ -1075,7 +1080,7 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
         if (nstr>5) break;
         str[nstr] = strtok(NULL," \t\n");
       }
-      if (nstr!=5) error->all(FLERR,"Fragment_Memory: Error reading mem file");
+      if (nstr!=5) error->all("Fragment_Memory: Error reading mem file");
         
       tpos = atoi(str[1])-1;
       fpos = atoi(str[2])-1;
@@ -1090,15 +1095,15 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
         if (screen) fprintf(screen, "Error reading %s file!\n", str[0]);
         if (logfile) fprintf(logfile, "Error reading %s file!\n", str[0]);
       } 
-      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_FILE) error->all(FLERR,"Fragment_Memory: Cannot read the file");
-      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_ATOM_COUNT) error->all(FLERR,"Fragment_Memory: Wrong atom count in memory structure file");
-      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_RES) error->all(FLERR,"Fragment_Memory: Unknown residue");
+      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_FILE) error->all("Fragment_Memory: Cannot read the file");
+      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_ATOM_COUNT) error->all("Fragment_Memory: Wrong atom count in memory structure file");
+      if (mems_array[n_mems-1]->error==Fragment_Memory::ERR_RES) error->all("Fragment_Memory: Unknown residue");
       
       if (mems_array[n_mems-1]->pos+mems_array[n_mems-1]->len>n) {
       	if (screen) fprintf(screen, "Error reading %s file!\n", str[0]);
         if (logfile) fprintf(logfile, "Error reading %s file!\n", str[0]);
         fprintf(stderr, "pos %d len %d n %d\n", mems_array[n_mems-1]->pos, mems_array[n_mems-1]->len, n); 
-      	error->all(FLERR,"read_mems: Fragment_Memory: Incorrectly defined memory fragment");
+      	error->all("read_mems: Fragment_Memory: Incorrectly defined memory fragment");
       }
         
       break;
@@ -2680,7 +2685,7 @@ void FixBackbone::compute_amh_go_model()
             if (drsq<27.6*amhgo_sigma_sq) {
             
               amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, ires-1, jres-1);
-              if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all(FLERR,"AMH-Go: Wrong call of getGamma() function");
+              if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all("AMH-Go: Wrong call of getGamma() function");
 			  
               Eij = amhgo_gamma*exp(-drsq/(2*amhgo_sigma_sq));
 			  
@@ -2735,13 +2740,13 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
     
     js = i+fm_gamma->minSep();
     je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
-    if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in memory potential");
+    if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
     
     for (j=js;j<=je;++j) {
       j_resno = res_no[j]-1;
       jres_type = se_map[se[j_resno]-'A'];
       
-      if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
+      if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
       
       if (se[i_resno]!='G' && se[j_resno]!='G' && frag->getSe(i_resno)!='G' && frag->getSe(j_resno)!='G') {
 	    vi[0] = xcb[i][0] - xca[i][0];
@@ -2767,7 +2772,7 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
 	    fprintf(screen, "\n> len %d\n", frag->len);
 	    fprintf(screen, "\n> i_resno j_resno %d %d\n", i_resno, j_resno);*/
 	    if (frag->error==frag->ERR_CALL || frag->error==frag->ERR_VFM_GLY)
-	      error->all(FLERR,"Vector_Fragment_Memory: Wrong call of VMf() function");
+	      error->all("Vector_Fragment_Memory: Wrong call of VMf() function");
 	    
 	    dg = gc - gf;
 	    
@@ -2855,13 +2860,13 @@ void FixBackbone::compute_fragment_memory_potential(int i)
     
     js = i+fm_gamma->minSep();
     je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
-    if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in memory potential");
+    if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
     
     for (j=js;j<=je;++j) {
       j_resno = res_no[j]-1;
       jres_type = se_map[se[j_resno]-'A'];
       
-      if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
+      if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
       
       fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
       
@@ -2870,7 +2875,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       } else {
 	frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
       }
-      if (fm_gamma->error==fm_gamma->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of getGamma() function");
+      if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Fragment_Memory: Wrong call of getGamma() function");
       
       epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
       
@@ -2894,7 +2899,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
 
         r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
         rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
-        if (frag->error==frag->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of Rf() function");
+        if (frag->error==frag->ERR_CALL) error->all("Fragment_Memory: Wrong call of Rf() function");
         dr = r - rf;
         drsq = dr*dr;
         
@@ -2963,15 +2968,15 @@ void FixBackbone::compute_fragment_memory_table()
 		
       js = i+fm_gamma->minSep();
       je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
-      //		if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in memory potential");
-      if (je>=n) error->all(FLERR,"Missing residues in memory potential");
+      //		if (je>=n || res_no[je]-res_no[i]!=je-i) error->all("Missing residues in memory potential");
+      if (je>=n) error->all("Missing residues in memory potential");
 		
       for (j=js;j<=je;++j) {
 	//		  j_resno = res_no[j]-1;
 	j_resno = j;
 	jres_type = se_map[se[j_resno]-'A'];
 		  
-	//		  if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
+	//		  if (chain_no[i]!=chain_no[j]) error->all("Fragment Memory: Interaction between residues of different chains");
 		  
 	fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
 		  
@@ -2980,7 +2985,7 @@ void FixBackbone::compute_fragment_memory_table()
 	} else {
 	  frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
 	}
-	if (fm_gamma->error==fm_gamma->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of getGamma() function");
+	if (fm_gamma->error==fm_gamma->ERR_CALL) error->all("Fragment_Memory: Wrong call of getGamma() function");
 		  
 	epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
 		  
@@ -2998,7 +3003,7 @@ void FixBackbone::compute_fragment_memory_table()
 	    fm_table[itb] = new TBV[tb_size];
 			
 	  rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
-	  if (frag->error==frag->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of Rf() function");
+	  if (frag->error==frag->ERR_CALL) error->all("Fragment_Memory: Wrong call of Rf() function");
 	  for (ir=0;ir<tb_size;++ir) {
 	    r = tb_rmin + ir*tb_dr;
 				
@@ -3089,7 +3094,7 @@ void FixBackbone::table_fragment_memory(int i, int j)
     	
       if (!fm_table[itb]) return;
     	
-      if (ir<0 || ir>=tb_size) error->all(FLERR,"Table Fragment Memory: ir is out of range.");
+      if (ir<0 || ir>=tb_size) error->all("Table Fragment Memory: ir is out of range.");
     	
       // Energy and force values are obtained from trangle interpolation
       r1 = tb_rmin + (double)ir*tb_dr;
@@ -3119,7 +3124,7 @@ void FixBackbone::table_fragment_memory(int i, int j)
       f[jatom[k]][1] += -ff*dx[1];
       f[jatom[k]][2] += -ff*dx[2];
     } else {
-      error->all(FLERR,"Table Fragment Memory: r is out of computed range.");
+      error->all("Table Fragment Memory: r is out of computed range.");
       fprintf(screen, "r=%f\n", r);
       fprintf(logfile, "r=%f\n", r);
     }	    

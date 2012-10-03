@@ -41,7 +41,7 @@ ComputeContactmap::ComputeContactmap(LAMMPS *lmp, int narg, char **arg) :
   // compute-ID group-ID contactmap cutoff
   // cutoff is the threshold distance for two CA atoms to be considered to
   // be in contact 
-  if (narg != 4) error->all("Illegal compute contactmap command");
+  if (narg != 4) error->all(FLERR,"Illegal compute contactmap command");
 
   int len; // used below to store lengths of strings
   
@@ -54,7 +54,7 @@ ComputeContactmap::ComputeContactmap(LAMMPS *lmp, int narg, char **arg) :
 
   // Send an error if the ID is not properly specified
   if (igroup == -1) 
-    error->all("Could not find compute totalcontacts group ID"); 
+    error->all(FLERR,"Could not find compute totalcontacts group ID"); 
 
   // find the number of residues in the group
   numres = (int)(group->count(igroup)+1e-12);
@@ -79,7 +79,7 @@ void ComputeContactmap::init()
 {
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
-    error->all("Cannot use compute contactmap unless atoms have IDs");
+    error->all(FLERR,"Cannot use compute contactmap unless atoms have IDs");
 }
 
 /* ---------------------------------------------------------------------- */

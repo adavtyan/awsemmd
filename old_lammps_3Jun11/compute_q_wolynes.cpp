@@ -55,7 +55,7 @@ ComputeQWolynes::ComputeQWolynes(LAMMPS *lmp, int narg, char **arg) :
   // compute-ID group-ID qwolynes datafile sep exp
   // where datafile is rnative.dat, which gives the CA-CA distances
   // and sep and exp are explain above
-  if (narg != 6) error->all(FLERR,"Illegal compute qwolynes command");
+  if (narg != 6) error->all("Illegal compute qwolynes command");
 
   int len; // used below to store lengths of strings
   
@@ -69,7 +69,7 @@ ComputeQWolynes::ComputeQWolynes(LAMMPS *lmp, int narg, char **arg) :
 
   // Send an error if the ID is not properly specified
   if (igroup == -1) 
-    error->all(FLERR,"Could not find compute qwolynes group ID"); 
+    error->all("Could not find compute qwolynes group ID"); 
 
   // find the number of residues in the group
   numres = (int)(group->count(igroup)+1e-12);
@@ -121,7 +121,7 @@ void ComputeQWolynes::init()
 {
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
-    error->all(FLERR,"Cannot use compute qwolynes unless atoms have IDs");
+    error->all("Cannot use compute qwolynes unless atoms have IDs");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -134,7 +134,7 @@ void ComputeQWolynes::readNativeDistances()
   allocate();
 
   ifstream in_rnative(datafile);
-  if (!in_rnative) error->all(FLERR,"Native distance file can't be read");
+  if (!in_rnative) error->all("Native distance file can't be read");
   for (i=0;i<numres;++i)
     for (j=0;j<numres;++j)
       in_rnative >> r_native[i][j];

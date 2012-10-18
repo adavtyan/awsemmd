@@ -452,6 +452,8 @@ void PairExGaussCoulCut::init_style()
     error->all(FLERR,"Pair style ex/gauss/coul/cut requires atom attribute q");
 
   int irequest = neighbor->request(this);
+
+  el_flag = false;
 }
 
 /* ----------------------------------------------------------------------

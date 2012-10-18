@@ -2762,10 +2762,6 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
 	    gc = acos(vpn);
 	    
 	    gf = frag->VMf(i_resno, j_resno);
-/*	    fprintf(screen, "\n> ERROR %d\n", frag->error);
-	    fprintf(screen, "\n> vfm_flag %d\n", frag->vfm_flag);
-	    fprintf(screen, "\n> len %d\n", frag->len);
-	    fprintf(screen, "\n> i_resno j_resno %d %d\n", i_resno, j_resno);*/
 	    if (frag->error==frag->ERR_CALL || frag->error==frag->ERR_VFM_GLY)
 	      error->all(FLERR,"Vector_Fragment_Memory: Wrong call of VMf() function");
 	    
@@ -2776,19 +2772,7 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
 	    energy[ET_VFRAGMEM] += V;
 	    
 	    force = -V*dg/(vfm_sigma_sq*vmi*vmj*sqrt(1-vpn*vpn));
-	    
-/*	    fprintf(screen, "\n> i_resno j_resno %d %d\n", i_resno, j_resno);
-	    fprintf(screen, "> dg gc gf %f %f %f\n", dg, gc, gf);
-	    fprintf(screen, "> V force %f %f\n", V, force);
-	    fprintf(screen, "> len %d\n", frag->len);
-	    fprintf(screen, "> iCA-iCB %f\n", frag->Rf(i_resno, Fragment_Memory::FM_CA, i_resno, Fragment_Memory::FM_CB));
-	    fprintf(screen, "> jCA-jCB %f\n", frag->Rf(j_resno, Fragment_Memory::FM_CA, j_resno, Fragment_Memory::FM_CB));
-	    fprintf(screen, "> iCA-jCA %f\n", frag->Rf(i_resno, Fragment_Memory::FM_CA, j_resno, Fragment_Memory::FM_CA));
-	    fprintf(screen, "> iCA-jCB %f\n", frag->Rf(i_resno, Fragment_Memory::FM_CA, j_resno, Fragment_Memory::FM_CB));
-	    fprintf(screen, "> iCB-jCA %f\n", frag->Rf(i_resno, Fragment_Memory::FM_CB, j_resno, Fragment_Memory::FM_CA));
-	    fprintf(screen, "> iCB-jCB %f\n", frag->Rf(i_resno, Fragment_Memory::FM_CB, j_resno, Fragment_Memory::FM_CB));
-	    fprintf(screen, "se[i] se[j] fse[i] fse[j] %c %c %c %c\n", se[i_resno], se[j_resno], frag->getSe(i_resno), frag->getSe(j_resno));*/
-	    
+	    	    
 	    forcei[0] = force*(vj[0]-vi[0]*vp/vmsqi);
 	    forcei[1] = force*(vj[1]-vi[1]*vp/vmsqi);
 	    forcei[2] = force*(vj[2]-vi[2]*vp/vmsqi);
@@ -2816,6 +2800,104 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
     }
   }
 }
+
+/*void FixBackbone::compute_vector_fragment_memory_table()
+{
+  int i, j, js, je, ir, i_fm, k, itb, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
+  int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
+  double r, rf, dr, drsq, V, force;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
+  Fragment_Memory *frag;
+  
+  int j, js, je, i_fm;
+  int i_resno, j_resno, ires_type, jres_type;
+  double vi[3], vj[3], vmi, vmj, vmsqi, vmsqj, vp, vpn, gc, gf, dg;
+  double V, epsilon_k_weight, force, forcei[3], forcej[3];
+  Fragment_Memory *frag;
+  
+  for (i=0; i<n; ++i) {	  
+    //	  i_resno = res_no[i]-1;
+    i_resno = i;
+    ires_type = se_map[se[i_resno]-'A'];
+	  
+    for (i_fm=0; i_fm<ilen_fm_map[i_resno]; ++i_fm) {
+      frag = frag_mems[ frag_mem_map[i_resno][i_fm] ];
+		
+      epsilon_k_weight = epsilon*k_vec_frag_mem;
+		
+      js = i+fm_gamma->minSep();
+      je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
+      //		if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in Vector Fragment Memory potential");
+      if (je>=n) error->all(FLERR,"Missing residues in memory potential");
+		
+      for (j=js;j<=je;++j) {
+	//		  j_resno = res_no[j]-1;
+	j_resno = j;
+	jres_type = se_map[se[j_resno]-'A'];
+		  
+	//		  if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Vector Fragment Memory: Interaction between residues of different chains");
+	
+	if (se[i_resno]!='G' && se[j_resno]!='G' && frag->getSe(i_resno)!='G' && frag->getSe(j_resno)!='G') {
+		vi[0] = xcb[i][0] - xca[i][0];
+	    vi[1] = xcb[i][1] - xca[i][1];
+	    vi[2] = xcb[i][2] - xca[i][2];
+	    
+	    vj[0] = xcb[j][0] - xca[j][0];
+	    vj[1] = xcb[j][1] - xca[j][1];
+	    vj[2] = xcb[j][2] - xca[j][2];
+	    
+	    vmsqi = vi[0]*vi[0]+vi[1]*vi[1]+vi[2]*vi[2];
+	    vmsqj = vj[0]*vj[0]+vj[1]*vj[1]+vj[2]*vj[2];
+	    vmi = sqrt(vmsqi);
+	    vmj = sqrt(vmsqj);
+	    vp = vi[0]*vj[0]+vi[1]*vj[1]+vi[2]*vj[2];
+	    
+	    vpn = vp/(vmi*vmj);
+	    gc = acos(vpn);
+	    
+	    gf = frag->VMf(i_resno, j_resno);
+	    if (frag->error==frag->ERR_CALL || frag->error==frag->ERR_VFM_GLY)
+	      error->all(FLERR,"Vector_Fragment_Memory: Wrong call of VMf() function");
+	    
+	    dg = gc - gf;
+	    
+	    V = -epsilon_k_weight*exp(-dg*dg/(2*vfm_sigma_sq));
+	    
+	    force = -V*dg/(vfm_sigma_sq*vmi*vmj*sqrt(1-vpn*vpn));
+	    
+	    forcei[0] = force*(vj[0]-vi[0]*vp/vmsqi);
+	    forcei[1] = force*(vj[1]-vi[1]*vp/vmsqi);
+	    forcei[2] = force*(vj[2]-vi[2]*vp/vmsqi);
+	    
+	    forcej[0] = force*(vi[0]-vj[0]*vp/vmsqj);
+	    forcej[1] = force*(vi[1]-vj[1]*vp/vmsqj);
+	    forcej[2] = force*(vi[2]-vj[2]*vp/vmsqj);
+		  	
+	  	itb = 4*tb_nbrs*i + 4*(j-js) + k;
+	  	if (!fm_table[itb])
+	    	fm_table[itb] = new TBV[tb_size];
+			
+	  	for (ir=0;ir<tb_size;++ir) {
+	    	r = tb_rmin + ir*tb_dr;
+				
+	    dr = r - rf;
+	    drsq = dr*dr;
+				
+	    V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+				
+	    fm_table[itb][ir].energy += V;
+				
+	    fm_table[itb][ir].force += V*dr/(fm_sigma_sq*r);
+				
+	    //				fm_table[i][j-js][k][ir].energy = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+				
+	    //				fm_table[i][j-js][k][ir].force = V*dr/(fm_sigma_sq*r);
+	  }
+	}
+      }
+    }
+  }
+}*/
 
 void FixBackbone::compute_fragment_memory_potential(int i)
 {
@@ -2903,18 +2985,6 @@ void FixBackbone::compute_fragment_memory_potential(int i)
         energy[ET_FRAGMEM] += V;
         
         force = V*dr/(fm_sigma_sq*r);
-        
-	/*        int iatm, jatm;
-		  iatm = ( (k==0 || k==1) ? 0 : 1);
-		  jatm = ( (k==0 || k==2) ? 0 : 1);
-        
-		  fm_f[i][iatm][0] += force*dx[0];
-		  fm_f[i][iatm][1] += force*dx[1];
-		  fm_f[i][iatm][2] += force*dx[2];
-        
-		  fm_f[j][jatm][0] += -force*dx[0];
-		  fm_f[j][jatm][1] += -force*dx[1];
-		  fm_f[j][jatm][2] += -force*dx[2];*/
         
         f[iatom[k]][0] += force*dx[0];
         f[iatom[k]][1] += force*dx[1];

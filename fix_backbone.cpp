@@ -298,8 +298,15 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       for (int i=0;i<n_phosph_res;++i)
 	in >> phosph_res[i];
       
-    } else if (strcmp(varsection, "[Epsilon]")==0)
+    } else if (strcmp(varsection, "[Epsilon]")==0) {
       in >> epsilon;
+    } else if (strcmp(varsection, "[Amylometer]")==0) {
+      amylometer_flag = 1;
+      if (comm->me==0) print_log("Amylometer flag on\n");
+      in >> amylometer_sequence_file;
+      in >> amylometer_nmer_size;
+      read_amylometer_sequences(amylometer_sequence_file, amylometer_nmer_size);
+    }
     varsection[0]='\0'; // Clear buffer
   }
   in.close();
@@ -2290,7 +2297,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 	
   int ires_type = se_map[se[i_resno]-'A'];
   int jres_type = se_map[se[j_resno]-'A'];
-	
+  
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
@@ -2772,7 +2779,7 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
 	    energy[ET_VFRAGMEM] += V;
 	    
 	    force = -V*dg/(vfm_sigma_sq*vmi*vmj*sqrt(1-vpn*vpn));
-	    	    
+	    
 	    forcei[0] = force*(vj[0]-vi[0]*vp/vmsqi);
 	    forcei[1] = force*(vj[1]-vi[1]*vp/vmsqi);
 	    forcei[2] = force*(vj[2]-vi[2]*vp/vmsqi);
@@ -3266,6 +3273,79 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
   f[jatom][2] += -force2*dx[2];
 }
 
+void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size)
+{
+  // Read in sequences, split into n-mers
+  FILE *file;  
+  char ln[100], *line;
+  size_t number_of_aminoacids;
+  int number_of_nmers;
+  number_of_nmers = 0;
+  FILE *output_file;
+  
+  file = fopen(amylometer_sequence_file,"r");
+  output_file = fopen("nmer_output","w");
+  fprintf(output_file, "nmer\n");
+
+  if (!file) error->all(FLERR,"Amylometer: Error opening amylometer sequences file");
+  while ( fgets ( ln, sizeof ln, file ) != NULL ) {
+    line = trim(ln);
+    number_of_aminoacids = strlen(line);
+    if (line[0]=='#') continue;
+    for (int i=0; i<number_of_aminoacids-amylometer_nmer_size+1; i++) {
+      for (int j=0; j<amylometer_nmer_size; j++) {
+	fprintf(output_file, "%c", line[i+j]);
+      }
+      number_of_nmers++;
+      fprintf(output_file, "\n");
+    }
+  }
+  fclose(file);
+
+  // allocate nmer_array
+  nmer_array = (int**)malloc(number_of_nmers * sizeof(int*));
+  for (int i = 0; i < number_of_nmers; i++) {
+    nmer_array[i] = (int*)malloc(amylometer_nmer_size * sizeof(int));
+  }
+
+  file = fopen(amylometer_sequence_file,"r");
+  if (!file) error->all(FLERR,"Amylometer: Error opening amylometer sequences file");
+  int nmer_index = 0;
+  while ( fgets ( ln, sizeof ln, file ) != NULL ) {
+    line = trim(ln);
+    number_of_aminoacids = strlen(line);
+    if (line[0]=='#') continue;
+    for (int i=0; i<number_of_aminoacids-amylometer_nmer_size+1; i++) {
+      for (int j=0; j<amylometer_nmer_size; j++) {
+	nmer_array[nmer_index][j] = line[i+j];
+      }
+      nmer_index++;
+    }
+  }
+  fclose(file);
+
+  // for (int i=0; i < number_of_nmers; i++) {
+  //   for (int j=0; j < amylometer_nmer_size; j++) {
+  //     printf("%d",se_map[nmer_array[i][j]-'A']);
+  //   }
+  //   printf("\n");
+  // }
+
+  return;
+}
+
+void FixBackbone::compute_amylometer()
+{
+  // mutate sequence
+  for (int i=0;i<n;i++) {
+    se[i] = nmer_array[ntimestep][i % amylometer_nmer_size];
+    // printf("%d ",se_map[se[i]-'A']);
+  }
+  // printf("\n");
+
+  return;
+}
+
 void FixBackbone::print_forces(int coord)
 {
   int index;
@@ -3355,7 +3435,7 @@ void FixBackbone::print_forces(int coord)
 }
 
 void FixBackbone::compute_backbone()
-{
+{     
   ntimestep = update->ntimestep;
 
   if(atom->nlocal==0) return;
@@ -3373,6 +3453,10 @@ void FixBackbone::compute_backbone()
 	
   for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
   force_flag = 0;
+
+  if (amylometer_flag) {
+    compute_amylometer();
+  }
 
   for (i=0;i<nn;++i) {		
     if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {
@@ -3457,7 +3541,7 @@ void FixBackbone::compute_backbone()
   }
 	
   timerBegin();
-	
+  
   for (i=0;i<nn;i++) {
     if (chain_flag && res_info[i]==LOCAL)
       compute_chain_potential(i);

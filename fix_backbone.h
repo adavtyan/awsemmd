@@ -128,6 +128,11 @@ public:
   bool ssb_rad_cor;
   double ssb_rshift[20];
 
+  // Amylometer variables
+  char amylometer_sequence_file[100];  
+  int amylometer_nmer_size;
+  int** nmer_array;
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -152,6 +157,7 @@ public:
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
   bool phosph_flag;
   bool frag_mem_tb_flag, vec_frag_mem_flag;
+  bool amylometer_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -189,6 +195,8 @@ public:
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
   void compute_vector_fragment_memory_potential(int i);
+  void compute_amylometer();
+  void read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size);
 
   void allocate();
   inline void Construct_Computational_Arrays();

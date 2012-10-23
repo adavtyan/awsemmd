@@ -307,6 +307,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> amylometer_nmer_size;
       // 1 == self-only, 2 == heterogeneous
       in >> amylometer_mode;
+      if (amylometer_mode == 2) {
+	in >> amylometer_structure_file;
+	in >> amylometer_contact_cutoff;
+      }
       read_amylometer_sequences(amylometer_sequence_file, amylometer_nmer_size, amylometer_mode);
     }
     varsection[0]='\0'; // Clear buffer
@@ -3313,7 +3317,7 @@ void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int 
   while ( fgets ( ln, sizeof ln, file ) != NULL ) {
     line = trim(ln);
     number_of_aminoacids = strlen(line);
-    if (line[0]=='#' || line[0]=='\>') continue;
+    if (line[0]=='#') continue;
     for (int i=0; i<number_of_aminoacids-amylometer_nmer_size+1; i++) {
       for (int j=0; j<amylometer_nmer_size; j++) {
 	nmer_array[nmer_index][j] = line[i+j];
@@ -3335,9 +3339,10 @@ void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int 
 
 void FixBackbone::compute_amylometer()
 {
+  if (comm->me==0) print_log("Running amylometer...\n");
   FILE *amylometer_energy_file;
   amylometer_energy_file = fopen("amylometer_energy.log", "w");
-  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tSSB     \tVTotal\n";
+  char eheader[] = "\tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tSSB     \tVTotal\n";
   fprintf(amylometer_energy_file, "%s", eheader);
   
   FILE *nmer_output_file;
@@ -3360,42 +3365,84 @@ void FixBackbone::compute_amylometer()
       for (int k=0;k<nEnergyTerms;++k) energy_all[k] = 0.0; // clear energy values
       compute_backbone();                                   // compute energies
       // output energies to file
-      fprintf(amylometer_energy_file, "%d ", ntimestep);
       for (int k=1;k<nEnergyTerms;++k) fprintf(amylometer_energy_file, "\t%8.6f", energy_all[k]);
       fprintf(amylometer_energy_file, "\t%8.6f\n", energy_all[ET_TOTAL]);
     }
   }
   // heterogeneous mode
   else if (amylometer_mode == 2) {
-    fprintf(nmer_output_file, " nmer1  nmer2\n");
+    Fragment_Memory *native_structure = new Fragment_Memory(0, 0, amylometer_nmer_size+number_of_nmers-1, 0.0, amylometer_structure_file, 0);
+    int iatom_type = Fragment_Memory::FM_CA;
+    int jatom_type = Fragment_Memory::FM_CA;
+    int index1 = 0;
+    int index2 = 0;
+    double native_distance = 0.0;
+    int native_contacts = 0;
+    int resindex1 = 0;
+    int resindex2 = 0;
+    double average_distance = 0.0;
+
+    fprintf(nmer_output_file, "nmer1  nmer2 \tss \tnc \t<r>\n");
     for (int i=0; i<2*number_of_nmers; i++) {
       for (int j=0; j<number_of_nmers; j++) {
+	index1 = i % number_of_nmers;
+	index2 = j;
+	// count native contacts
+	native_contacts = 0;
+	average_distance = 0.0;
+	for (int q=0; q<amylometer_nmer_size; q++) {
+	  if (i < number_of_nmers) {
+	    resindex1 = index1 + q;
+	    resindex2 = index2 + q;
+	  }
+	  else if (i >= number_of_nmers) {
+	    resindex1 = index1 + q;
+	    resindex2 = index2 + (amylometer_nmer_size - q - 1);
+	  }
+	  native_distance = native_structure->Rf(resindex1, iatom_type, resindex2, jatom_type);
+	  average_distance += native_distance;
+	  if (native_distance < amylometer_contact_cutoff && abs(resindex1-resindex2) > amylometer_nmer_size) {
+	    native_contacts++;
+	  }
+	}
+	average_distance /= double(amylometer_nmer_size);
 	// mutate sequence
+	// loop over each pair of nmers
 	for (int k=0; k<n/(amylometer_nmer_size*2); k++) {
+	  // loop within each pair of nmers
 	  for (int l=0; l<amylometer_nmer_size*2; l++) {
+	    // put a space between the nmers
 	    if (l == amylometer_nmer_size) {
 	      fprintf(nmer_output_file, " ");
 	    }
+	    // for the first nmer...
 	    if (l < amylometer_nmer_size) {
+	      // always put it going forward
 	      se[k*2*amylometer_nmer_size+l]= nmer_array[i % number_of_nmers][l % amylometer_nmer_size];
+	      // if this is your first time through the pair of nmers, write to nmer_output file
 	      if (k == 0) {
 		fprintf(nmer_output_file, "%c",se[k*2*amylometer_nmer_size+l]);
 	      }
 	    }
+	    // for the second nmer...
 	    else if (l >= amylometer_nmer_size) {
+	      // if i is in the first half, write the second nmer forwards
 	      if (i < number_of_nmers) {
 		se[k*2*amylometer_nmer_size+l] = nmer_array[j][l % amylometer_nmer_size];
 	      }
+	      // if i is in the second half, write the second nmer backwards
 	      else if (i >= number_of_nmers) {
 		se[k*2*amylometer_nmer_size+l] = nmer_array[j][amylometer_nmer_size - 1 - (l % amylometer_nmer_size)];
 	      }
+	      // if this is your first time through the pair of nmers, write to nmer_output file
 	      if (k == 0) {
 		fprintf(nmer_output_file, "%c",se[k*2*amylometer_nmer_size+l]);
 	      }
 	    }
 	  }
 	}
-	fprintf(nmer_output_file, "\n");
+	// done looping through the pair of nmers
+	fprintf(nmer_output_file, "\t%3d \t%3d \t%3.1f\n", abs(index1-index2), native_contacts, average_distance);
 	// print out whole sequence (for debugging)
 	// for (int i=0; i<n; i++) {
 	//   printf("%c", se[i]);
@@ -3405,7 +3452,6 @@ void FixBackbone::compute_amylometer()
 	for (int m=0;m<nEnergyTerms;++m) energy_all[m] = 0.0; // clear energy values
 	compute_backbone();                                   // compute energies
 	// output energies to file
-	fprintf(amylometer_energy_file, "%d ", ntimestep);
 	for (int m=1;m<nEnergyTerms;++m) fprintf(amylometer_energy_file, "\t%8.6f", energy_all[m]);
 	fprintf(amylometer_energy_file, "\t%8.6f\n", energy_all[ET_TOTAL]);
       }

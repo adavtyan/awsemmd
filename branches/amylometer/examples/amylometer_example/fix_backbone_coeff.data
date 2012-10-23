@@ -79,4 +79,4 @@ sequence.txt - file containing sequences
 [Amylometer]
 sequence.txt
 6
-2
+2 1tiu.gro 6.0

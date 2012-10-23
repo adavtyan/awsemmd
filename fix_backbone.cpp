@@ -102,7 +102,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
   ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = vec_frag_mem_flag = 0;
-  ssb_flag = frag_mem_tb_flag = phosph_flag = 0;
+  ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = 0;
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
 	
@@ -305,7 +305,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       if (comm->me==0) print_log("Amylometer flag on\n");
       in >> amylometer_sequence_file;
       in >> amylometer_nmer_size;
-      read_amylometer_sequences(amylometer_sequence_file, amylometer_nmer_size);
+      // 1 == self-only, 2 == heterogeneous
+      in >> amylometer_mode;
+      read_amylometer_sequences(amylometer_sequence_file, amylometer_nmer_size, amylometer_mode);
     }
     varsection[0]='\0'; // Clear buffer
   }
@@ -541,6 +543,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   ifstream in_rs("record_steps");
   in_rs >> sStep >> eStep;
   in_rs.close();
+
 }
 
 void FixBackbone::final_log_output()
@@ -3273,19 +3276,15 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
   f[jatom][2] += -force2*dx[2];
 }
 
-void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size)
+void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size, int amylometer_mode)
 {
   // Read in sequences, split into n-mers
   FILE *file;  
   char ln[100], *line;
   size_t number_of_aminoacids;
-  int number_of_nmers;
   number_of_nmers = 0;
-  FILE *output_file;
   
   file = fopen(amylometer_sequence_file,"r");
-  output_file = fopen("nmer_output","w");
-  fprintf(output_file, "nmer\n");
 
   if (!file) error->all(FLERR,"Amylometer: Error opening amylometer sequences file");
   while ( fgets ( ln, sizeof ln, file ) != NULL ) {
@@ -3294,10 +3293,10 @@ void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int 
     if (line[0]=='#') continue;
     for (int i=0; i<number_of_aminoacids-amylometer_nmer_size+1; i++) {
       for (int j=0; j<amylometer_nmer_size; j++) {
-	fprintf(output_file, "%c", line[i+j]);
+	//fprintf(output_file, "%c", line[i+j]);
       }
       number_of_nmers++;
-      fprintf(output_file, "\n");
+      //fprintf(output_file, "\n");
     }
   }
   fclose(file);
@@ -3309,12 +3308,12 @@ void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int 
   }
 
   file = fopen(amylometer_sequence_file,"r");
-  if (!file) error->all(FLERR,"Amylometer: Error opening amylometer sequences file");
+  if (!file) error->all(FLERR,"Amylometer: Error opening amylometer sequences file\n");
   int nmer_index = 0;
   while ( fgets ( ln, sizeof ln, file ) != NULL ) {
     line = trim(ln);
     number_of_aminoacids = strlen(line);
-    if (line[0]=='#') continue;
+    if (line[0]=='#' || line[0]=='\>') continue;
     for (int i=0; i<number_of_aminoacids-amylometer_nmer_size+1; i++) {
       for (int j=0; j<amylometer_nmer_size; j++) {
 	nmer_array[nmer_index][j] = line[i+j];
@@ -3336,13 +3335,88 @@ void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int 
 
 void FixBackbone::compute_amylometer()
 {
-  // mutate sequence
-  for (int i=0;i<n;i++) {
-    se[i] = nmer_array[ntimestep][i % amylometer_nmer_size];
-    // printf("%d ",se_map[se[i]-'A']);
-  }
-  // printf("\n");
+  FILE *amylometer_energy_file;
+  amylometer_energy_file = fopen("amylometer_energy.log", "w");
+  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tSSB     \tVTotal\n";
+  fprintf(amylometer_energy_file, "%s", eheader);
+  
+  FILE *nmer_output_file;
+  nmer_output_file = fopen("nmer_output","w");
 
+  // homogeneous mode
+  if (amylometer_mode == 1) {
+    fprintf(nmer_output_file, "nmer\n");
+    // loop over all nmers
+    for (int i=0; i<number_of_nmers; i++) { 
+      // mutate sequence
+      for (int j=0; j<n; j++) {
+	se[j] = nmer_array[i][j % amylometer_nmer_size];
+	if (j < amylometer_nmer_size) {
+	  fprintf(nmer_output_file, "%c",se[j]);
+	}
+      }
+      fprintf(nmer_output_file, "\n");
+      // calculate energy, output
+      for (int k=0;k<nEnergyTerms;++k) energy_all[k] = 0.0; // clear energy values
+      compute_backbone();                                   // compute energies
+      // output energies to file
+      fprintf(amylometer_energy_file, "%d ", ntimestep);
+      for (int k=1;k<nEnergyTerms;++k) fprintf(amylometer_energy_file, "\t%8.6f", energy_all[k]);
+      fprintf(amylometer_energy_file, "\t%8.6f\n", energy_all[ET_TOTAL]);
+    }
+  }
+  // heterogeneous mode
+  else if (amylometer_mode == 2) {
+    fprintf(nmer_output_file, " nmer1  nmer2\n");
+    for (int i=0; i<2*number_of_nmers; i++) {
+      for (int j=0; j<number_of_nmers; j++) {
+	// mutate sequence
+	for (int k=0; k<n/(amylometer_nmer_size*2); k++) {
+	  for (int l=0; l<amylometer_nmer_size*2; l++) {
+	    if (l == amylometer_nmer_size) {
+	      fprintf(nmer_output_file, " ");
+	    }
+	    if (l < amylometer_nmer_size) {
+	      se[k*2*amylometer_nmer_size+l]= nmer_array[i % number_of_nmers][l % amylometer_nmer_size];
+	      if (k == 0) {
+		fprintf(nmer_output_file, "%c",se[k*2*amylometer_nmer_size+l]);
+	      }
+	    }
+	    else if (l >= amylometer_nmer_size) {
+	      if (i < number_of_nmers) {
+		se[k*2*amylometer_nmer_size+l] = nmer_array[j][l % amylometer_nmer_size];
+	      }
+	      else if (i >= number_of_nmers) {
+		se[k*2*amylometer_nmer_size+l] = nmer_array[j][amylometer_nmer_size - 1 - (l % amylometer_nmer_size)];
+	      }
+	      if (k == 0) {
+		fprintf(nmer_output_file, "%c",se[k*2*amylometer_nmer_size+l]);
+	      }
+	    }
+	  }
+	}
+	fprintf(nmer_output_file, "\n");
+	// print out whole sequence (for debugging)
+	// for (int i=0; i<n; i++) {
+	//   printf("%c", se[i]);
+	// }
+	// printf("\n");
+	// calculate energy, output
+	for (int m=0;m<nEnergyTerms;++m) energy_all[m] = 0.0; // clear energy values
+	compute_backbone();                                   // compute energies
+	// output energies to file
+	fprintf(amylometer_energy_file, "%d ", ntimestep);
+	for (int m=1;m<nEnergyTerms;++m) fprintf(amylometer_energy_file, "\t%8.6f", energy_all[m]);
+	fprintf(amylometer_energy_file, "\t%8.6f\n", energy_all[ET_TOTAL]);
+      }
+    }
+  }
+  // give an error if an incorrect mode was used in fix_backbone_coeff.dat
+  else {
+    error->all(FLERR,"Amylometer: invalid amylometer mode\n");
+  }
+
+  fclose(amylometer_energy_file);
   return;
 }
 
@@ -3453,10 +3527,6 @@ void FixBackbone::compute_backbone()
 	
   for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
   force_flag = 0;
-
-  if (amylometer_flag) {
-    compute_amylometer();
-  }
 
   for (i=0;i<nn;++i) {		
     if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {
@@ -3853,7 +3923,12 @@ void FixBackbone::compute_backbone()
 
 void FixBackbone::post_force(int vflag)
 {
-  compute_backbone();
+  if (amylometer_flag) {
+    compute_amylometer();
+  }
+  else {
+    compute_backbone();
+  }
 }
 
 /* ---------------------------------------------------------------------- */

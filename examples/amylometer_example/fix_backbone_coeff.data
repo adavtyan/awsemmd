@@ -71,6 +71,12 @@
 5 8
 4
 
+#[Amylometer]
+sequence.txt - file containing sequences
+6            - nmer size
+2            - 1=homogeneous mode, 2=heterogeneous mode
+
 [Amylometer]
 sequence.txt
 6
+2

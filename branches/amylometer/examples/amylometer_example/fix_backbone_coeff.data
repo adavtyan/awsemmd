@@ -74,7 +74,8 @@
 #[Amylometer]
 sequence.txt - file containing sequences
 6            - nmer size
-2            - 1=homogeneous mode, 2=heterogeneous mode
+2 (*.gro 6.0)- 1=homogeneous mode, 2=heterogeneous mode; if 2, then give gro file
+  	       for native structure information and a cutoff for contacts in Angstroms
 
 [Amylometer]
 sequence.txt

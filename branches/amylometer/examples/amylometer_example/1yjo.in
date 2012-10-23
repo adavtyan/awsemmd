@@ -46,4 +46,4 @@ fix		  2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data 1yjo.
 thermo		1
 
 reset_timestep	0
-run		4921955
+run		0

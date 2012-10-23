@@ -132,6 +132,8 @@ public:
   char amylometer_sequence_file[100];  
   int amylometer_nmer_size;
   int** nmer_array;
+  int amylometer_mode;
+  int number_of_nmers;
 
   // Standart lammaps interface
   int igroup2, group2bit;
@@ -196,7 +198,7 @@ public:
   void compute_amhgo_normalization();
   void compute_vector_fragment_memory_potential(int i);
   void compute_amylometer();
-  void read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size);
+  void read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size, int amylometer_mode);
 
   void allocate();
   inline void Construct_Computational_Arrays();

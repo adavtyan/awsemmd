@@ -134,6 +134,8 @@ public:
   int** nmer_array;
   int amylometer_mode;
   int number_of_nmers;
+  char amylometer_structure_file[100];
+  double amylometer_contact_cutoff;
 
   // Standart lammaps interface
   int igroup2, group2bit;

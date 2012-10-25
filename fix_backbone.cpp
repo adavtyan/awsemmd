@@ -3284,7 +3284,7 @@ void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int 
 {
   // Read in sequences, split into n-mers
   FILE *file;  
-  char ln[100], *line;
+  char ln[10000], *line;
   size_t number_of_aminoacids;
   number_of_nmers = 0;
   

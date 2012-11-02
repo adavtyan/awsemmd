@@ -194,7 +194,7 @@ print
 print "Histogram:", hist_sums
 
 out = open(outfile, 'w')
-out.write('r\t')
+out.write('# r\t')
 for ih in range(len(hist_sums)):
 	itys = hist2types_map[ih]
 	atom_ty1 = atom_desc[str(itys[0])]

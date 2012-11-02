@@ -30,12 +30,12 @@ bond_style	class2
 angle_style class2
 
 pair_style hybrid/overlay coul/long 40.0 ex/gauss/coul/cut 20.0 
-#pair_style coul/long 30.0
-#ex/gauss/coul/cut
 
 read_data data.dna
 
-pair_coeff * * ex/gauss/coul/cut ion.par 15.0
+``masses
+
+pair_coeff * * ex/gauss/coul/cut ion.par 20.0
 pair_coeff * * coul/long
 
 ``excluded_pairs
@@ -62,7 +62,7 @@ pair_coeff * * coul/long
 #bond_coeff      5       14.5    0.123105        -0.039945       0.00375
 #bond_coeff      6       10.4    0.13779 	-0.05267        0.005
 #bond_coeff      7       15.6    0.08504 	-0.04443        0.005
-##bond_coeff      8       13.85   0.13857 	-0.05683        0.005
+#bond_coeff      8       13.85   0.13857 	-0.05683        0.005
 #bond_coeff      9       16.5    1.324e-06       -0.0122 	0.001854
 #bond_coeff      10      17.5    0.36266 	-0.07683        0.005
 #bond_coeff      11      17.7    0.0466962       0.00211317      0.000145585
@@ -90,14 +90,14 @@ fix_modify	1 energy yes
 
 thermo_style	custom step temp epair ebond eangle emol pe ke etotal 
 
-thermo 100
+thermo 1000
 
 variable e equal etotal
 
-fix 2 all print 100 "$e" file etotal.txt screen no
+fix 2 all print 1000 "$e" file etotal.txt screen no
 
 dump		1 all atom 1000 dump.lammpstrj
-dump		2 all dcd 1000 dump.dcd
+#dump		2 all dcd 1000 dump.dcd
 
 dump_modify     1 sort id
 

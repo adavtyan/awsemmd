@@ -56,7 +56,7 @@ ystart, yend = -400.0, 400.0
 zstart, zend = -400.0, 400.0
 #ion parameters
 r0 = 10
-mM = 5
+mM = 50
 cation_charge = 1
 anion_charge = -1
 
@@ -72,6 +72,7 @@ n_angles = 0
 n_atom_types = 0
 n_bond_types = 0
 n_angle_types = 0
+n_dna_chains = 0
 
 atoms = []
 bonds = []
@@ -100,8 +101,9 @@ for i in range(len(sequences)):
 x = 0.0
 y = 0.0
 z = 0.0
-bead_type = 1
-for ich in range(0,len(sequences)/2):	#molecule 0 and 1
+bead_type = 0
+n_dna_chains = len(sequences)/2
+for ich in range(n_dna_chains):	#molecule 0 and 1
 	lch1 = len(sequences[ich*2])
 	lch2 = len(sequences[ich*2+1])
 	if lch1 != lch2:
@@ -117,19 +119,19 @@ for ich in range(0,len(sequences)/2):	#molecule 0 and 1
 			residue_number = residue_number+1	#"atom" 1-24
 			x = xx+(s*(11.065/2)*cos(bp*35*pi/180)); x = "%.6f" % x 
 			y = s*(11.065/2)*sin(bp*35*pi/180); y = "%.6f" % y
-			z = (11.065/2)*(bp*35*pi/180) - 360; z = "%.6f" % z
+			z = (11.065/2)*(bp*35*pi/180) + zstart + 40; z = "%.6f" % z
 			if bp == 0:
 				charge = 0.0
+			bead_type += 1
 			atom=Atom(residue_number, molecule, basepair, bead_type, charge, x, y, z)
 			atoms.append(atom)
-			bead_type += 1
 		starting_points.append(starting_points[chain_number-1]+chain_lengths[chain_number-1])
 
 #ion parameters
 atom_number = residue_number
 basepair = 0
-number_anions =int( mM*(10**-3)*1000*(10**-30)*(xend-xstart)*(yend-ystart)*(zend-zstart)*(6.02*(10**23)))
-number_cations = number_anions+len(atoms)-2
+number_anions =int( round(mM*(10**-3)*1000*(10**-30)*(xend-xstart)*(yend-ystart)*(zend-zstart)*(6.02*(10**23))))
+number_cations = number_anions+len(atoms)-2*n_dna_chains
 for i in range(number_cations):
 	ions.append(cation_charge)
 for i in range(number_anions):
@@ -160,7 +162,7 @@ for ion in ions:
 	#add ion in atoms array	
 	atom_number = atom_number+1
 	molecule = molecule+1
-	atom = Atom(atom_number, molecule, basepair, ion_type[ions[ion]]+bead_type-2, float(ions[ion]), x, y, z)
+	atom = Atom(atom_number, molecule, basepair, ion_type[ions[ion]]+bead_type-1, float(ions[ion]), x, y, z)
 	atoms.append(atom)
 
 ibond = 1
@@ -217,7 +219,7 @@ for ich in range(0,len(chain_lengths)/2):
 n_atoms=len(atoms)
 n_bonds=len(bonds)
 n_angles=len(angles)
-n_atom_types = bead_type+1
+n_atom_types = bead_type+2
 n_bond_types = 12
 n_angle_types = 1
 
@@ -239,11 +241,11 @@ o.write("BondBond Coeffs"+"\n\n")
 o.write("1   0 0 0"+"\n\n")
 o.write("BondAngle Coeffs"+"\n\n")
 o.write("1   0 0 0 0"+"\n\n")
-o.write("Masses"+"\n\n")
-o.write("\t"+"1*"+str(bead_type-1)+"   330"+"\n")
-o.write("\t"+str(bead_type)+"   22.989769"+"\n")
-o.write("\t"+str(bead_type+1)+"    35.453"+"\n")
-o.write("\n")
+#o.write("Masses"+"\n\n")
+#o.write("\t"+"1*"+str(bead_type-1)+"   330"+"\n")
+#o.write("\t"+str(bead_type)+"   22.989769"+"\n")
+#o.write("\t"+str(bead_type+1)+"    35.453"+"\n")
+#o.write("\n")
 o.write("Atoms\n\n")
 
 for ia in atoms:
@@ -274,11 +276,16 @@ for ic in angles:
 o.close
 f.close
 
+masses_string = ""
+masses_string += "mass		1*" + str(bead_type)  + "	330.0\n"
+masses_string += "mass		" + str(bead_type+1)  + "	23.0\n"
+masses_string += "mass		" + str(bead_type+2)  + "	35.4"
+
 excluded_pairs_string = ""
 for ip in excluded_pairs:
 	excluded_pairs_string += "pair_coeff "+str(ip[0])+" "+str(ip[1])+"\tnone\n"
 
-replace_rules = [ ["``excluded_pairs",  excluded_pairs_string] ]
+replace_rules = [ ["``excluded_pairs",  excluded_pairs_string], ["``masses", masses_string] ]
 inp = open("pattern.dna.in")
 inFile = inp.read()
 inp.close()

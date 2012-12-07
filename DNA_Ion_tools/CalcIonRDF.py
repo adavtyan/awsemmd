@@ -183,6 +183,7 @@ print "Number of pairs:", hist_npairs
 print "Counted types:", type_count
 print "Histogram:", hist_sums
 
+# Normalization
 for i in range(len(hist_sums)):
 	itys = hist2types_map[i]
 	for j in range(len(hist_sums[i])):
@@ -193,23 +194,38 @@ for i in range(len(hist_sums)):
 print
 print "Histogram:", hist_sums
 
+print
+print "Sorting histogram lists by type..."
+hist_list = []
+ikeys = sorted(hist_map.keys())
+for ik in ikeys:
+	jkeys = sorted(hist_map[ik].keys())
+	for jk in jkeys:
+		ih = hist_map[ik][jk]
+		if ik<=jk:
+			hist_list.append(ih)
+print "Order of histogram to be outputed:", hist_list
+
+# Output
 out = open(outfile, 'w')
-out.write('# r\t')
-for ih in range(len(hist_sums)):
+out.write('#r\t')
+for j in range(len(hist_list)):
+	ih = hist_list[j]
 	itys = hist2types_map[ih]
 	atom_ty1 = atom_desc[str(itys[0])]
 	atom_ty2 = atom_desc[str(itys[1])]
 	out.write(atom_ty1)
 	out.write('-')
 	out.write(atom_ty2)
-	if ih<len(hist_sums)-1: out.write('\t')
+	if j<len(hist_list)-1: out.write('\t')
 out.write('\n')
 for i in range(nbins):
 	r = i*dr+dr/2
 	out.write(str(round(r,4)))
 	out.write('\t')
-	for ih in range(len(hist_sums)):
+	for j in range(len(hist_list)):
+		ih = hist_list[j]
 		out.write(str(round(hist_sums[ih][i],4)))
-		if ih<len(hist_sums)-1: out.write('\t')
+		if j<len(hist_list)-1: out.write('\t')
 	if i<nbins-1: out.write('\n')
 out.close()

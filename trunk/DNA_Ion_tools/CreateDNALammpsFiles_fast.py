@@ -234,7 +234,7 @@ for ich in range(n_dna_chains):	#molecule 0 and 1
 atom_number = residue_number
 basepair = 0
 number_anions =int( round(mM*(10**-3)*1000*(10**-30)*(xend-xstart)*(yend-ystart)*(zend-zstart)*(6.02*(10**23))))
-number_cations = number_anions+len(atoms)-2*n_dna_chains
+number_cations = number_anions+atom_number-2*n_dna_chains
 for i in range(number_cations):
 	ions.append(cation_charge)
 for i in range(number_anions):

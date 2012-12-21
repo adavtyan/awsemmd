@@ -621,7 +621,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     decoy_ixn_stats = new double[2];
     tert_frust_output_file = fopen("tertiary_frustration.dat","w");
     tert_frust_vmd_script = fopen("tertiary_frustration.tcl","w");
-    fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j f_ij\n");
+    fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
   }
   
   // Allocate the table

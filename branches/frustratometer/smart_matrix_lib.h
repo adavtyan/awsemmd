@@ -266,6 +266,8 @@ public:
 	void compute_sigma(int i, int j);
 	void compute_H(int i);
 	void compute_ro(int i);
+	WPV par;
+
 private:
 	int n, m, nw;
 	T ***v_theta;
@@ -280,7 +282,6 @@ private:
 	int *gRo;
 	int *ind;
 	U *lc;
-	WPV par;
 };
 
 template <typename T, typename U>

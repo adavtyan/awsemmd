@@ -126,6 +126,13 @@ public:
   int frag_frust_seqsep_flag;
   bool frag_frust_normalizeInteraction; 
 
+  // Tertiary Frustratometer parameters
+  double tert_frust_cutoff;
+  int tert_frust_ndecoys, tert_frust_output_freq, tert_frust_minsep;
+  char tert_frust_mode[100];
+  double *tert_frust_decoy_energies;
+  double *decoy_ixn_stats;
+
   // Table Fragment Memory parameters
     TBV **fm_table;
 //  TBV ****fm_table;
@@ -166,6 +173,7 @@ public:
   bool phosph_flag;
   bool frag_mem_tb_flag;
   bool frag_frust_flag;
+  bool tert_frust_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -207,6 +215,21 @@ public:
   void output_fragment_memory_table();
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
+  // Tertiary Frustratometer Functions
+  void compute_tert_frust();
+  double compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  void compute_decoy_ixns(double rij_orig, double rho_i_orig, double rho_j_orig);
+  double compute_tert_frust_index(double native_energy, double decoy_energy_mean, double decoy_energy_std);
+  double compute_water_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  double compute_burial_energy(int i_resno, int ires_type, double rho_i);
+  int get_random_residue_index();
+  double get_residue_distance(int i_resno, int j_resno);
+  double get_residue_density(int i);
+  int get_residue_type(int i);
+  double compute_frustration_index(double native_energy, double *decoy_stats);
+  double compute_array_mean(double *array, int arraysize);
+  double compute_array_std(double *array, int arraysize);
+
 
   void allocate();
   inline void Construct_Computational_Arrays();
@@ -248,11 +271,16 @@ public:
   int sStep, eStep;
   void print_forces(int coord=0);
 
+  // Fragment Frustration files
   FILE *fragment_frustration_file;
   FILE *fragment_frustration_gap_file;
   FILE *fragment_frustration_variance_file;
   FILE *fragment_frustration_decoy_data;
   FILE *fragment_frustration_native_data;
+
+  // Tertiary Frustration files
+  FILE *tert_frust_output_file;
+  FILE *tert_frust_vmd_script;
   };
   
 }

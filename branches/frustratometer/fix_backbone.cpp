@@ -105,6 +105,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   ssb_flag = frag_mem_tb_flag = phosph_flag = 0;
   // all fragment frustration flags are off by default
   frag_frust_flag = frag_frust_read_flag = frag_frust_shuffle_flag = 0;
+  // all tertiary frustration flags are off by default
+  tert_frust_flag = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -296,14 +298,27 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	in >> decoy_mems_file; // read in the decoy structures that will be used to generate the decoy energies
 	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
 	in >> frag_frust_well_width; // parameter to tune well width, default is 1.0
-	in >> frag_frust_seqsep_flag >> frag_frust_seqsep_gamma; // flag and parameter to tune sequence separatation dependent gamma
+	in >> frag_frust_seqsep_flag >> frag_frust_seqsep_gamma; // flag and parameter to tune sequence separation dependent gamma
 	in >> frag_frust_normalizeInteraction; // flag that determines whether or not the fragment interaction is normalized by the width of the interaction
       }
       else {
 	// throw an error if the "mode" is anything but "read" or "shuffle"
 	error->all("Only \"shuffle\" and \"read\" are acceptable modes for the Fragment_Frustratometer.");
       }
-    } else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
+    } else if (strcmp(varsection, "[Tertiary_Frustratometer]")==0) {
+      tert_frust_flag = 1;
+      if (comm->me==0) print_log("Tertiary_Frustratometer flag on\n");
+      in >> tert_frust_cutoff;
+      in >> tert_frust_ndecoys;
+      in >> tert_frust_output_freq;
+      in >> tert_frust_minsep;
+      in >> tert_frust_mode;
+      if (strcmp(tert_frust_mode, "configurational")!=0 && strcmp(tert_frust_mode, "mutational")!=0) {
+	// throw an error if the "mode" is anything but "configurational" or "mutational"
+	error->all("Only \"configurational\" and \"mutational\" are acceptable modes for the Tertiary_Frustratometer.");
+      }
+    }
+      else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
       if (comm->me==0) print_log("Solvent separated barrier flag on\n");
       in >> k_solventb1;
@@ -599,6 +614,15 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	frag_frust_read_variance = new double[n];
       }
   }
+
+  // if tert_frust_flag is on, perform appropriate initializations
+  if(tert_frust_flag) {
+    tert_frust_decoy_energies = new double[tert_frust_ndecoys];
+    decoy_ixn_stats = new double[2];
+    tert_frust_output_file = fopen("tertiary_frustration.dat","w");
+    tert_frust_vmd_script = fopen("tertiary_frustration.tcl","w");
+    fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j f_ij\n");
+  }
   
   // Allocate the table
   if (frag_mem_tb_flag) {
@@ -737,6 +761,12 @@ FixBackbone::~FixBackbone()
       delete [] frag_frust_read_mean;
       delete [] frag_frust_read_variance;
     }
+  }
+
+  // if the tertiary frustratometer was on, write the end of the vmd script and close the files
+  if (tert_frust_flag) {
+    fclose(tert_frust_output_file);
+    fclose(tert_frust_vmd_script);
   }
 	
   fclose(efile);
@@ -2420,6 +2450,9 @@ void FixBackbone::compute_water_potential(int i, int j)
 		
     water_gamma_0 = get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 0);
     water_gamma_1 = get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 1);
+
+    // printf("%d %d %d %d %d\n", i_resno, j_resno, i_well, ires_type, jres_type);
+    // printf("%f %f\n", water_gamma_0, water_gamma_1);
 		
     // Optimization for gamma[0]==gamma[1]
     if (fabs(water_gamma_0 - water_gamma_1)<delta) direct_contact = true;
@@ -3342,6 +3375,286 @@ void FixBackbone::compute_generated_decoy_energies()
     }
 }
 
+void FixBackbone::compute_tert_frust()
+{
+  double *xi, *xj, dx[3];
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij, rho_i, rho_j;
+  double native_energy;
+  double frustration_index;
+  int atomselect;
+
+  atomselect = 0; // for the vmd script output
+
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = se_map[se[i_resno]-'A']; 
+    i_chno = chain_no[i]-1;
+
+    for (j=i+1;j<n;++j) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      jres_type = se_map[se[j_resno]-'A'];
+      j_chno = chain_no[j]-1;
+      
+      // Select beta atom unless the residue type is GLY, then select alpha carbon
+      if (se[i_resno]=='G') { xi = xca[i]; }
+      else { xi = xcb[i]; }
+      if (se[j_resno]=='G') { xj = xca[j]; }
+      else { xj = xcb[j]; }
+
+      // compute distance between the two atoms
+      dx[0] = xi[0] - xj[0];
+      dx[1] = xi[1] - xj[1];
+      dx[2] = xi[2] - xj[2];
+      rij = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+
+      // if the atoms are within the threshold, compute the frustration
+      if (rij < tert_frust_cutoff && (abs(i-j)>=tert_frust_minsep || i_chno != j_chno)) {
+	rho_i = get_residue_density(i);
+	rho_j = get_residue_density(j);
+	native_energy = compute_native_ixn(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+	compute_decoy_ixns(rij, rho_i, rho_j);
+	frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
+	// write information out to output file
+	fprintf(tert_frust_output_file,"%d %d %f %f %f %c %c %f %f %f %f\n", i+1, j+1, rij, rho_i, rho_j, se[i_resno], se[j_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
+	if(frustration_index > 0.78 || frustration_index < -1) {
+	  // write information out to vmd script
+	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i, i+1);
+	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", j, j+1);
+	  fprintf(tert_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",atomselect);
+	  atomselect += 1;
+	  fprintf(tert_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",atomselect);
+	  atomselect += 1;
+	  if(frustration_index > 0.78) {
+	    fprintf(tert_frust_vmd_script,"draw color green\n");
+	  }
+	  else {
+	    fprintf(tert_frust_vmd_script,"draw color red\n");
+	  }
+	  if(rij < well->par.well_r_max[0]) {
+	    fprintf(tert_frust_vmd_script,"draw line $pos1 $pos2 style solid width 1\n");
+	  }
+	  else {
+	    fprintf(tert_frust_vmd_script,"draw line $pos1 $pos2 style dashed width 2\n");
+	  }
+	}
+      }
+    }
+  }
+  
+  // after looping over all pairs, write out the end of the vmd script
+  fprintf(tert_frust_vmd_script, "mol modselect 0 top \"all\"\n");
+  fprintf(tert_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
+  fprintf(tert_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+}
+
+double FixBackbone::compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
+{
+  double water_energy, burial_energy_i, burial_energy_j;
+  water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+  burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
+  burial_energy_j = compute_burial_energy(j_resno, jres_type, rho_j);
+
+  return water_energy+burial_energy_i+burial_energy_j;
+}
+
+void FixBackbone::compute_decoy_ixns(double rij_orig, double rho_i_orig, double rho_j_orig)
+{
+  int decoy_i, i_resno, j_resno, ires_type, jres_type;
+  double rij, rho_i, rho_j, water_energy, burial_energy_i, burial_energy_j;
+  
+  for (decoy_i=0; decoy_i<tert_frust_ndecoys; decoy_i++) {
+    if (strcmp(tert_frust_mode, "configurational")==0) {
+      // choose random rij, rho_i, rho_j 
+      i_resno = get_random_residue_index();
+      j_resno = get_random_residue_index();
+      rij = get_residue_distance(i_resno, j_resno);
+      i_resno = get_random_residue_index();
+      j_resno = get_random_residue_index();
+      rho_i = get_residue_density(i_resno);
+      rho_j = get_residue_density(j_resno);
+    }
+    else {
+      // if in mutational mode, use configurational parameters passed into the function
+      rij = rij_orig;
+      rho_i = rho_i_orig;
+      rho_j = rho_j_orig;
+    }
+
+    // choose random ires_type, j_type
+    i_resno = get_random_residue_index();
+    j_resno = get_random_residue_index();
+    ires_type = get_residue_type(i_resno);
+    jres_type = get_residue_type(j_resno);
+
+    // compute energy terms
+    water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+    burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
+    burial_energy_j = compute_burial_energy(j_resno, jres_type, rho_j);
+
+    // sum the energy terms, store in array
+    tert_frust_decoy_energies[decoy_i] = water_energy + burial_energy_i + burial_energy_j;
+  }
+
+  decoy_ixn_stats[0] = compute_array_mean(tert_frust_decoy_energies, tert_frust_ndecoys);
+  decoy_ixn_stats[1] = compute_array_std(tert_frust_decoy_energies, tert_frust_ndecoys);
+
+}
+
+double FixBackbone::compute_array_mean(double *array, int arraysize)
+{
+  double mean;
+  int i;
+
+  mean = 0;
+  for(i = 0; i < arraysize; i++) {
+    mean += array[i];
+  }
+  mean /= (double)arraysize;
+
+  return mean;
+}
+
+double FixBackbone::compute_array_std(double *array, int arraysize)
+{
+  double mean, std;
+  int i;
+
+  mean = 0.0;
+  for(i = 0; i < arraysize; i++) {
+    mean += array[i];
+  }
+  mean /= (double)arraysize;
+
+  std = 0.0;
+  for(i = 0; i < arraysize; i++) {
+    std += (array[i] - mean)*(array[i] - mean);
+  }
+  std /= (double)arraysize;
+  std = sqrt(std);
+
+  return std;
+}
+
+double FixBackbone::compute_tert_frust_index(double native_energy, double decoy_energy_mean, double decoy_energy_std)
+{
+  double frustration_index;
+
+  frustration_index = (native_energy-decoy_energy_mean)/decoy_energy_std;
+
+  return frustration_index;
+}
+
+double FixBackbone::compute_water_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
+{
+  double water_gamma_0_direct, water_gamma_1_direct, water_gamma_prot_mediated, water_gamma_wat_mediated;
+  double sigma_wat, sigma_prot, sigma_gamma_direct, sigma_gamma_mediated;
+  double t_min_direct, t_max_direct, theta_direct, t_min_mediated, t_max_mediated, theta_mediated;
+  double water_energy;
+
+  water_gamma_0_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 0);
+  water_gamma_1_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 1);
+
+  water_gamma_prot_mediated = get_water_gamma(i_resno, j_resno, 1, ires_type, jres_type, 0);
+  water_gamma_wat_mediated = get_water_gamma(i_resno, j_resno, 1, ires_type, jres_type, 1);
+
+  sigma_wat = 0.25*(1.0 - tanh(well->par.kappa_sigma*(rho_i-well->par.treshold)))*(1.0 - tanh(well->par.kappa_sigma*(rho_j-well->par.treshold)));
+  sigma_prot = 1.0 - sigma_wat;
+  
+  sigma_gamma_direct = (water_gamma_0_direct + water_gamma_1_direct)/2;
+  sigma_gamma_mediated = sigma_prot*water_gamma_prot_mediated + sigma_wat*water_gamma_wat_mediated;
+
+  t_min_direct = tanh( well->par.kappa*(rij - well->par.well_r_min[0]) );
+  t_max_direct = tanh( well->par.kappa*(well->par.well_r_max[0] - rij) );
+  theta_direct = 0.25*(1.0 + t_min_direct)*(1.0 + t_max_direct);
+
+  t_min_mediated = tanh( well->par.kappa*(rij - well->par.well_r_min[1]) );
+  t_max_mediated = tanh( well->par.kappa*(well->par.well_r_max[1] - rij) );
+  theta_mediated = 0.25*(1.0 + t_min_mediated)*(1.0 + t_max_mediated);
+
+  water_energy = -epsilon*k_water*(sigma_gamma_direct*theta_direct+sigma_gamma_mediated*theta_mediated);
+
+  return water_energy;
+}
+
+double FixBackbone::compute_burial_energy(int i_resno, int ires_type, double rho_i)
+{
+  double t[3][2];
+  double burial_gamma_0, burial_gamma_1, burial_gamma_2, burial_energy;
+
+  t[0][0] = tanh( burial_kappa*(rho_i - burial_ro_min[0]) );
+  t[0][1] = tanh( burial_kappa*(burial_ro_max[0] - rho_i) );
+  t[1][0] = tanh( burial_kappa*(rho_i - burial_ro_min[1]) );
+  t[1][1] = tanh( burial_kappa*(burial_ro_max[1] - rho_i) );
+  t[2][0] = tanh( burial_kappa*(rho_i - burial_ro_min[2]) );
+  t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - rho_i) );
+  
+  burial_gamma_0 = get_burial_gamma(i_resno, ires_type, 0);
+  burial_gamma_1 = get_burial_gamma(i_resno, ires_type, 1);
+  burial_gamma_2 = get_burial_gamma(i_resno, ires_type, 2);
+
+  burial_energy = 0.0;
+  burial_energy += -0.5*epsilon*k_burial*burial_gamma_0*(t[0][0] + t[0][1]);
+  burial_energy += -0.5*epsilon*k_burial*burial_gamma_1*(t[1][0] + t[1][1]);
+  burial_energy += -0.5*epsilon*k_burial*burial_gamma_2*(t[2][0] + t[2][1]);
+
+  return burial_energy;
+}
+
+int FixBackbone::get_random_residue_index()
+{
+  int index, i_resno;
+  index = rand() % n; 
+  i_resno = res_no[index]-1;  
+  return i_resno;
+}
+
+double FixBackbone::get_residue_distance(int i_resno, int j_resno)
+{
+  double dx[3];
+  double *xi, *xj;
+  double r;
+	
+  int ires_type = se_map[se[i_resno]-'A'];
+  int jres_type = se_map[se[j_resno]-'A'];
+	
+  if (se[i_resno]=='G') { xi = xca[i_resno]; }
+  else { xi = xcb[i_resno]; }
+  if (se[j_resno]=='G') { xj = xca[j_resno]; }
+  else { xj = xcb[j_resno]; }
+	
+  dx[0] = xi[0] - xj[0];
+  dx[1] = xi[1] - xj[1];
+  dx[2] = xi[2] - xj[2];
+  
+  r = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+
+  return r;
+}
+
+double FixBackbone::get_residue_density(int i)
+{
+  return well->ro(i);
+}
+
+int FixBackbone::get_residue_type(int i_resno)
+{
+  return se_map[se[i_resno]-'A'];
+}
+
+double FixBackbone::compute_frustration_index(double native_energy, double *decoy_stats)
+{
+  double frustration_index;
+
+  frustration_index = (decoy_stats[0] - native_energy)/decoy_stats[1];
+
+  return frustration_index;
+}
+
 void FixBackbone::compute_fragment_memory_table()
 {
   int i, j, js, je, ir, i_fm, k, itb, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
@@ -4139,6 +4452,13 @@ void FixBackbone::compute_backbone()
     }
     // regardless of what mode you are using, calculate and output per-residue frustration index
     compute_fragment_frustration();
+  }
+
+  // if it is time to compute the tertiary frustration, do it
+  if (tert_frust_flag && ntimestep % tert_frust_output_freq == 0) {
+    fprintf(tert_frust_output_file,"# timestep: %d\n", ntimestep);
+    fprintf(tert_frust_vmd_script,"# timestep: %d\n", ntimestep);
+    compute_tert_frust();
   }
  
   if (amh_go_flag)

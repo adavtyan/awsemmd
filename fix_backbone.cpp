@@ -3473,6 +3473,11 @@ void FixBackbone::compute_decoy_ixns(double rij_orig, double rho_i_orig, double 
       i_resno = get_random_residue_index();
       j_resno = get_random_residue_index();
       rij = get_residue_distance(i_resno, j_resno);
+      while(rij > tert_frust_cutoff) {
+	i_resno = get_random_residue_index();
+	j_resno = get_random_residue_index();
+	rij = get_residue_distance(i_resno, j_resno);
+      }
       i_resno = get_random_residue_index();
       j_resno = get_random_residue_index();
       rho_i = get_residue_density(i_resno);

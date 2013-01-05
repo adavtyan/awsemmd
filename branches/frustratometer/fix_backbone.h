@@ -133,6 +133,14 @@ public:
   double *tert_frust_decoy_energies;
   double *decoy_ixn_stats;
 
+  // nmer frustratometer parameters
+  int nmer_frust_size, nmer_frust_ndecoys, nmer_frust_output_freq, nmer_frust_minsep;
+  int nmer_contacts_cutoff;
+  double nmer_frust_cutoff, nmer_frust_min_frust_threshold, nmer_frust_high_frust_threshold;
+  double *nmer_frust_decoy_energies;
+  double *nmer_decoy_ixn_stats;  
+  char *nmer_seq_i, *nmer_seq_j;
+
   // Table Fragment Memory parameters
     TBV **fm_table;
 //  TBV ****fm_table;
@@ -174,6 +182,7 @@ public:
   bool frag_mem_tb_flag;
   bool frag_frust_flag;
   bool tert_frust_flag;
+  bool nmer_frust_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -229,7 +238,12 @@ public:
   double compute_frustration_index(double native_energy, double *decoy_stats);
   double compute_array_mean(double *array, int arraysize);
   double compute_array_std(double *array, int arraysize);
-
+  // nmer frustratometer functions
+  void compute_nmer_frust();
+  int compute_nmer_contacts(int i, int j);
+  void get_nmer_seq(int i, char *nmer_seq);
+  double compute_nmer_native_ixn(int i, int j);
+  void compute_nmer_decoy_ixns(int i, int j);
 
   void allocate();
   inline void Construct_Computational_Arrays();
@@ -281,6 +295,10 @@ public:
   // Tertiary Frustration files
   FILE *tert_frust_output_file;
   FILE *tert_frust_vmd_script;
+
+  // nmer frustration files
+  FILE *nmer_frust_output_file;
+  FILE *nmer_frust_vmd_script;
   };
   
 }

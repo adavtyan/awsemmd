@@ -105,8 +105,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   ssb_flag = frag_mem_tb_flag = phosph_flag = 0;
   // all fragment frustration flags are off by default
   frag_frust_flag = frag_frust_read_flag = frag_frust_shuffle_flag = 0;
-  // all tertiary frustration flags are off by default
+  // tertiary frustration flag is off by default
   tert_frust_flag = 0;
+  // nmer frustration flag is off by default
+  nmer_frust_flag = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -317,6 +319,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	// throw an error if the "mode" is anything but "configurational" or "mutational"
 	error->all("Only \"configurational\" and \"mutational\" are acceptable modes for the Tertiary_Frustratometer.");
       }
+    } else if (strcmp(varsection, "[Nmer_Frustratometer]")==0) {
+      nmer_frust_flag = 1;
+      if (comm->me==0) print_log("Nmer_Frustratometer flag on\n");
+      in >> nmer_frust_size;
+      in >> nmer_frust_cutoff;
+      in >> nmer_contacts_cutoff;
+      in >> nmer_frust_ndecoys;
+      in >> nmer_frust_output_freq;
+      in >> nmer_frust_minsep;
+      in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold;
     }
       else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
@@ -623,6 +635,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     tert_frust_vmd_script = fopen("tertiary_frustration.tcl","w");
     fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
   }
+
+  // if nmer_frust_flag is on, perform appropriate initializations
+  if(nmer_frust_flag) {
+    nmer_frust_decoy_energies = new double[nmer_frust_ndecoys];
+    nmer_decoy_ixn_stats = new double[2];
+    nmer_seq_i = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_i[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_seq_j = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_j[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_frust_output_file = fopen("nmer_frustration.dat","w");
+    nmer_frust_vmd_script = fopen("nmer_frustration.tcl","w");
+    fprintf(nmer_frust_output_file,"# i j ncontacts a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+  }
   
   // Allocate the table
   if (frag_mem_tb_flag) {
@@ -767,6 +792,12 @@ FixBackbone::~FixBackbone()
   if (tert_frust_flag) {
     fclose(tert_frust_output_file);
     fclose(tert_frust_vmd_script);
+  }
+
+  // if the nmer frustratometer was on, write the end of the vmd script and close the files
+  if (nmer_frust_flag) {
+    fclose(nmer_frust_output_file);
+    fclose(nmer_frust_vmd_script);
   }
 	
   fclose(efile);
@@ -3610,6 +3641,7 @@ double FixBackbone::compute_burial_energy(int i_resno, int ires_type, double rho
   return burial_energy;
 }
 
+// generates a random but valid residue index
 int FixBackbone::get_random_residue_index()
 {
   int index, i_resno;
@@ -3618,6 +3650,7 @@ int FixBackbone::get_random_residue_index()
   return i_resno;
 }
 
+// returns the CB-CB distance between two residues (CA for GLY)
 double FixBackbone::get_residue_distance(int i_resno, int j_resno)
 {
   double dx[3];
@@ -3641,16 +3674,19 @@ double FixBackbone::get_residue_distance(int i_resno, int j_resno)
   return r;
 }
 
+// returns the local density around residue i
 double FixBackbone::get_residue_density(int i)
 {
   return well->ro(i);
 }
 
+// returns the residue type of residue i_resno
 int FixBackbone::get_residue_type(int i_resno)
 {
   return se_map[se[i_resno]-'A'];
 }
 
+// given the native energy and the mean and variance of the decoy energy distribution, computes the frustration index
 double FixBackbone::compute_frustration_index(double native_energy, double *decoy_stats)
 {
   double frustration_index;
@@ -3658,6 +3694,172 @@ double FixBackbone::compute_frustration_index(double native_energy, double *deco
   frustration_index = (decoy_stats[0] - native_energy)/decoy_stats[1];
 
   return frustration_index;
+}
+
+void FixBackbone::compute_nmer_frust()
+{
+  int i, j, atomselect, nmer_contacts;
+  double native_energy, frustration_index;
+
+  atomselect = 0; // for the vmd script output
+
+  // Double loop over all nmers
+  for (i=0;i<n-nmer_frust_size;++i) {
+    // get sequence of nmer starting at i
+    get_nmer_seq(i, nmer_seq_i);
+
+    for (j=i+1;j<n-nmer_frust_size;++j) {
+      // get sequence of nmer starting at j
+      get_nmer_seq(j, nmer_seq_j);
+	  
+      // compute the number of contacts between the two nmers
+      nmer_contacts = compute_nmer_contacts(i, j);
+      
+      // if the nmers have at least the number of required contacts and satisfy the sequence separation constraints, compute the frustration
+      // this will need to be fixed to take multiple chains into account
+      if (nmer_contacts >= nmer_contacts_cutoff && abs(i-j)>=nmer_frust_minsep) {
+	native_energy = compute_nmer_native_ixn(i, j);
+	compute_nmer_decoy_ixns(i, j);
+	frustration_index = compute_frustration_index(native_energy, nmer_decoy_ixn_stats);
+	// write information out to output file
+	fprintf(nmer_frust_output_file,"%d %d %d %s %s %f %f %f %f\n", i+1, j+1, nmer_contacts, nmer_seq_i, nmer_seq_j, native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
+	//fprintf(nmer_frust_output_file,"%d %d %d %c %c %f %f %f %f\n", i+1, j+1, nmer_contacts, se[i], se[j], native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
+	
+	if(frustration_index > nmer_frust_min_frust_threshold || frustration_index < nmer_frust_high_frust_threshold) {
+	  // write information out to vmd script
+	  // this will need to be modified to draw a line between the two central residues of the two nmers
+	  fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i+nmer_frust_size/2, i+1+nmer_frust_size/2);
+	  fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", j+nmer_frust_size/2, j+1+nmer_frust_size/2);
+	  fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",atomselect);
+	  atomselect += 1;
+	  fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",atomselect);
+	  atomselect += 1;
+	  if(frustration_index > 0.78) {
+	    fprintf(nmer_frust_vmd_script,"draw color green\n");
+	  }
+	  else {
+	    fprintf(nmer_frust_vmd_script,"draw color red\n");
+	  }
+	  fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style solid width 1\n");
+	}
+      }
+    }
+  }
+  
+  // after looping over all pairs, write out the end of the vmd script
+  fprintf(nmer_frust_vmd_script, "mol modselect 0 top \"all\"\n");
+  fprintf(nmer_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
+  fprintf(nmer_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+}
+
+// computes the number of contacts between two nmers of size nmer_frust_size starting at positions i_resno and j_resno
+int FixBackbone::compute_nmer_contacts(int i_resno, int j_resno)
+{
+  int numcontacts;
+  int i,j;
+  double distance;
+
+  numcontacts = 0;
+
+  // loop over all pairs of residues between the two nmers
+  for (i = i_resno; i < i_resno+nmer_frust_size; i++) {
+    for (j = j_resno; j < j_resno+nmer_frust_size; j++) {
+      // compute distance between the two residues
+      distance = get_residue_distance(i, j);
+      // if less than the threshold, incrememnt number of contacts
+      if (distance < nmer_frust_cutoff) {
+	numcontacts++;
+      }
+    }
+  }
+
+  return numcontacts;
+}
+
+// returns a string that is the sequence of the nmer of size nmer_frust_size starting at position i
+void FixBackbone::get_nmer_seq(int i_start, char *nmer_seq)
+{
+  int i;
+
+  for(i=0; i<nmer_frust_size; i++) {
+    nmer_seq[i] = se[i_start+i];
+  }
+  //printf("%s\n",nmer_seq);
+}
+
+double FixBackbone::compute_nmer_native_ixn(int i_start, int j_start)
+{
+  double total_native_energy, rij, rho_i, rho_j;
+  int ires_type, jres_type;
+  int i, j;
+
+  total_native_energy = 0.0;
+
+  // loop over all pairs of residues between the two nmers
+  for (i = i_start; i < i_start+nmer_frust_size; i++) {
+    // get information about residue i
+    ires_type = se_map[se[i]-'A']; 
+    
+    for (j = j_start; j < j_start+nmer_frust_size; j++) {
+      // get information about residue j
+      jres_type = se_map[se[j]-'A'];
+
+      // get interaction parameters
+      rij = get_residue_distance(i, j);
+      rho_i = get_residue_density(i);
+      rho_j = get_residue_density(j);
+
+      // compute native interaction energy, add to total
+      total_native_energy += compute_native_ixn(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+    }
+  }
+
+  return total_native_energy;
+}
+
+void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
+{
+  double total_decoy_energy, rij, rho_i, rho_j, decoy_energy;
+  int ires_type, jres_type, i_rand, j_rand, decoy_i;
+  int i, j;
+
+  // do the decoy calculation nmer_frust_ndecoys times
+  for (decoy_i=0; decoy_i<nmer_frust_ndecoys; decoy_i++) {
+    // zero out this spot in the decoy energy array
+    nmer_frust_decoy_energies[decoy_i] = 0.0;
+    // get two random indices to define the sequence of the decoy nmers
+    i_rand = get_random_residue_index();
+    while(i_rand + nmer_frust_size > n) {
+      i_rand = get_random_residue_index();
+    }
+    
+    j_rand = get_random_residue_index();
+    while(j_rand + nmer_frust_size > n) {
+      j_rand = get_random_residue_index();
+    }
+    
+    // loop over all pairs of residues between the two nmers
+    for (i = i_start; i < i_start+nmer_frust_size; i++) {
+      // assign random residue type to residue i
+      ires_type = se_map[se[i_rand+i-i_start]-'A']; 
+      
+      for (j = j_start; j < j_start+nmer_frust_size; j++) {
+	// assign random residue type to residue j
+	jres_type = se_map[se[j_rand+j-j_start]-'A'];
+	
+	// get interaction parameters
+	rij = get_residue_distance(i, j);
+	rho_i = get_residue_density(i);
+	rho_j = get_residue_density(j);
+
+	// compute decoy interaction energy, add to total
+	nmer_frust_decoy_energies[decoy_i] += compute_native_ixn(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+      }
+    }
+  }
+
+  nmer_decoy_ixn_stats[0] = compute_array_mean(nmer_frust_decoy_energies, nmer_frust_ndecoys);
+  nmer_decoy_ixn_stats[1] = compute_array_std(nmer_frust_decoy_energies, nmer_frust_ndecoys);
 }
 
 void FixBackbone::compute_fragment_memory_table()
@@ -4464,6 +4666,13 @@ void FixBackbone::compute_backbone()
     fprintf(tert_frust_output_file,"# timestep: %d\n", ntimestep);
     fprintf(tert_frust_vmd_script,"# timestep: %d\n", ntimestep);
     compute_tert_frust();
+  }
+
+  // if it is time to compute the nmer frustration, do it
+  if (nmer_frust_flag && ntimestep % nmer_frust_output_freq == 0) {
+    fprintf(nmer_frust_output_file,"# timestep: %d\n", ntimestep);
+    fprintf(nmer_frust_vmd_script,"# timestep: %d\n", ntimestep);
+    compute_nmer_frust();
   }
  
   if (amh_go_flag)

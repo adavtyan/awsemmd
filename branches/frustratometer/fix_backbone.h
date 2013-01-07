@@ -128,13 +128,13 @@ public:
 
   // Tertiary Frustratometer parameters
   double tert_frust_cutoff;
-  int tert_frust_ndecoys, tert_frust_output_freq, tert_frust_minsep;
+  int tert_frust_ndecoys, tert_frust_output_freq;
   char tert_frust_mode[100];
   double *tert_frust_decoy_energies;
   double *decoy_ixn_stats;
 
   // nmer frustratometer parameters
-  int nmer_frust_size, nmer_frust_ndecoys, nmer_frust_output_freq, nmer_frust_minsep;
+  int nmer_frust_size, nmer_frust_ndecoys, nmer_frust_output_freq;
   int nmer_contacts_cutoff;
   double nmer_frust_cutoff, nmer_frust_min_frust_threshold, nmer_frust_high_frust_threshold;
   double *nmer_frust_decoy_energies;

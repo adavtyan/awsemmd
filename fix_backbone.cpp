@@ -313,7 +313,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> tert_frust_cutoff;
       in >> tert_frust_ndecoys;
       in >> tert_frust_output_freq;
-      in >> tert_frust_minsep;
       in >> tert_frust_mode;
       if (strcmp(tert_frust_mode, "configurational")!=0 && strcmp(tert_frust_mode, "mutational")!=0) {
 	// throw an error if the "mode" is anything but "configurational" or "mutational"
@@ -327,7 +326,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> nmer_contacts_cutoff;
       in >> nmer_frust_ndecoys;
       in >> nmer_frust_output_freq;
-      in >> nmer_frust_minsep;
       in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold;
     }
       else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
@@ -3444,7 +3442,7 @@ void FixBackbone::compute_tert_frust()
       rij = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
 
       // if the atoms are within the threshold, compute the frustration
-      if (rij < tert_frust_cutoff && (abs(i-j)>=tert_frust_minsep || i_chno != j_chno)) {
+      if (rij < tert_frust_cutoff && (abs(i-j)>=contact_cutoff || i_chno != j_chno)) {
 	rho_i = get_residue_density(i);
 	rho_j = get_residue_density(j);
 	native_energy = compute_native_ixn(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
@@ -3592,6 +3590,8 @@ double FixBackbone::compute_water_energy(double rij, int i_resno, int j_resno, i
   double t_min_direct, t_max_direct, theta_direct, t_min_mediated, t_max_mediated, theta_mediated;
   double water_energy;
 
+  if(abs(i_resno-j_resno)<contact_cutoff) return 0.0;
+
   water_gamma_0_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 0);
   water_gamma_1_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 1);
 
@@ -3717,7 +3717,7 @@ void FixBackbone::compute_nmer_frust()
       
       // if the nmers have at least the number of required contacts and satisfy the sequence separation constraints, compute the frustration
       // this will need to be fixed to take multiple chains into account
-      if (nmer_contacts >= nmer_contacts_cutoff && abs(i-j)>=nmer_frust_minsep) {
+      if (nmer_contacts >= nmer_contacts_cutoff && j-i >= nmer_frust_size) {
 	native_energy = compute_nmer_native_ixn(i, j);
 	compute_nmer_decoy_ixns(i, j);
 	frustration_index = compute_frustration_index(native_energy, nmer_decoy_ixn_stats);
@@ -3753,7 +3753,7 @@ void FixBackbone::compute_nmer_frust()
 }
 
 // computes the number of contacts between two nmers of size nmer_frust_size starting at positions i_resno and j_resno
-int FixBackbone::compute_nmer_contacts(int i_resno, int j_resno)
+int FixBackbone::compute_nmer_contacts(int i_start, int j_start)
 {
   int numcontacts;
   int i,j;
@@ -3762,8 +3762,10 @@ int FixBackbone::compute_nmer_contacts(int i_resno, int j_resno)
   numcontacts = 0;
 
   // loop over all pairs of residues between the two nmers
-  for (i = i_resno; i < i_resno+nmer_frust_size; i++) {
-    for (j = j_resno; j < j_resno+nmer_frust_size; j++) {
+  for (i = i_start; i < i_start+nmer_frust_size; i++) {
+    for (j = j_start; j < j_start+nmer_frust_size; j++) {
+      // if you are not beyond minimum sequence separation for the water potential, then you are not a contact
+      if(abs(i-j) < contact_cutoff) continue;
       // compute distance between the two residues
       distance = get_residue_distance(i, j);
       // if less than the threshold, incrememnt number of contacts

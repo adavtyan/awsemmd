@@ -3707,15 +3707,12 @@ void FixBackbone::compute_nmer_frust()
   for (i=0;i<n-nmer_frust_size;++i) {
     // get sequence of nmer starting at i
     get_nmer_seq(i, nmer_seq_i);
-
     for (j=i+1;j<n-nmer_frust_size;++j) {
       // get sequence of nmer starting at j
       get_nmer_seq(j, nmer_seq_j);
-	  
       // compute the number of contacts between the two nmers
       nmer_contacts = compute_nmer_contacts(i, j);
-      
-      // if the nmers have at least the number of required contacts and satisfy the sequence separation constraints, compute the frustration
+      // if the nmers have at least the number of required contacts and are non-overlapping, compute the frustration
       // this will need to be fixed to take multiple chains into account
       if (nmer_contacts >= nmer_contacts_cutoff && j-i >= nmer_frust_size) {
 	native_energy = compute_nmer_native_ixn(i, j);
@@ -3823,7 +3820,7 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
 {
   double total_decoy_energy, rij, rho_i, rho_j, decoy_energy;
   int ires_type, jres_type, i_rand, j_rand, decoy_i;
-  int i, j;
+  int i, j, itemp, jtemp;
 
   // do the decoy calculation nmer_frust_ndecoys times
   for (decoy_i=0; decoy_i<nmer_frust_ndecoys; decoy_i++) {
@@ -3831,15 +3828,26 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
     nmer_frust_decoy_energies[decoy_i] = 0.0;
     // get two random indices to define the sequence of the decoy nmers
     i_rand = get_random_residue_index();
-    while(i_rand + nmer_frust_size > n) {
-      i_rand = get_random_residue_index();
-    }
-    
     j_rand = get_random_residue_index();
-    while(j_rand + nmer_frust_size > n) {
-      j_rand = get_random_residue_index();
+    // make sure that j > i so that we can test for overlap
+    if(i_rand > j_rand) {
+      itemp = i_rand;
+      jtemp = j_rand;
+      j_rand = itemp;
+      i_rand = jtemp;
     }
-    
+    // if either nmer would go off of the end of the sequence or they are overlapping
+    // then choose new i_rand and j_rand and repeat
+    while(i_rand + nmer_frust_size > n || j_rand + nmer_frust_size > n || j_rand-i_rand < nmer_frust_size) {
+      i_rand = get_random_residue_index();
+      j_rand = get_random_residue_index();
+      if(i_rand > j_rand) {
+	itemp = i_rand;
+	jtemp = j_rand;
+	j_rand = itemp;
+	i_rand = jtemp;
+      }
+    }
     // loop over all pairs of residues between the two nmers
     for (i = i_start; i < i_start+nmer_frust_size; i++) {
       // assign random residue type to residue i

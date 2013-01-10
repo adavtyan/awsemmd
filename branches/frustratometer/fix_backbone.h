@@ -161,6 +161,7 @@ public:
 
   // Membrane potential
   double k_overall_memb;
+  double memb_dens_offset;
   double k_bin;
   double memb_xo[3];
   int    memb_pore_type;

@@ -159,7 +159,6 @@ decoysLAMW.mem
 1000
 1.0
 0 1.0
-0
 
 #[Solvent_Barrier]
 k1 (barrier height 1)
@@ -180,6 +179,33 @@ residue radii
 13
 1
 0.00 2.04 0.57 0.57 0.36 1.11 1.17 -1.52 0.87 0.67 0.79 1.47 1.03 1.00 -0.10 0.26 0.37 1.21 1.15 0.39
+
+#[Membrane]
+k_overall_memb;
+memb_dens_offset; density offset for membrane
+k_bin; smoothness of tanh function
+memb_xo[0] >> memb_xo[1] >> memb_xo[2];
+memb_pore_type;
+memb_len;
+rho0_max;
+rho0_distor;
+for (int i=0;i<3;++i)
+for (int j=0;j<4;++j) 
+    g_memb[i][j]; 
+
+[Membrane]
+1.0
+2.6
+0.1
+100 100 -50
+0
+32
+5
+0
+1 1 1 1
+1 1 1 1
+1 1 1 1
+
 
 #[Phosphorylation]
 strength of hypercharge

@@ -6,7 +6,9 @@ http://papoian.chem.umd.edu/
 
 Solvent Separated Barrier Potential was contributed by Nick Schafer
 
-Last Update: 03/23/2011
+Membrane Potential was contributed by Leonardo Boechi and Bobby Kim
+
+Last Update: 03/9/2012
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -47,6 +49,7 @@ public:
   double epsilon;
   
   // Backbone parameters
+  int z_res[2000];
   double k_chain[3], k_shake, k_chi, k_rama;
   double k_excluded_C, k_excluded_O;
   double r_ncb0, r_cpcb0, r_ncp0, chi0;
@@ -156,6 +159,16 @@ public:
   bool ssb_rad_cor;
   double ssb_rshift[20];
 
+  // Membrane potential
+  double k_overall_memb;
+  double k_bin;
+  double memb_xo[3];
+  int    memb_pore_type;
+  double memb_len;
+  double rho0_max;
+  double rho0_distor;
+  double g_memb[3][4];
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -180,6 +193,7 @@ public:
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
   bool phosph_flag;
   bool frag_mem_tb_flag;
+  bool memb_flag;
   bool frag_frust_flag;
   bool tert_frust_flag;
   bool nmer_frust_flag;
@@ -193,11 +207,11 @@ public:
   
   double energy[15], energy_all[15];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
-                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_SSB, nEnergyTerms};
+                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_SSB, ET_MEMB, nEnergyTerms};
   
   double ctime[15], previous_time;
   enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
-  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_SSB, TIME_N};
+  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_SSB, TIME_N, TIME_MEMB};
   
  private:
   void compute_backbone();
@@ -224,6 +238,8 @@ public:
   void output_fragment_memory_table();
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
+  void compute_membrane_potential(int i);
+
   // Tertiary Frustratometer Functions
   void compute_tert_frust();
   double compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);

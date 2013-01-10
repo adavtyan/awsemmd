@@ -6,7 +6,9 @@
 
    Solvent Separated Barrier Potential was contributed by Nick Schafer
 
-   Last Update: 03/23/2011
+   Membrane Potential was contributed by Leonardo Boechi and Bobby Kim
+
+   Last Update: 03/9/2012
    ------------------------------------------------------------------------- */
 
 #include "math.h"
@@ -89,7 +91,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   strcat(forcefile, ".dat");
   dout = fopen(forcefile, "w");
 	
-  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tSSB     \tVTotal\n";
+  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tSSB    \tMembrane\tVTotal\n";
   fprintf(efile, "%s", eheader);
 
   scalar_flag = 1;
@@ -101,7 +103,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   extvector = 1;
 	
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
-  ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = 0;
+  ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = memb_flag = 0;
   ssb_flag = frag_mem_tb_flag = phosph_flag = 0;
   // all fragment frustration flags are off by default
   frag_frust_flag = frag_frust_read_flag = frag_frust_shuffle_flag = 0;
@@ -281,6 +283,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> frag_table_well_width;
       in >> fm_energy_debug_flag;
       in >> fm_sigma_exp;
+    } else if (strcmp(varsection, "[Membrane]")==0) {
+      memb_flag = 1;
+      print_log("Membrane flag on\n");
+      in >> k_overall_memb;
+      in >> k_bin;
+      in >> memb_xo[0] >> memb_xo[1] >> memb_xo[2];
+      in >> memb_pore_type;
+      in >> memb_len;
+      in >> rho0_max;
+      in >> rho0_distor;
+      for (int i=0;i<3;++i)
+        for (int j=0;j<4;++j) 
+          in >> g_memb[i][j]; 
     } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
       // The fragment frustratometer requires the fragment memory potential to be active
       if (!frag_mem_flag && !frag_mem_tb_flag) error->all("Cannot run Fragment_Frustratometer without Fragment_Memory or Fragment_Memory_Table.");
@@ -437,6 +452,17 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     }
     in_ssw.close();
   }
+
+  if (memb_flag) {
+    ifstream in_memb_zim("zim");
+    if (!in_memb_zim) error->all("File zim doesn't exist");
+    // what's happen if zim file is not correct
+    for (i=0;i<n;++i) {
+      in_memb_zim >> z_res[i];
+    }
+    in_memb_zim.close();
+  }
+
 
   if (water_flag) {
     ifstream in_wg("gamma.dat");
@@ -674,7 +700,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 void FixBackbone::final_log_output()
 {
   double time, tmp;
-  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "SSB"};
+  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "SSB", "Membrane"};
   int me,nprocs;
 
   MPI_Comm_rank(world,&me);
@@ -2479,9 +2505,6 @@ void FixBackbone::compute_water_potential(int i, int j)
 		
     water_gamma_0 = get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 0);
     water_gamma_1 = get_water_gamma(i_resno, j_resno, i_well, ires_type, jres_type, 1);
-
-    // printf("%d %d %d %d %d\n", i_resno, j_resno, i_well, ires_type, jres_type);
-    // printf("%f %f\n", water_gamma_0, water_gamma_1);
 		
     // Optimization for gamma[0]==gamma[1]
     if (fabs(water_gamma_0 - water_gamma_1)<delta) direct_contact = true;
@@ -4172,6 +4195,137 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
   f[jatom][2] += -force2*dx[2];
 }
 
+void FixBackbone::compute_membrane_potential(int i)
+{
+
+//  k_bin is coming from the input
+//  gamma[0][0] is an array coming from input
+//  k_overall_memb coming from input
+//  rho0_distor is coming from the input 
+//  rho0_max= is coming from the input
+//  memb_len= is coming from the input
+//  memb_pore_type = is coming from the input
+
+
+  double V, x_actual, y_actual, z_actual;
+  double dx, dy, dz, *xi;
+  double memb_a, memb_b;
+  double rho_actual, rho0;
+  double s_per, s_mem, s_cyt, s_por, s_nopor;
+  double dz_per, dz_mem, dz_cyt, dr1_dz;
+  double dz_s_por, dx_s_por, dy_s_por;
+  double dz_s_nopor, dx_s_nopor, dy_s_nopor;
+  double dz_s_por_smem, dz_s_nopor_smem;
+  double dV_dx, dV_dy, dV_dz;
+  double memb_force_x, memb_force_y, memb_force_z;
+
+  int iatom;
+
+//  int z_res[i] = is coming from zim file
+
+  int i_resno = res_no[i]-1;
+
+  if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
+  else { xi = xcb[i]; iatom  = beta_atoms[i]; }
+
+
+  x_actual=xi[0];
+  y_actual=xi[1];
+  z_actual=xi[2];
+
+  dx=x_actual-memb_xo[0];
+  dy=y_actual-memb_xo[1];
+  dz=z_actual-memb_xo[2];
+
+  memb_a = rho0_distor*rho0_max;
+  memb_b = memb_len/2;
+
+  rho_actual = sqrt(dx*dx+dy*dy);
+
+// if (memb_pore_type == 0){
+  rho0=(rho0_max-memb_a) + ((memb_a)/(memb_len))*(dz+memb_b);
+// }
+// else if (memb_pore_type == 1) {
+//  rho0=rho0_max-(dz<=memb_b ? sqrt(1-pow(dz/memb_b,2)):0)*memb_a;
+// }
+
+
+
+//definition of swithing functions
+  s_per=0.5*(1+tanh(k_bin*(dz-memb_b)));
+  s_mem=0.5*((tanh(k_bin*(dz+memb_b)))+(tanh(k_bin*(memb_b-dz))));
+  s_cyt=0.5*(1+tanh(k_bin*(-memb_b-dz)));
+  s_por=0.5*(1-(tanh(k_bin*(rho_actual-rho0))));
+  s_nopor=(1-s_por);
+
+  if (z_res[i] == 1) {
+    V=(-g_memb[0][0]*s_per)+(-g_memb[0][1]*s_cyt)+(g_memb[0][2]*s_mem*s_nopor)+(-g_memb[0][3]*s_mem*s_por);
+  }
+  else if (z_res[i] == 2){
+    V=(g_memb[1][0]*s_per)+(g_memb[1][1]*s_cyt)+(-g_memb[1][2]*s_mem*s_nopor)+(g_memb[1][3]*s_mem*s_por);
+  }
+  else if (z_res[i] == 3) {
+    V=(-g_memb[2][0]*s_per)+(-g_memb[2][1]*s_cyt)+(g_memb[2][2]*s_mem*s_nopor)+(-g_memb[2][3]*s_mem*s_por);
+  }
+
+// modify energy matrix to accomodate membrane potential
+  energy[ET_MEMB] += epsilon*k_overall_memb*V;
+
+// parcial derivatives
+dz_per=0.5*k_bin*(1-pow((tanh(k_bin*(dz-memb_b))),2));
+dz_mem=-0.5*k_bin*pow(tanh(k_bin*(dz+memb_b)),2)+0.5*k_bin*pow(tanh(k_bin*(memb_b-dz)),2);
+dz_cyt=-0.5*k_bin*(1-pow((tanh(k_bin*(-memb_b-dz))),2));
+
+// if (memb_pore_type == 0){
+  dr1_dz=((memb_a)/(memb_len));
+//  }
+// else if (memb_pore_type == 1){
+//  dr1_dz=(1/(dz<=memb_b ? (sqrt(1-pow(dz/memb_b,2))):0))*(dz/pow(memb_b,2))*memb_a;
+//  }
+
+dz_s_por=0.5*k_bin*(1-pow(tanh(k_bin*(rho_actual-rho0)),2))*dr1_dz;
+
+dx_s_por=((-0.5*k_bin*dx)/rho_actual)*(1-pow(tanh(k_bin*(rho_actual-rho0)),2));
+dy_s_por=((-0.5*k_bin*dy)/rho_actual)*(1-pow(tanh(k_bin*(rho_actual-rho0)),2));
+
+//some definitions to be used in "calculate general derivatives"
+dx_s_nopor=-dx_s_por;
+dy_s_nopor=-dy_s_por;
+dz_s_nopor=-dz_s_por;
+
+dz_s_por_smem=s_mem*dz_s_por+dz_mem*s_por;
+dz_s_nopor_smem=s_mem*dz_s_nopor+dz_mem*s_nopor;
+
+//calculate general derivatives
+ if (z_res[i] == 1) {
+   dV_dx=g_memb[0][2]*s_mem*dx_s_nopor+(-g_memb[0][3])*s_mem*dx_s_por;
+   dV_dy=g_memb[0][2]*s_mem*dy_s_nopor+(-g_memb[0][3])*s_mem*dy_s_por;
+   dV_dz=-g_memb[0][0]*dz_per+(-g_memb[0][1])*dz_cyt+g_memb[0][2]*dz_s_nopor_smem+(-g_memb[0][3])*dz_s_por_smem;
+   }
+ else if (z_res[i] == 2){
+   dV_dx=-g_memb[1][2]*s_mem*dx_s_nopor+g_memb[1][3]*s_mem*dx_s_por;
+   dV_dy=-g_memb[1][2]*s_mem*dy_s_nopor+g_memb[1][3]*s_mem*dy_s_por;
+   dV_dz=g_memb[1][0]*dz_per+g_memb[1][1]*dz_cyt+(-g_memb[1][2])*dz_s_nopor_smem+g_memb[1][3]*dz_s_por_smem;
+   }
+ else if (z_res[i] == 3){
+   dV_dx=g_memb[2][2]*s_mem*dx_s_nopor+(-g_memb[2][3])*s_mem*dx_s_por;
+   dV_dy=g_memb[2][2]*s_mem*dy_s_nopor+(-g_memb[2][3])*s_mem*dy_s_por;
+   dV_dz=-g_memb[2][0]*dz_per+(-g_memb[2][1])*dz_cyt+g_memb[2][2]*dz_s_nopor_smem+(-g_memb[2][3])*dz_s_por_smem;
+   }
+
+// calculate forces
+  memb_force_x = -epsilon*k_overall_memb*dV_dx;
+  memb_force_y = -epsilon*k_overall_memb*dV_dy;
+  memb_force_z = -epsilon*k_overall_memb*dV_dz;
+
+// add forces
+  f[iatom][0] += memb_force_x;
+  f[iatom][1] += memb_force_y;
+  f[iatom][2] += memb_force_z;
+
+}
+
+
 void FixBackbone::print_forces(int coord)
 {
   int index;
@@ -4536,6 +4690,20 @@ void FixBackbone::compute_backbone()
   }
 	
   timerEnd(TIME_HELIX);
+
+  for (i=0;i<nn;i++) {
+    if (memb_flag && res_info[i]==LOCAL)
+      compute_membrane_potential(i);
+  }
+
+  if (memb_flag && ntimestep>=sStep && ntimestep<=eStep) {
+    fprintf(dout, "Membrane: %d\n", ntimestep);
+    fprintf(dout, "Membrane_Energy: %f\n\n", energy[ET_MEMB]);
+    print_forces();
+  }
+
+  timerEnd(TIME_MEMB);
+
 	
   for (i=0;i<nn;i++) {
     if (frag_mem_flag && res_info[i]==LOCAL)
@@ -4592,6 +4760,9 @@ void FixBackbone::compute_backbone()
 
     if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i_resno]!='G')
       compute_rama_potential(i);
+
+    if (memb_flag && res_info[i]==LOCAL)
+      compute_membrane_potential(i);
 
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;

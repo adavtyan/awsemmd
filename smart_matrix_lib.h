@@ -499,7 +499,7 @@ void cWell<T, U>::compute_ro(int i)
 // add new density which depend on z (if memb potential is on)
   if ( lc->memb_flag){
    if (lc->z_res[i]==2){
-     v_ro[i] +=par.treshold;
+     v_ro[i] +=lc->memb_dens_offset;
   }
 }
 

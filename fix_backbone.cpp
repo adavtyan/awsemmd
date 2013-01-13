@@ -110,7 +110,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   // tertiary frustration flag is off by default
   tert_frust_flag = 0;
   // nmer frustration flag is off by default
-  nmer_frust_flag = 0;
+  nmer_frust_flag = nmer_output_neutral_flag = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -343,6 +343,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> nmer_frust_ndecoys;
       in >> nmer_frust_output_freq;
       in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold;
+      in >> nmer_output_neutral_flag;
     }
       else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
@@ -3746,7 +3747,7 @@ void FixBackbone::compute_nmer_frust()
 	fprintf(nmer_frust_output_file,"%d %d %d %s %s %f %f %f %f\n", i+1, j+1, nmer_contacts, nmer_seq_i, nmer_seq_j, native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
 	//fprintf(nmer_frust_output_file,"%d %d %d %c %c %f %f %f %f\n", i+1, j+1, nmer_contacts, se[i], se[j], native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
 	
-	if(frustration_index > nmer_frust_min_frust_threshold || frustration_index < nmer_frust_high_frust_threshold) {
+	if(frustration_index > nmer_frust_min_frust_threshold || frustration_index < nmer_frust_high_frust_threshold || nmer_output_neutral_flag) {
 	  // write information out to vmd script
 	  // this will need to be modified to draw a line between the two central residues of the two nmers
 	  fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i+nmer_frust_size/2, i+1+nmer_frust_size/2);
@@ -3755,11 +3756,14 @@ void FixBackbone::compute_nmer_frust()
 	  atomselect += 1;
 	  fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",atomselect);
 	  atomselect += 1;
-	  if(frustration_index > 0.78) {
+	  if(frustration_index > nmer_frust_min_frust_threshold) {
 	    fprintf(nmer_frust_vmd_script,"draw color green\n");
 	  }
-	  else {
+	  else if (frustration_index < nmer_frust_high_frust_threshold) {
 	    fprintf(nmer_frust_vmd_script,"draw color red\n");
+	  }
+	  else {
+	    fprintf(nmer_frust_vmd_script,"draw color blue\n");
 	  }
 	  fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style solid width 1\n");
 	}

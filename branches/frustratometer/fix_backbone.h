@@ -143,6 +143,7 @@ public:
   double *nmer_frust_decoy_energies;
   double *nmer_decoy_ixn_stats;  
   char *nmer_seq_i, *nmer_seq_j;
+  bool nmer_output_neutral_flag;
 
   // Table Fragment Memory parameters
     TBV **fm_table;

@@ -342,8 +342,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> nmer_contacts_cutoff;
       in >> nmer_frust_ndecoys;
       in >> nmer_frust_output_freq;
-      in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold;
-      in >> nmer_output_neutral_flag;
+      in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold >> nmer_output_neutral_flag;
+      in >> nmer_frust_trap_flag >> nmer_frust_draw_trap_flag >> nmer_frust_trap_num_sigma;
     }
       else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
@@ -670,9 +670,21 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     nmer_seq_i[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
     nmer_seq_j = new char[nmer_frust_size+1]; // extend the array
     nmer_seq_j[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_seq_k = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_k[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_i = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_i[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_j = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_j[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_k = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_k[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
     nmer_frust_output_file = fopen("nmer_frustration.dat","w");
     nmer_frust_vmd_script = fopen("nmer_frustration.tcl","w");
     fprintf(nmer_frust_output_file,"# i j ncontacts a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    if(nmer_frust_trap_flag) {
+      nmer_frust_trap_file = fopen("nmer_traps.dat", "w");
+      fprintf(nmer_frust_trap_file,"# i a_i ss_i j a_j ss_j threshold_energy k a_k ss_k trap_energy\n");
+    }
   }
   
   // Allocate the table
@@ -824,6 +836,9 @@ FixBackbone::~FixBackbone()
   if (nmer_frust_flag) {
     fclose(nmer_frust_output_file);
     fclose(nmer_frust_vmd_script);
+    if(nmer_frust_trap_flag) {
+      fclose(nmer_frust_trap_file);
+    }
   }
 	
   fclose(efile);
@@ -3742,14 +3757,17 @@ void FixBackbone::compute_nmer_frust()
       if (nmer_contacts >= nmer_contacts_cutoff && j-i >= nmer_frust_size) {
 	native_energy = compute_nmer_native_ixn(i, j);
 	compute_nmer_decoy_ixns(i, j);
+	if (nmer_frust_trap_flag) {
+	  // compute traps and keep track of how many times you wrote to tcl file
+	  atomselect = compute_nmer_traps(i, j, atomselect, native_energy-nmer_frust_trap_num_sigma*nmer_decoy_ixn_stats[1], nmer_seq_i, nmer_seq_j); 
+	  atomselect = compute_nmer_traps(j, i, atomselect, native_energy-nmer_frust_trap_num_sigma*nmer_decoy_ixn_stats[1], nmer_seq_j, nmer_seq_i);
+	}
 	frustration_index = compute_frustration_index(native_energy, nmer_decoy_ixn_stats);
 	// write information out to output file
 	fprintf(nmer_frust_output_file,"%d %d %d %s %s %f %f %f %f\n", i+1, j+1, nmer_contacts, nmer_seq_i, nmer_seq_j, native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
-	//fprintf(nmer_frust_output_file,"%d %d %d %c %c %f %f %f %f\n", i+1, j+1, nmer_contacts, se[i], se[j], native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
 	
 	if(frustration_index > nmer_frust_min_frust_threshold || frustration_index < nmer_frust_high_frust_threshold || nmer_output_neutral_flag) {
 	  // write information out to vmd script
-	  // this will need to be modified to draw a line between the two central residues of the two nmers
 	  fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i+nmer_frust_size/2, i+1+nmer_frust_size/2);
 	  fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", j+nmer_frust_size/2, j+1+nmer_frust_size/2);
 	  fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",atomselect);
@@ -3775,6 +3793,83 @@ void FixBackbone::compute_nmer_frust()
   fprintf(nmer_frust_vmd_script, "mol modselect 0 top \"all\"\n");
   fprintf(nmer_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
   fprintf(nmer_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+}
+
+int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2)
+{
+  int k_start;
+  double total_trap_energy;
+  int tcl_index;
+  int i, j, k;
+  int ires_type, jres_type;
+  double rho_i, rho_j, rij;
+
+  get_nmer_secondary_structure(i_start, nmer_ss_i);
+  get_nmer_secondary_structure(j_start, nmer_ss_j);
+
+  // start writing to tcl script at the appropriate index
+  tcl_index = atomselect;
+
+  // loop over all possible nmer traps
+  for (k_start=0;k_start<n-nmer_frust_size;k_start++) {
+    // if the nmer at position k_start doesn't overlap the nmers starting at position i_start, 
+    // swap the sequence at k_start into j_start and calculate the energy
+    if (abs(k_start-i_start)<=nmer_frust_size) {
+      continue;
+    }
+    get_nmer_seq(k_start, nmer_seq_k);
+    get_nmer_secondary_structure(k_start, nmer_ss_k);
+    total_trap_energy = 0.0;
+    
+    // loop over all residues individually, compute burial energies
+    for (i = i_start; i < i_start+nmer_frust_size; i++) {
+      ires_type = se_map[se[i]-'A']; 
+      rho_i = get_residue_density(i);
+      total_trap_energy += compute_burial_energy(i, ires_type, rho_i);
+    }
+    
+    for (j = j_start; j < j_start+nmer_frust_size; j++) {
+      // get the sequence starting from k rather than j
+      jres_type = se_map[se[k_start+j-j_start]-'A'];
+      rho_j = get_residue_density(j);
+      total_trap_energy += compute_burial_energy(j, jres_type, rho_j);
+    }
+    
+    // loop over all pairs of residues between the two nmers, compute water interaction
+    for (i = i_start; i < i_start+nmer_frust_size; i++) {
+      // get information about residue i
+      ires_type = se_map[se[i]-'A']; 
+      
+      for (j = j_start; j < j_start+nmer_frust_size; j++) {
+	// get the sequence starting from k rather than j
+	jres_type = se_map[se[k_start+j-j_start]-'A'];
+	
+	// get interaction parameters
+	rij = get_residue_distance(i, j);
+	rho_i = get_residue_density(i);
+	rho_j = get_residue_density(j);
+	
+	// compute water interaction energy, add to total
+	total_trap_energy += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+      }
+    }
+    if(total_trap_energy<threshold_energy) {
+      // write out to trap file and trap tcl script
+      fprintf(nmer_frust_trap_file,"%d %s %s %d %s %s %f %d %s %s %f \n", i_start+1, nmer_seq_1, nmer_ss_i, j_start+1, nmer_seq_2, nmer_ss_j, threshold_energy, k_start+1, nmer_seq_k, nmer_ss_k, total_trap_energy);
+      if(nmer_frust_draw_trap_flag) {
+	fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i_start+nmer_frust_size/2, i_start+1+nmer_frust_size/2);
+	fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", k_start+nmer_frust_size/2, k_start+1+nmer_frust_size/2);
+	fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",tcl_index);
+	tcl_index += 1;
+	fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",tcl_index);
+	tcl_index += 1;
+	fprintf(nmer_frust_vmd_script,"draw color purple\n");
+	fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style solid width 2\n");  
+      }
+    }
+  }
+
+  return tcl_index; // return the new tcl_index (atomselect) so that you can continue writing to the tcl file in the other functions
 }
 
 // computes the number of contacts between two nmers of size nmer_frust_size starting at positions i_resno and j_resno
@@ -3814,6 +3909,22 @@ void FixBackbone::get_nmer_seq(int i_start, char *nmer_seq)
   //printf("%s\n",nmer_seq);
 }
 
+void FixBackbone::get_nmer_secondary_structure(int i_start, char *nmer_secondary_structure)
+{
+  int i;
+
+  for(i=0; i<nmer_frust_size; i++) {
+    // if assigned to be beta, show an E
+    if(aps[4][i+i_start]==1.0) nmer_secondary_structure[i] = 'E';
+    // if assigned to be helix, show an H
+    if(aps[3][i+i_start]==1.0) nmer_secondary_structure[i] = 'H';
+    // if assigned to both, show an !
+    if(aps[4][i+i_start]==1.0 && aps[3][i+i_start]==1.0) nmer_secondary_structure[i] = '!';
+    // if anything else, show a -
+    if(aps[4][i+i_start]!=1.0 && aps[3][i+i_start]!=1.0) nmer_secondary_structure[i] = '-';
+  }
+}
+
 double FixBackbone::compute_nmer_native_ixn(int i_start, int j_start)
 {
   double total_native_energy, rij, rho_i, rho_j;
@@ -3822,7 +3933,20 @@ double FixBackbone::compute_nmer_native_ixn(int i_start, int j_start)
 
   total_native_energy = 0.0;
 
-  // loop over all pairs of residues between the two nmers
+  // loop over all residues individually, compute burial energies
+  for (i = i_start; i < i_start+nmer_frust_size; i++) {
+    ires_type = se_map[se[i]-'A']; 
+    rho_i = get_residue_density(i);
+    total_native_energy += compute_burial_energy(i, ires_type, rho_i);
+  }
+
+  for (j = j_start; j < j_start+nmer_frust_size; j++) {
+    jres_type = se_map[se[j]-'A']; 
+    rho_j = get_residue_density(j);
+    total_native_energy += compute_burial_energy(j, jres_type, rho_j);
+  }
+
+  // loop over all pairs of residues between the two nmers, compute water interaction
   for (i = i_start; i < i_start+nmer_frust_size; i++) {
     // get information about residue i
     ires_type = se_map[se[i]-'A']; 
@@ -3836,8 +3960,8 @@ double FixBackbone::compute_nmer_native_ixn(int i_start, int j_start)
       rho_i = get_residue_density(i);
       rho_j = get_residue_density(j);
 
-      // compute native interaction energy, add to total
-      total_native_energy += compute_native_ixn(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+      // compute water interaction energy, add to total
+      total_native_energy += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
     }
   }
 
@@ -3849,6 +3973,9 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
   double total_decoy_energy, rij, rho_i, rho_j, decoy_energy;
   int ires_type, jres_type, i_rand, j_rand, decoy_i;
   int i, j, itemp, jtemp;
+  int atomselect;
+
+  atomselect = 0;
 
   // do the decoy calculation nmer_frust_ndecoys times
   for (decoy_i=0; decoy_i<nmer_frust_ndecoys; decoy_i++) {
@@ -3876,6 +4003,18 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
 	i_rand = jtemp;
       }
     }
+    // loop over all residues individually, compute burial energies
+    for (i = i_start; i < i_start+nmer_frust_size; i++) {
+      ires_type = se_map[se[i_rand+i-i_start]-'A']; 
+      rho_i = get_residue_density(i);
+      nmer_frust_decoy_energies[decoy_i] += compute_burial_energy(i, ires_type, rho_i);
+    }
+    for (j = j_start; j < j_start+nmer_frust_size; j++) {
+      jres_type = se_map[se[j_rand+j-j_start]-'A']; 
+      rho_j = get_residue_density(j);
+      nmer_frust_decoy_energies[decoy_i] += compute_burial_energy(j, jres_type, rho_j);
+    }
+
     // loop over all pairs of residues between the two nmers
     for (i = i_start; i < i_start+nmer_frust_size; i++) {
       // assign random residue type to residue i
@@ -3891,7 +4030,7 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
 	rho_j = get_residue_density(j);
 
 	// compute decoy interaction energy, add to total
-	nmer_frust_decoy_energies[decoy_i] += compute_native_ixn(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+	nmer_frust_decoy_energies[decoy_i] += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
       }
     }
   }

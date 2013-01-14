@@ -142,8 +142,11 @@ public:
   double nmer_frust_cutoff, nmer_frust_min_frust_threshold, nmer_frust_high_frust_threshold;
   double *nmer_frust_decoy_energies;
   double *nmer_decoy_ixn_stats;  
-  char *nmer_seq_i, *nmer_seq_j;
+  char *nmer_seq_i, *nmer_seq_j, *nmer_seq_k;
+  char *nmer_ss_i, *nmer_ss_j, *nmer_ss_k;
   bool nmer_output_neutral_flag;
+  bool nmer_frust_trap_flag, nmer_frust_draw_trap_flag;
+  double nmer_frust_trap_num_sigma;
 
   // Table Fragment Memory parameters
     TBV **fm_table;
@@ -260,8 +263,10 @@ public:
   void compute_nmer_frust();
   int compute_nmer_contacts(int i, int j);
   void get_nmer_seq(int i, char *nmer_seq);
+  void get_nmer_secondary_structure(int i, char *nmer_secondary_structure);
   double compute_nmer_native_ixn(int i, int j);
   void compute_nmer_decoy_ixns(int i, int j);
+  int compute_nmer_traps(int i, int j, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2);
 
   void allocate();
   inline void Construct_Computational_Arrays();
@@ -317,6 +322,7 @@ public:
   // nmer frustration files
   FILE *nmer_frust_output_file;
   FILE *nmer_frust_vmd_script;
+  FILE *nmer_frust_trap_file;
   };
   
 }

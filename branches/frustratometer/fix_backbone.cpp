@@ -343,7 +343,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> nmer_frust_ndecoys;
       in >> nmer_frust_output_freq;
       in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold >> nmer_output_neutral_flag;
-      in >> nmer_frust_trap_flag >> nmer_frust_draw_trap_flag >> nmer_frust_trap_num_sigma;
+      in >> nmer_frust_trap_flag >> nmer_frust_draw_trap_flag >> nmer_frust_trap_num_sigma >> nmer_frust_ss_frac;
     }
       else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
@@ -3795,6 +3795,22 @@ void FixBackbone::compute_nmer_frust()
   fprintf(nmer_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
 }
 
+int FixBackbone::get_nmer_ss_dist(char *nmer_ss_j, char *nmer_ss_k)
+{
+  int i;
+  int ss_dist;
+
+  ss_dist=0;
+
+  for(i=0; i<nmer_frust_size; i++) {
+    if(nmer_ss_j[i]!=nmer_ss_k[i]) {
+      ss_dist++;
+    }
+  }
+
+  return ss_dist;
+}
+
 int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2)
 {
   int k_start;
@@ -3803,6 +3819,7 @@ int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, do
   int i, j, k;
   int ires_type, jres_type;
   double rho_i, rho_j, rij;
+  int ss_dist;
 
   get_nmer_secondary_structure(i_start, nmer_ss_i);
   get_nmer_secondary_structure(j_start, nmer_ss_j);
@@ -3819,6 +3836,11 @@ int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, do
     }
     get_nmer_seq(k_start, nmer_seq_k);
     get_nmer_secondary_structure(k_start, nmer_ss_k);
+    ss_dist = get_nmer_ss_dist(nmer_ss_j, nmer_ss_k);
+    // check to make sure that the secondary structure distance constraint is satisfied
+    if (ss_dist > nmer_frust_size*nmer_frust_ss_frac) {
+      continue;
+    }
     total_trap_energy = 0.0;
     
     // loop over all residues individually, compute burial energies

@@ -146,7 +146,7 @@ public:
   char *nmer_ss_i, *nmer_ss_j, *nmer_ss_k;
   bool nmer_output_neutral_flag;
   bool nmer_frust_trap_flag, nmer_frust_draw_trap_flag;
-  double nmer_frust_trap_num_sigma;
+  double nmer_frust_trap_num_sigma, nmer_frust_ss_frac;
 
   // Table Fragment Memory parameters
     TBV **fm_table;
@@ -267,6 +267,7 @@ public:
   double compute_nmer_native_ixn(int i, int j);
   void compute_nmer_decoy_ixns(int i, int j);
   int compute_nmer_traps(int i, int j, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2);
+  int get_nmer_ss_dist(char *nmer_ss_j, char *nmer_ss_k);
 
   void allocate();
   inline void Construct_Computational_Arrays();

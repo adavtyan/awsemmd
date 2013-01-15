@@ -262,7 +262,7 @@ public:
   // nmer frustratometer functions
   void compute_nmer_frust();
   int compute_nmer_contacts(int i, int j);
-  void get_nmer_seq(int i, char *nmer_seq);
+  void get_nmer_seq(int i, char *nmer_seq, int backward);
   void get_nmer_secondary_structure(int i, char *nmer_secondary_structure);
   double compute_nmer_native_ixn(int i, int j);
   void compute_nmer_decoy_ixns(int i, int j);

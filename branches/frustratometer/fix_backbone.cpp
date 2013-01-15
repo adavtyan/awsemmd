@@ -683,7 +683,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     fprintf(nmer_frust_output_file,"# i j ncontacts a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
     if(nmer_frust_trap_flag) {
       nmer_frust_trap_file = fopen("nmer_traps.dat", "w");
-      fprintf(nmer_frust_trap_file,"# i a_i ss_i j a_j ss_j threshold_energy k a_k ss_k trap_energy\n");
+      fprintf(nmer_frust_trap_file,"# i a_i ss_i j a_j ss_j threshold_energy k a_k ss_k direction trap_energy\n");
     }
   }
   
@@ -3746,10 +3746,10 @@ void FixBackbone::compute_nmer_frust()
   // Double loop over all nmers
   for (i=0;i<n-nmer_frust_size;++i) {
     // get sequence of nmer starting at i
-    get_nmer_seq(i, nmer_seq_i);
+    get_nmer_seq(i, nmer_seq_i, 0);
     for (j=i+1;j<n-nmer_frust_size;++j) {
       // get sequence of nmer starting at j
-      get_nmer_seq(j, nmer_seq_j);
+      get_nmer_seq(j, nmer_seq_j, 0);
       // compute the number of contacts between the two nmers
       nmer_contacts = compute_nmer_contacts(i, j);
       // if the nmers have at least the number of required contacts and are non-overlapping, compute the frustration
@@ -3820,77 +3820,102 @@ int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, do
   int ires_type, jres_type;
   double rho_i, rho_j, rij;
   int ss_dist;
+  int backward;
 
   get_nmer_secondary_structure(i_start, nmer_ss_i);
   get_nmer_secondary_structure(j_start, nmer_ss_j);
 
   // start writing to tcl script at the appropriate index
   tcl_index = atomselect;
+  static int rep_index=1;
 
-  // loop over all possible nmer traps
-  for (k_start=0;k_start<n-nmer_frust_size;k_start++) {
-    // if the nmer at position k_start doesn't overlap the nmers starting at position i_start, 
-    // swap the sequence at k_start into j_start and calculate the energy
-    if (abs(k_start-i_start)<=nmer_frust_size) {
-      continue;
-    }
-    get_nmer_seq(k_start, nmer_seq_k);
-    get_nmer_secondary_structure(k_start, nmer_ss_k);
-    ss_dist = get_nmer_ss_dist(nmer_ss_j, nmer_ss_k);
-    // check to make sure that the secondary structure distance constraint is satisfied
-    if (ss_dist > nmer_frust_size*nmer_frust_ss_frac) {
-      continue;
-    }
-    total_trap_energy = 0.0;
+  // loop over possible forward and backward sequences
+  for (backward=0;backward<2;backward++) {
+    // loop over all possible nmer traps
+    for (k_start=0;k_start<n-nmer_frust_size;k_start++) {
+      // if the nmer at position k_start doesn't overlap the nmers starting at position i_start, 
+      // swap the sequence at k_start into j_start and calculate the energy
+      if (abs(k_start-j_start)<=nmer_frust_size || abs(k_start-i_start)<=nmer_frust_size && i_start!=k_start) {
+	continue;
+      }
+      get_nmer_seq(k_start, nmer_seq_k, backward);
+      get_nmer_secondary_structure(k_start, nmer_ss_k);
+      ss_dist = get_nmer_ss_dist(nmer_ss_j, nmer_ss_k);
+      // check to make sure that the secondary structure distance constraint is satisfied
+      if (ss_dist > nmer_frust_size*(1-nmer_frust_ss_frac)) {
+	continue;
+      }
+      total_trap_energy = 0.0;
     
-    // loop over all residues individually, compute burial energies
-    for (i = i_start; i < i_start+nmer_frust_size; i++) {
-      ires_type = se_map[se[i]-'A']; 
-      rho_i = get_residue_density(i);
-      total_trap_energy += compute_burial_energy(i, ires_type, rho_i);
-    }
+      // loop over all residues individually, compute burial energies
+      for (i = i_start; i < i_start+nmer_frust_size; i++) {
+	ires_type = se_map[se[i]-'A']; 
+	rho_i = get_residue_density(i);
+	total_trap_energy += compute_burial_energy(i, ires_type, rho_i);
+      }
     
-    for (j = j_start; j < j_start+nmer_frust_size; j++) {
-      // get the sequence starting from k rather than j
-      jres_type = se_map[se[k_start+j-j_start]-'A'];
-      rho_j = get_residue_density(j);
-      total_trap_energy += compute_burial_energy(j, jres_type, rho_j);
-    }
-    
-    // loop over all pairs of residues between the two nmers, compute water interaction
-    for (i = i_start; i < i_start+nmer_frust_size; i++) {
-      // get information about residue i
-      ires_type = se_map[se[i]-'A']; 
-      
       for (j = j_start; j < j_start+nmer_frust_size; j++) {
 	// get the sequence starting from k rather than j
-	jres_type = se_map[se[k_start+j-j_start]-'A'];
-	
-	// get interaction parameters
-	rij = get_residue_distance(i, j);
-	rho_i = get_residue_density(i);
+	jres_type = se_map[se[((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start))]-'A'];
 	rho_j = get_residue_density(j);
-	
-	// compute water interaction energy, add to total
-	total_trap_energy += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+	total_trap_energy += compute_burial_energy(j, jres_type, rho_j);
       }
-    }
-    if(total_trap_energy<threshold_energy) {
-      // write out to trap file and trap tcl script
-      fprintf(nmer_frust_trap_file,"%d %s %s %d %s %s %f %d %s %s %f \n", i_start+1, nmer_seq_1, nmer_ss_i, j_start+1, nmer_seq_2, nmer_ss_j, threshold_energy, k_start+1, nmer_seq_k, nmer_ss_k, total_trap_energy);
-      if(nmer_frust_draw_trap_flag) {
-	fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i_start+nmer_frust_size/2, i_start+1+nmer_frust_size/2);
-	fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", k_start+nmer_frust_size/2, k_start+1+nmer_frust_size/2);
-	fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",tcl_index);
-	tcl_index += 1;
-	fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",tcl_index);
-	tcl_index += 1;
-	fprintf(nmer_frust_vmd_script,"draw color purple\n");
-	fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style solid width 2\n");  
+    
+      // loop over all pairs of residues between the two nmers, compute water interaction
+      for (i = i_start; i < i_start+nmer_frust_size; i++) {
+	// get information about residue i
+	ires_type = se_map[se[i]-'A']; 
+      
+	for (j = j_start; j < j_start+nmer_frust_size; j++) {
+	  // get the sequence starting from k rather than j
+	  jres_type = se_map[se[((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start))]-'A'];
+	
+	  // get interaction parameters
+	  rij = get_residue_distance(i, j);
+	  rho_i = get_residue_density(i);
+	  rho_j = get_residue_density(j);
+	
+	  // compute water interaction energy, add to total
+	  total_trap_energy += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+	}
+      }
+      if(total_trap_energy<threshold_energy) {
+	// write out to trap file and trap tcl script
+	if (backward) {
+	  fprintf(nmer_frust_trap_file,"%d %s %s %d %s %s %f %d %s <-- %s %f \n", i_start+1, nmer_seq_1, nmer_ss_i, j_start+1, nmer_seq_2, nmer_ss_j, threshold_energy, k_start+1, nmer_seq_k, nmer_ss_k, total_trap_energy);
+	}
+	else {
+	  fprintf(nmer_frust_trap_file,"%d %s %s %d %s %s %f %d %s --> %s %f \n", i_start+1, nmer_seq_1, nmer_ss_i, j_start+1, nmer_seq_2, nmer_ss_j, threshold_energy, k_start+1, nmer_seq_k, nmer_ss_k, total_trap_energy);
+	}
+	if(nmer_frust_draw_trap_flag) {
+	  // if this is a case of "self-recognition", make that part of the sequence purple
+	  if (i_start == k_start) {
+	    fprintf(nmer_frust_vmd_script,"mol addrep 0\n",rep_index);
+	    fprintf(nmer_frust_vmd_script,"mol modselect %d 0 resid %d to %d\n",rep_index,i_start+1,i_start+nmer_frust_size);
+	    fprintf(nmer_frust_vmd_script,"mol modcolor %d 0 ColorID 11\n",rep_index);
+	    fprintf(nmer_frust_vmd_script,"mol modstyle %d 0 NewCartoon 0.350000 10.000000 4.100000 0\n",rep_index);
+	    rep_index++;
+	  }
+	  // if not self-recognition, draw a purple line
+	  else {
+	    fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i_start+nmer_frust_size/2, i_start+1+nmer_frust_size/2);
+	    fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", k_start+nmer_frust_size/2, k_start+1+nmer_frust_size/2);
+	    fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",tcl_index);
+	    tcl_index += 1;
+	    fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",tcl_index);
+	    tcl_index += 1;
+	    fprintf(nmer_frust_vmd_script,"draw color purple\n");
+	    if(backward) {
+	      fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style dashed width 1\n");  
+	    }
+	    else {
+	      fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style solid width 1\n");  
+	    }
+	  }
+	}
       }
     }
   }
-
   return tcl_index; // return the new tcl_index (atomselect) so that you can continue writing to the tcl file in the other functions
 }
 
@@ -3921,12 +3946,12 @@ int FixBackbone::compute_nmer_contacts(int i_start, int j_start)
 }
 
 // returns a string that is the sequence of the nmer of size nmer_frust_size starting at position i
-void FixBackbone::get_nmer_seq(int i_start, char *nmer_seq)
+void FixBackbone::get_nmer_seq(int i_start, char *nmer_seq, int backward)
 {
   int i;
 
   for(i=0; i<nmer_frust_size; i++) {
-    nmer_seq[i] = se[i_start+i];
+    nmer_seq[i] = se[((1-backward)*(i_start+i))+backward*(i_start+nmer_frust_size-i)];
   }
   //printf("%s\n",nmer_seq);
 }

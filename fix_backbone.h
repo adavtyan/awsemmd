@@ -248,8 +248,7 @@ public:
   // Tertiary Frustratometer Functions
   void compute_tert_frust();
   double compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
-  void compute_decoy_ixns(double rij_orig, double rho_i_orig, double rho_j_orig);
-  double compute_tert_frust_index(double native_energy, double decoy_energy_mean, double decoy_energy_std);
+  void compute_decoy_ixns(int i_resno_orig, int j_resno_orig, double rij_orig, double rho_i_orig, double rho_j_orig);
   double compute_water_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
   double compute_burial_energy(int i_resno, int ires_type, double rho_i);
   int get_random_residue_index();

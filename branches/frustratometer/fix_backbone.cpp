@@ -3460,40 +3460,31 @@ void FixBackbone::compute_tert_frust()
   for (i=0;i<n;++i) {
     // get information about residue i
     i_resno = res_no[i]-1;
-    ires_type = se_map[se[i_resno]-'A']; 
+    ires_type = get_residue_type(i_resno);
     i_chno = chain_no[i]-1;
 
     for (j=i+1;j<n;++j) {
       // get information about residue j
       j_resno = res_no[j]-1;
-      jres_type = se_map[se[j_resno]-'A'];
+      jres_type = get_residue_type(j_resno);
       j_chno = chain_no[j]-1;
       
-      // Select beta atom unless the residue type is GLY, then select alpha carbon
-      if (se[i_resno]=='G') { xi = xca[i]; }
-      else { xi = xcb[i]; }
-      if (se[j_resno]=='G') { xj = xca[j]; }
-      else { xj = xcb[j]; }
-
-      // compute distance between the two atoms
-      dx[0] = xi[0] - xj[0];
-      dx[1] = xi[1] - xj[1];
-      dx[2] = xi[2] - xj[2];
-      rij = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+      // get the distance between i and j
+      rij = get_residue_distance(i_resno, j_resno);
 
       // if the atoms are within the threshold, compute the frustration
       if (rij < tert_frust_cutoff && (abs(i-j)>=contact_cutoff || i_chno != j_chno)) {
-	rho_i = get_residue_density(i);
-	rho_j = get_residue_density(j);
+	rho_i = get_residue_density(i_resno);
+	rho_j = get_residue_density(j_resno);
 	native_energy = compute_native_ixn(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
-	compute_decoy_ixns(rij, rho_i, rho_j);
+	compute_decoy_ixns(i_resno, j_resno, rij, rho_i, rho_j);
 	frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
 	// write information out to output file
-	fprintf(tert_frust_output_file,"%d %d %f %f %f %c %c %f %f %f %f\n", i+1, j+1, rij, rho_i, rho_j, se[i_resno], se[j_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
+ 	fprintf(tert_frust_output_file,"%d %d %f %f %f %c %c %f %f %f %f\n", i_resno+1, j_resno+1, rij, rho_i, rho_j, se[i_resno], se[j_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
 	if(frustration_index > 0.78 || frustration_index < -1) {
 	  // write information out to vmd script
-	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i, i+1);
-	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", j, j+1);
+	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i_resno, i_resno+1);
+	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", j_resno, j_resno+1);
 	  fprintf(tert_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",atomselect);
 	  atomselect += 1;
 	  fprintf(tert_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",atomselect);
@@ -3523,34 +3514,68 @@ void FixBackbone::compute_tert_frust()
 
 double FixBackbone::compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
 {
-  double water_energy, burial_energy_i, burial_energy_j;
+  double water_energy, burial_energy_i, burial_energy_j, rik, rjk, rho_k;
+  int k, kres_type;
+
+  // compute the energies for the (i,j) pair
   water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
   burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
   burial_energy_j = compute_burial_energy(j_resno, jres_type, rho_j);
 
-  return water_energy+burial_energy_i+burial_energy_j;
+  // in configurational mode, only the (i,j) contact contributes to the native energy
+  // so we are ready to return the sum of water_ij+burial_i+burial_j
+  if (strcmp(tert_frust_mode, "configurational")==0) {
+    return water_energy + burial_energy_i + burial_energy_j;
+  }
+  // in mutational mode, all (i,k) and (j,k) pairs also contribute to the native energy
+  // so we have to compute those first, then return the sum
+  else if (strcmp(tert_frust_mode, "mutational")==0) {
+    for (k=0; k<n; k++) {
+      // make sure to exclude the native interactions because you have already counted those
+      if (k==i_resno || k==j_resno) {
+	continue;
+      }
+      // get interaction parameters for resdiue k
+      rho_k = get_residue_density(k);
+      kres_type = get_residue_type(k);
+
+      // check to see if i and k are in contact; if so, add the energy
+      rik = get_residue_distance(i_resno, k);
+      if (rik < tert_frust_cutoff) {
+	// add (i,k) contribution
+	water_energy += compute_water_energy(rik, i_resno, k, ires_type, kres_type, rho_i, rho_k);
+      }
+      // check to see if j and k are in contact; if so, add the energy
+      rjk = get_residue_distance(j_resno, k);
+      if (rjk < tert_frust_cutoff) {	
+	// add (j,k) contribution
+	water_energy += compute_water_energy(rjk, j_resno, k, jres_type, kres_type, rho_j, rho_k);
+      }
+    }
+    return water_energy+burial_energy_i+burial_energy_j;
+  }
 }
 
-void FixBackbone::compute_decoy_ixns(double rij_orig, double rho_i_orig, double rho_j_orig)
+void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, double rho_i_orig, double rho_j_orig)
 {
-  int decoy_i, i_resno, j_resno, ires_type, jres_type;
-  double rij, rho_i, rho_j, water_energy, burial_energy_i, burial_energy_j;
+  int decoy_i, rand_i_resno, rand_j_resno, ires_type, jres_type, k, kres_type;
+  double rij, rho_i, rho_j, water_energy, burial_energy_i, burial_energy_j, rik, rjk, rho_k;
   
   for (decoy_i=0; decoy_i<tert_frust_ndecoys; decoy_i++) {
     if (strcmp(tert_frust_mode, "configurational")==0) {
       // choose random rij, rho_i, rho_j 
-      i_resno = get_random_residue_index();
-      j_resno = get_random_residue_index();
-      rij = get_residue_distance(i_resno, j_resno);
+      rand_i_resno = get_random_residue_index();
+      rand_j_resno = get_random_residue_index();
+      rij = get_residue_distance(rand_i_resno, rand_j_resno);
       while(rij > tert_frust_cutoff) {
-	i_resno = get_random_residue_index();
-	j_resno = get_random_residue_index();
-	rij = get_residue_distance(i_resno, j_resno);
+	rand_i_resno = get_random_residue_index();
+	rand_j_resno = get_random_residue_index();
+	rij = get_residue_distance(rand_i_resno, rand_j_resno);
       }
-      i_resno = get_random_residue_index();
-      j_resno = get_random_residue_index();
-      rho_i = get_residue_density(i_resno);
-      rho_j = get_residue_density(j_resno);
+      rand_i_resno = get_random_residue_index();
+      rand_j_resno = get_random_residue_index();
+      rho_i = get_residue_density(rand_i_resno);
+      rho_j = get_residue_density(rand_j_resno);
     }
     else {
       // if in mutational mode, use configurational parameters passed into the function
@@ -3559,16 +3584,43 @@ void FixBackbone::compute_decoy_ixns(double rij_orig, double rho_i_orig, double 
       rho_j = rho_j_orig;
     }
 
-    // choose random ires_type, j_type
-    i_resno = get_random_residue_index();
-    j_resno = get_random_residue_index();
-    ires_type = get_residue_type(i_resno);
-    jres_type = get_residue_type(j_resno);
+    // choose random ires_type, jres_type
+    rand_i_resno = get_random_residue_index();
+    rand_j_resno = get_random_residue_index();
+    ires_type = get_residue_type(rand_i_resno);
+    jres_type = get_residue_type(rand_j_resno);
 
-    // compute energy terms
-    water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
-    burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
-    burial_energy_j = compute_burial_energy(j_resno, jres_type, rho_j);
+    // compute energy terms for the (i,j) pair
+    water_energy = compute_water_energy(rij, rand_i_resno, rand_j_resno, ires_type, jres_type, rho_i, rho_j);
+    burial_energy_i = compute_burial_energy(rand_i_resno, ires_type, rho_i);
+    burial_energy_j = compute_burial_energy(rand_j_resno, jres_type, rho_j);
+
+    // in mutational mode, all (i,k) and (j,k) pairs also contribute to the decoy energy
+    // so we have to compute those first, then return the sum
+    if (strcmp(tert_frust_mode, "mutational")==0) {
+      for (k=0; k<n; k++) {
+	// make sure to exclude the native interactions because you have already counted those
+	if (k==i_resno || k==j_resno) {
+	  continue;
+	}
+	// get interaction parameters for resdiue k
+	rho_k = get_residue_density(k);
+	kres_type = get_residue_type(k);
+	
+	// check to see if i and k are in contact; if so, add the energy
+	rik = get_residue_distance(i_resno, k);
+	if (rik < tert_frust_cutoff) {
+	  // add (i,k) contribution
+	  water_energy += compute_water_energy(rik, rand_i_resno, k, ires_type, kres_type, rho_i, rho_k);
+	}
+	// check to see if j and k are in contact; if so, add the energy
+	rjk = get_residue_distance(j_resno, k);
+	if (rjk < tert_frust_cutoff) {	
+	  // add (j,k) contribution
+	  water_energy += compute_water_energy(rjk, rand_j_resno, k, jres_type, kres_type, rho_j, rho_k);
+	}
+      }
+    }
 
     // sum the energy terms, store in array
     tert_frust_decoy_energies[decoy_i] = water_energy + burial_energy_i + burial_energy_j;
@@ -3614,15 +3666,6 @@ double FixBackbone::compute_array_std(double *array, int arraysize)
   return std;
 }
 
-double FixBackbone::compute_tert_frust_index(double native_energy, double decoy_energy_mean, double decoy_energy_std)
-{
-  double frustration_index;
-
-  frustration_index = (native_energy-decoy_energy_mean)/decoy_energy_std;
-
-  return frustration_index;
-}
-
 double FixBackbone::compute_water_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
 {
   double water_gamma_0_direct, water_gamma_1_direct, water_gamma_prot_mediated, water_gamma_wat_mediated;
@@ -3630,7 +3673,7 @@ double FixBackbone::compute_water_energy(double rij, int i_resno, int j_resno, i
   double t_min_direct, t_max_direct, theta_direct, t_min_mediated, t_max_mediated, theta_mediated;
   double water_energy;
 
-  if(abs(i_resno-j_resno)<contact_cutoff) return 0.0;
+  // if(abs(i_resno-j_resno)<contact_cutoff) return 0.0;
 
   water_gamma_0_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 0);
   water_gamma_1_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 1);
@@ -3684,10 +3727,9 @@ double FixBackbone::compute_burial_energy(int i_resno, int ires_type, double rho
 // generates a random but valid residue index
 int FixBackbone::get_random_residue_index()
 {
-  int index, i_resno;
+  int index;
   index = rand() % n; 
-  i_resno = res_no[index]-1;  
-  return i_resno;
+  return index;
 }
 
 // returns the CB-CB distance between two residues (CA for GLY)
@@ -3696,9 +3738,6 @@ double FixBackbone::get_residue_distance(int i_resno, int j_resno)
   double dx[3];
   double *xi, *xj;
   double r;
-	
-  int ires_type = se_map[se[i_resno]-'A'];
-  int jres_type = se_map[se[j_resno]-'A'];
 	
   if (se[i_resno]=='G') { xi = xca[i_resno]; }
   else { xi = xcb[i_resno]; }
@@ -3849,14 +3888,14 @@ int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, do
     
       // loop over all residues individually, compute burial energies
       for (i = i_start; i < i_start+nmer_frust_size; i++) {
-	ires_type = se_map[se[i]-'A']; 
+	ires_type = get_residue_type(i);
 	rho_i = get_residue_density(i);
 	total_trap_energy += compute_burial_energy(i, ires_type, rho_i);
       }
     
       for (j = j_start; j < j_start+nmer_frust_size; j++) {
 	// get the sequence starting from k rather than j
-	jres_type = se_map[se[((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start))]-'A'];
+	jres_type = get_residue_type(((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start)));
 	rho_j = get_residue_density(j);
 	total_trap_energy += compute_burial_energy(j, jres_type, rho_j);
       }
@@ -3864,11 +3903,11 @@ int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, do
       // loop over all pairs of residues between the two nmers, compute water interaction
       for (i = i_start; i < i_start+nmer_frust_size; i++) {
 	// get information about residue i
-	ires_type = se_map[se[i]-'A']; 
+	ires_type = get_residue_type(i);
       
 	for (j = j_start; j < j_start+nmer_frust_size; j++) {
 	  // get the sequence starting from k rather than j
-	  jres_type = se_map[se[((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start))]-'A'];
+	  jres_type = get_residue_type(((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start)));
 	
 	  // get interaction parameters
 	  rij = get_residue_distance(i, j);
@@ -3982,13 +4021,13 @@ double FixBackbone::compute_nmer_native_ixn(int i_start, int j_start)
 
   // loop over all residues individually, compute burial energies
   for (i = i_start; i < i_start+nmer_frust_size; i++) {
-    ires_type = se_map[se[i]-'A']; 
+    ires_type = get_residue_type(i);
     rho_i = get_residue_density(i);
     total_native_energy += compute_burial_energy(i, ires_type, rho_i);
   }
 
   for (j = j_start; j < j_start+nmer_frust_size; j++) {
-    jres_type = se_map[se[j]-'A']; 
+    jres_type = get_residue_type(j);
     rho_j = get_residue_density(j);
     total_native_energy += compute_burial_energy(j, jres_type, rho_j);
   }
@@ -3996,11 +4035,11 @@ double FixBackbone::compute_nmer_native_ixn(int i_start, int j_start)
   // loop over all pairs of residues between the two nmers, compute water interaction
   for (i = i_start; i < i_start+nmer_frust_size; i++) {
     // get information about residue i
-    ires_type = se_map[se[i]-'A']; 
+    ires_type = get_residue_type(i);
     
     for (j = j_start; j < j_start+nmer_frust_size; j++) {
       // get information about residue j
-      jres_type = se_map[se[j]-'A'];
+      jres_type = get_residue_type(j);
 
       // get interaction parameters
       rij = get_residue_distance(i, j);
@@ -4052,12 +4091,12 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
     }
     // loop over all residues individually, compute burial energies
     for (i = i_start; i < i_start+nmer_frust_size; i++) {
-      ires_type = se_map[se[i_rand+i-i_start]-'A']; 
+      ires_type = get_residue_type(i_rand+i-i_start);
       rho_i = get_residue_density(i);
       nmer_frust_decoy_energies[decoy_i] += compute_burial_energy(i, ires_type, rho_i);
     }
     for (j = j_start; j < j_start+nmer_frust_size; j++) {
-      jres_type = se_map[se[j_rand+j-j_start]-'A']; 
+      jres_type = get_residue_type(j_rand+j-j_start);
       rho_j = get_residue_density(j);
       nmer_frust_decoy_energies[decoy_i] += compute_burial_energy(j, jres_type, rho_j);
     }
@@ -4065,11 +4104,11 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
     // loop over all pairs of residues between the two nmers
     for (i = i_start; i < i_start+nmer_frust_size; i++) {
       // assign random residue type to residue i
-      ires_type = se_map[se[i_rand+i-i_start]-'A']; 
+      ires_type = get_residue_type(i_rand+i-i_start);
       
       for (j = j_start; j < j_start+nmer_frust_size; j++) {
 	// assign random residue type to residue j
-	jres_type = se_map[se[j_rand+j-j_start]-'A'];
+	jres_type = get_residue_type(j_rand+j-j_start);
 	
 	// get interaction parameters
 	rij = get_residue_distance(i, j);

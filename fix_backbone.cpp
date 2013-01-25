@@ -3567,11 +3567,13 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
       rand_i_resno = get_random_residue_index();
       rand_j_resno = get_random_residue_index();
       rij = get_residue_distance(rand_i_resno, rand_j_resno);
-      while(rij > tert_frust_cutoff) {
+      // make sure that the randomly chosen residues are in contact
+      while(rij > tert_frust_cutoff) { 
 	rand_i_resno = get_random_residue_index();
 	rand_j_resno = get_random_residue_index();
 	rij = get_residue_distance(rand_i_resno, rand_j_resno);
       }
+      // get new pair of random residues for burial term
       rand_i_resno = get_random_residue_index();
       rand_j_resno = get_random_residue_index();
       rho_i = get_residue_density(rand_i_resno);
@@ -3626,6 +3628,7 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
     tert_frust_decoy_energies[decoy_i] = water_energy + burial_energy_i + burial_energy_j;
   }
 
+  // save the mean and standard deviation into the decoy_ixn_stats array
   decoy_ixn_stats[0] = compute_array_mean(tert_frust_decoy_energies, tert_frust_ndecoys);
   decoy_ixn_stats[1] = compute_array_std(tert_frust_decoy_energies, tert_frust_ndecoys);
 
@@ -3650,11 +3653,7 @@ double FixBackbone::compute_array_std(double *array, int arraysize)
   double mean, std;
   int i;
 
-  mean = 0.0;
-  for(i = 0; i < arraysize; i++) {
-    mean += array[i];
-  }
-  mean /= (double)arraysize;
+  mean = compute_array_mean(array, arraysize);
 
   std = 0.0;
   for(i = 0; i < arraysize; i++) {

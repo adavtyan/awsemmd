@@ -330,9 +330,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> tert_frust_ndecoys;
       in >> tert_frust_output_freq;
       in >> tert_frust_mode;
-      if (strcmp(tert_frust_mode, "configurational")!=0 && strcmp(tert_frust_mode, "mutational")!=0) {
+      if (strcmp(tert_frust_mode, "configurational")!=0 && strcmp(tert_frust_mode, "mutational")!=0 && strcmp(tert_frust_mode, "singleresidue")!=0) {
 	// throw an error if the "mode" is anything but "configurational" or "mutational"
-	error->all("Only \"configurational\" and \"mutational\" are acceptable modes for the Tertiary_Frustratometer.");
+	error->all("Only \"configurational\", \"mutational\", \"singleresidue\" are acceptable modes for the Tertiary_Frustratometer.");
       }
     } else if (strcmp(varsection, "[Nmer_Frustratometer]")==0) {
       nmer_frust_flag = 1;
@@ -659,7 +659,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     decoy_ixn_stats = new double[2];
     tert_frust_output_file = fopen("tertiary_frustration.dat","w");
     tert_frust_vmd_script = fopen("tertiary_frustration.tcl","w");
-    fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    if (strcmp(tert_frust_mode, "configurational")==0 || strcmp(tert_frust_mode, "mutational")==0) {
+      fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    }
+    else if (strcmp(tert_frust_mode, "singleresidue")==0) {
+      fprintf(tert_frust_output_file,"# i rho_i a_i native_energy <decoy_energies> std(decoy_energies) f_i\n");
+    }
   }
 
   // if nmer_frust_flag is on, perform appropriate initializations
@@ -3512,6 +3517,59 @@ void FixBackbone::compute_tert_frust()
   fprintf(tert_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
 }
 
+void FixBackbone::compute_tert_frust_singleresidue()
+{
+  int i;
+  int ires_type, i_resno, i_chno;
+  double rho_i;
+  double native_energy;
+  double frustration_index;
+  int atomselect;
+
+  atomselect = 0; // for the vmd script output
+
+  // Loop over all residues 
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = get_residue_type(i_resno);
+    rho_i = get_residue_density(i_resno);
+    i_chno = chain_no[i]-1;
+
+    // compute native energy
+    native_energy = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno);
+
+    // compute decoy energies
+    compute_singleresidue_decoy_ixns(i_resno, rho_i, i_chno);
+
+    // compute frustration index
+    frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
+
+    // write information out to output file
+    fprintf(tert_frust_output_file,"%d %f %c %f %f %f %f\n", i_resno+1, rho_i, se[i_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
+    if(frustration_index > 0.78 || frustration_index < -1) {
+      atomselect += 1;
+      // write information out to vmd script
+      fprintf(tert_frust_vmd_script,"mol addrep 0\n");
+      fprintf(tert_frust_vmd_script,"mol modselect %d 0 resid %d\n", atomselect, i_resno+1);
+      fprintf(tert_frust_vmd_script,"mol modstyle %d 0 Bonds 0.300000 10.000000\n", atomselect);
+      if(frustration_index > 0.78) {
+    	// color the residue green\n
+        fprintf(tert_frust_vmd_script,"mol modcolor %d 0 ColorID 7\n", atomselect);
+      }
+      else {
+    	// color the residue red\n
+	fprintf(tert_frust_vmd_script,"mol modcolor %d 0 ColorID 1\n", atomselect);
+      }
+    }
+  }
+  
+  // after looping over all pairs, write out the end of the vmd script
+  fprintf(tert_frust_vmd_script, "mol modselect 0 top \"all\"\n");
+  fprintf(tert_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
+  fprintf(tert_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+}
+
 double FixBackbone::compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
 {
   double water_energy, burial_energy_i, burial_energy_j, rik, rjk, rho_k;
@@ -3632,6 +3690,61 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
   decoy_ixn_stats[0] = compute_array_mean(tert_frust_decoy_energies, tert_frust_ndecoys);
   decoy_ixn_stats[1] = compute_array_std(tert_frust_decoy_energies, tert_frust_ndecoys);
 
+}
+
+double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno)
+{
+  double water_energy, burial_energy_i, rij, rho_j;
+  int j, j_resno, jres_type, j_chno;
+
+  // find burial energy for residue i
+  burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
+
+  // initialize water energy
+  water_energy = 0.0;
+
+  // loop over all possible interacting residues
+  for (j=0; j<n; j++) {
+    // get information about residue j
+    j_resno = res_no[j]-1;
+    jres_type = get_residue_type(j_resno);
+    j_chno = chain_no[j]-1;
+    rho_j = get_residue_density(j_resno);
+
+    // don't interact with self
+    if (i_resno == j_resno) {
+      continue;
+    }
+
+    // find distance between residues i and j
+    rij = get_residue_distance(i_resno, j_resno);
+    
+    // if within the interaction distance, compute energy
+    if (rij < tert_frust_cutoff && (abs(i_resno-j_resno)>=contact_cutoff || i_chno != j_chno)) {
+      // compute the energies for the (i,j) pair
+      water_energy += compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+    }
+  }
+
+  return water_energy + burial_energy_i;
+}
+
+void FixBackbone::compute_singleresidue_decoy_ixns(int i_resno, double rho_i, int i_chno)
+{
+  int decoy_i, rand_i_resno, ires_type;
+  
+  for (decoy_i=0; decoy_i<tert_frust_ndecoys; decoy_i++) {
+    // randomize ires_type
+    rand_i_resno = get_random_residue_index();
+    ires_type = get_residue_type(rand_i_resno);
+
+    // compute the decoy energy
+    tert_frust_decoy_energies[decoy_i] = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno);
+  }
+
+  // save the mean and standard deviation into the decoy_ixn_stats array
+  decoy_ixn_stats[0] = compute_array_mean(tert_frust_decoy_energies, tert_frust_ndecoys);
+  decoy_ixn_stats[1] = compute_array_std(tert_frust_decoy_energies, tert_frust_ndecoys);
 }
 
 double FixBackbone::compute_array_mean(double *array, int arraysize)
@@ -5075,7 +5188,12 @@ void FixBackbone::compute_backbone()
   if (tert_frust_flag && ntimestep % tert_frust_output_freq == 0) {
     fprintf(tert_frust_output_file,"# timestep: %d\n", ntimestep);
     fprintf(tert_frust_vmd_script,"# timestep: %d\n", ntimestep);
-    compute_tert_frust();
+    if (strcmp(tert_frust_mode, "mutational")==0 || strcmp(tert_frust_mode, "mutational")==0) {
+      compute_tert_frust();
+    }
+    else if (strcmp(tert_frust_mode, "singleresidue")==0) {
+      compute_tert_frust_singleresidue();
+    }
   }
 
   // if it is time to compute the nmer frustration, do it

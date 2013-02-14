@@ -147,6 +147,7 @@ public:
   bool nmer_output_neutral_flag;
   bool nmer_frust_trap_flag, nmer_frust_draw_trap_flag;
   double nmer_frust_trap_num_sigma, nmer_frust_ss_frac;
+  char nmer_frust_mode[100];
 
   // Table Fragment Memory parameters
     TBV **fm_table;
@@ -202,6 +203,7 @@ public:
   bool frag_frust_flag;
   bool tert_frust_flag;
   bool nmer_frust_flag;
+  
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -259,15 +261,18 @@ public:
   double compute_array_mean(double *array, int arraysize);
   double compute_array_std(double *array, int arraysize);
   void compute_tert_frust_singleresidue();
-  double compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno);
+  double compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff);
   void compute_singleresidue_decoy_ixns(int i_resno, double rho_i, int i_chno);
   // nmer frustratometer functions
   void compute_nmer_frust();
+  void compute_singlenmer_frust();
   int compute_nmer_contacts(int i, int j);
   void get_nmer_seq(int i, char *nmer_seq, int backward);
   void get_nmer_secondary_structure(int i, char *nmer_secondary_structure);
   double compute_nmer_native_ixn(int i, int j);
+  double compute_singlenmer_native_ixn(int i);
   void compute_nmer_decoy_ixns(int i, int j);
+  void compute_singlenmer_decoy_ixns(int i);
   int compute_nmer_traps(int i, int j, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2);
   int get_nmer_ss_dist(char *nmer_ss_j, char *nmer_ss_k);
 

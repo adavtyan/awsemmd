@@ -3558,11 +3558,12 @@ void FixBackbone::compute_tert_frust_singleresidue()
     // write information out to output file
     fprintf(tert_frust_output_file,"%d %f %c %f %f %f %f\n", i_resno+1, rho_i, se[i_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
     if(frustration_index > 0.78 || frustration_index < -1) {
-      atomselect += 1;
       // write information out to vmd script
+      atomselect += 1;
       fprintf(tert_frust_vmd_script,"mol addrep 0\n");
       fprintf(tert_frust_vmd_script,"mol modselect %d 0 resid %d\n", atomselect, i_resno+1);
-      fprintf(tert_frust_vmd_script,"mol modstyle %d 0 Bonds 0.300000 10.000000\n", atomselect);
+      fprintf(tert_frust_vmd_script,"mol modstyle %d 0 VDW %f 12.000000\n", atomselect, 0.5*abs(frustration_index));
+      fprintf(tert_frust_vmd_script,"mol modmaterial %d 0 Transparent\n", atomselect);
       if(frustration_index > 0.78) {
     	// color the residue green\n
         fprintf(tert_frust_vmd_script,"mol modcolor %d 0 ColorID 7\n", atomselect);

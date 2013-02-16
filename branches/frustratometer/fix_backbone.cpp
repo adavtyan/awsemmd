@@ -347,7 +347,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> nmer_frust_mode;
       if (strcmp(nmer_frust_mode, "pairwise")!=0 && strcmp(nmer_frust_mode, "singlenmer")!=0) {
 	// throw an error if the "mode" is anything but "configurational" or "mutational"
-	error->all("Only \"pairwise\", \"singlenmer\" are acceptable modes for the Tertiary_Frustratometer.");
+	error->all("Only \"pairwise\", \"singlenmer\" are acceptable modes for the Nmer_Frustratometer.");
       }	    
     }
       else if (strcmp(varsection, "[Solvent_Barrier]")==0) {

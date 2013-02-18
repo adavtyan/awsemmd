@@ -261,7 +261,7 @@ public:
   double compute_array_mean(double *array, int arraysize);
   double compute_array_std(double *array, int arraysize);
   void compute_tert_frust_singleresidue();
-  double compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff);
+  double compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff, bool nmercalc);
   void compute_singleresidue_decoy_ixns(int i_resno, double rho_i, int i_chno);
   // nmer frustratometer functions
   void compute_nmer_frust();

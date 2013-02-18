@@ -3547,7 +3547,7 @@ void FixBackbone::compute_tert_frust_singleresidue()
     i_chno = chain_no[i]-1;
 
     // compute native energy
-    native_energy = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno, tert_frust_cutoff);
+    native_energy = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno, tert_frust_cutoff, 0);
 
     // compute decoy energies
     compute_singleresidue_decoy_ixns(i_resno, rho_i, i_chno);
@@ -3703,7 +3703,7 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
 
 }
 
-double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff)
+double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff, bool nmercalc)
 {
   double water_energy, burial_energy_i, rij, rho_j;
   int j, j_resno, jres_type, j_chno;
@@ -3724,6 +3724,11 @@ double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type,
 
     // don't interact with self
     if (i_resno == j_resno) {
+      continue;
+    }
+
+    // don't double count water energy for nmer calculations
+    if (j_resno > i_resno && nmercalc) {
       continue;
     }
 
@@ -3750,7 +3755,7 @@ void FixBackbone::compute_singleresidue_decoy_ixns(int i_resno, double rho_i, in
     ires_type = get_residue_type(rand_i_resno);
 
     // compute the decoy energy
-    tert_frust_decoy_energies[decoy_i] = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno, tert_frust_cutoff);
+    tert_frust_decoy_energies[decoy_i] = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno, tert_frust_cutoff, 0);
   }
 
   // save the mean and standard deviation into the decoy_ixn_stats array
@@ -4023,7 +4028,7 @@ double FixBackbone::compute_singlenmer_native_ixn(int i_resno)
     rho_j = get_residue_density(j_resno);
     
     // Calculate native energy
-    native_energy += compute_singleresidue_native_ixn(j_resno, jres_type, rho_j, j_chno, nmer_frust_cutoff);
+    native_energy += compute_singleresidue_native_ixn(j_resno, jres_type, rho_j, j_chno, nmer_frust_cutoff, 1);
   }
 
   return native_energy;
@@ -4060,7 +4065,7 @@ void FixBackbone::compute_singlenmer_decoy_ixns(int i_resno)
       rho_j = get_residue_density(j_resno);
       
       // compute decoy interaction energy, add to total
-      nmer_frust_decoy_energies[decoy_i] += compute_singleresidue_native_ixn(j_resno, jres_type, rho_j, j_chno, nmer_frust_cutoff);
+      nmer_frust_decoy_energies[decoy_i] += compute_singleresidue_native_ixn(j_resno, jres_type, rho_j, j_chno, nmer_frust_cutoff, 1);
     }
   }
 

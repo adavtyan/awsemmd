@@ -6,7 +6,9 @@
 
    Solvent Separated Barrier Potential was contributed by Nick Schafer
 
-   Last Update: 03/23/2011
+   Membrane Potential was contributed by Leonardo Boechi and Bobby Kim
+
+   Last Update: 03/9/2012
    ------------------------------------------------------------------------- */
 
 #include "math.h"
@@ -80,7 +82,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 7) error->all(FLERR,"Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
-	
+  fmenergiesfile = fopen("fmenergies.log", "w");
+
   char buff[5];
   char forcefile[20]="";
   itoa(comm->me+1,buff,10);
@@ -89,7 +92,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   strcat(forcefile, ".dat");
   dout = fopen(forcefile, "w");
 	
-  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tSSB     \tVTotal\n";
+  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tMembrane\tSSB     \tVTotal\n";
   fprintf(efile, "%s", eheader);
 
   scalar_flag = 1;
@@ -102,7 +105,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
   ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = vec_frag_mem_flag = 0;
-  ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = 0;
+  ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = 0;
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
 	
@@ -262,6 +265,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_frag_mem;
       in >> frag_mems_file;
       in >> fm_gamma_file;
+      in >> fm_sigma_exp;
     } else if (strcmp(varsection, "[Fragment_Memory_Table]")==0) {
       frag_mem_tb_flag = 1;
       if (comm->me==0) print_log("Fragment_Memory_Table flag on\n");
@@ -277,6 +281,77 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> vfm_sigma;
       vfm_sigma_sq = vfm_sigma*vfm_sigma;
     } else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
+      in >> frag_table_well_width;
+      in >> fm_energy_debug_flag;
+      in >> fm_sigma_exp;
+    } else if (strcmp(varsection, "[Membrane]")==0) {
+      memb_flag = 1;
+      print_log("Membrane flag on\n");
+      in >> k_overall_memb;
+	  in >> memb_dens_offset;
+      in >> k_bin;
+      in >> memb_xo[0] >> memb_xo[1] >> memb_xo[2];
+      in >> memb_pore_type;
+      in >> memb_len;
+      in >> rho0_max;
+      in >> rho0_distor;
+      for (int i=0;i<3;++i)
+        for (int j=0;j<4;++j) 
+          in >> g_memb[i][j]; 
+    } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
+      // The fragment frustratometer requires the fragment memory potential to be active
+      if (!frag_mem_flag && !frag_mem_tb_flag) error->all(FLERR,"Cannot run Fragment_Frustratometer without Fragment_Memory or Fragment_Memory_Table.");
+      frag_frust_flag = 1; // activate flag for fragment frustratometer
+      if (comm->me==0) print_log("Fragment_Frustratometer flag on\n");
+      in >> frag_frust_mode; // the possible modes are "read" and "shuffle"
+      if (strcmp(frag_frust_mode, "shuffle")==0) {
+	if (comm->me==0) print_log("Fragment_Frustratometer in shuffle mode\n");
+	frag_frust_shuffle_flag=1; // activate "shuffle" specific flag
+	in >> decoy_mems_file; // read in the decoy fragments that will be shuffled to generated decoy energies
+	in >> num_decoy_calcs; // this is the number of times that the decoy fragments will be shuffled
+	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
+      }
+      else if (strcmp(frag_frust_mode, "read")==0) {
+	if (comm->me==0) print_log("Fragment_Frustratometer in read mode\n");
+	frag_frust_read_flag=1; // activate "read" specific flag
+	in >> decoy_mems_file; // read in the decoy structures that will be used to generate the decoy energies
+	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
+	in >> frag_frust_well_width; // parameter to tune well width, default is 1.0
+	in >> frag_frust_seqsep_flag >> frag_frust_seqsep_gamma; // flag and parameter to tune sequence separation dependent gamma
+	in >> frag_frust_normalizeInteraction; // flag that determines whether or not the fragment interaction is normalized by the width of the interaction
+      }
+      else {
+	// throw an error if the "mode" is anything but "read" or "shuffle"
+	error->all(FLERR,"Only \"shuffle\" and \"read\" are acceptable modes for the Fragment_Frustratometer.");
+      }
+    } else if (strcmp(varsection, "[Tertiary_Frustratometer]")==0) {
+      tert_frust_flag = 1;
+      if (comm->me==0) print_log("Tertiary_Frustratometer flag on\n");
+      in >> tert_frust_cutoff;
+      in >> tert_frust_ndecoys;
+      in >> tert_frust_output_freq;
+      in >> tert_frust_mode;
+      if (strcmp(tert_frust_mode, "configurational")!=0 && strcmp(tert_frust_mode, "mutational")!=0 && strcmp(tert_frust_mode, "singleresidue")!=0) {
+	// throw an error if the "mode" is anything but "configurational" or "mutational"
+	error->all(FLERR,"Only \"configurational\", \"mutational\", \"singleresidue\" are acceptable modes for the Tertiary_Frustratometer.");
+      }
+    } else if (strcmp(varsection, "[Nmer_Frustratometer]")==0) {
+      nmer_frust_flag = 1;
+      if (comm->me==0) print_log("Nmer_Frustratometer flag on\n");
+      in >> nmer_frust_size;
+      in >> nmer_frust_cutoff;
+      in >> nmer_contacts_cutoff;
+      in >> nmer_frust_ndecoys;
+      in >> nmer_frust_output_freq;
+      in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold >> nmer_output_neutral_flag;
+      in >> nmer_frust_trap_flag >> nmer_frust_draw_trap_flag >> nmer_frust_trap_num_sigma >> nmer_frust_ss_frac;
+      in >> nmer_frust_mode;
+      if (strcmp(nmer_frust_mode, "pairwise")!=0 && strcmp(nmer_frust_mode, "singlenmer")!=0) {
+	// throw an error if the "mode" is anything but "configurational" or "mutational"
+	error->all(FLERR,"Only \"pairwise\", \"singlenmer\" are acceptable modes for the Nmer_Frustratometer.");
+      }	    
+    }
+      else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
       if (comm->me==0) print_log("Solvent separated barrier flag on\n");
       in >> k_solventb1;
@@ -398,6 +473,17 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     }
     in_ssw.close();
   }
+
+  if (memb_flag) {
+    ifstream in_memb_zim("zim");
+    if (!in_memb_zim) error->all(FLERR,"File zim doesn't exist");
+    // what's happen if zim file is not correct
+    for (i=0;i<n;++i) {
+      in_memb_zim >> z_res[i];
+    }
+    in_memb_zim.close();
+  }
+
 
   if (water_flag) {
     ifstream in_wg("gamma.dat");
@@ -525,6 +611,112 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     }
   }
   
+  // if the fragment frustratometer flag is on, perform appropriate initializations
+  if (frag_frust_flag) {
+    // open fragment frustration file for writing
+    fragment_frustration_file = fopen("fragment_frustration.dat","w");
+    fragment_frustration_gap_file = fopen("fragment_frustration_gap.dat","w");
+    fragment_frustration_variance_file = fopen("fragment_frustration_variance.dat","w");
+    fragment_frustration_decoy_data = fopen("fragment_frustration_decoy.dat","w");
+    fragment_frustration_native_data = fopen("fragment_frustration_native.dat","w");
+
+    if (comm->me==0) print_log("Reading decoy fragments...\n");
+    // create a decoy memory array by reading in the appropriate file
+    decoy_mems = read_mems(decoy_mems_file, n_decoy_mems); // n_decoy_mems is set equal to the number of decoys in the read_mems function
+    // because the number of decoy calculations is set by the size of the decoy list in "read" mode, we need to initialize the variable here
+    if (frag_frust_read_flag) {
+      num_decoy_calcs = n_decoy_mems+1; // add one so that the "native" energy can occupy the 0 index
+    }
+
+    // allocate decoy_mem_map and ilen_decoy_map
+    ilen_decoy_map = new int[n]; // Number of decoys for residue i
+    decoy_mem_map = new int*[n]; // decoy Memory Fragments map
+    for (i=0;i<n;++i) {
+      ilen_decoy_map[i] = 0;
+      decoy_mem_map[i] = NULL;
+    }
+	
+    // Fill Decoy Memory map
+    int k, pos, len, min_sep;
+    min_sep = fm_gamma->minSep();
+    for (k=0;k<n_decoy_mems;++k) {
+      pos = decoy_mems[k]->pos;
+      len = decoy_mems[k]->len;
+      
+      if (pos+len>n) {
+	fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
+	error->all(FLERR,"Fragment_Frustratometer: Incorrectly defined memory fragment");
+      }
+      
+      for (i=pos; i<pos+len-min_sep; ++i) {
+	ilen_decoy_map[i]++;
+	decoy_mem_map[i] = (int *) memory->srealloc(decoy_mem_map[i],ilen_decoy_map[i]*sizeof(int),"modify:decoy_mem_map");
+	decoy_mem_map[i][ilen_decoy_map[i]-1] = k;
+      }
+    }
+
+    // Allocate decoy_energy array
+    decoy_energy = new double*[n];
+    for (i=0;i<n;i++)
+      {
+	decoy_energy[i] = new double[num_decoy_calcs];
+	for(int decoyindex=0; decoyindex<num_decoy_calcs; decoyindex++)
+	  {
+	    decoy_energy[i][decoyindex] = 0.0;
+	  }
+      }
+    // if in "read" mode, allocate per residue mean and variance arrays and compute generated decoy energies
+    if (frag_frust_read_flag)
+      {
+	frag_frust_read_mean = new double[n];
+	frag_frust_read_variance = new double[n];
+      }
+  }
+
+  // if tert_frust_flag is on, perform appropriate initializations
+  if(tert_frust_flag) {
+    tert_frust_decoy_energies = new double[tert_frust_ndecoys];
+    decoy_ixn_stats = new double[2];
+    tert_frust_output_file = fopen("tertiary_frustration.dat","w");
+    tert_frust_vmd_script = fopen("tertiary_frustration.tcl","w");
+    if (strcmp(tert_frust_mode, "configurational")==0 || strcmp(tert_frust_mode, "mutational")==0) {
+      fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    }
+    else if (strcmp(tert_frust_mode, "singleresidue")==0) {
+      fprintf(tert_frust_output_file,"# i rho_i a_i native_energy <decoy_energies> std(decoy_energies) f_i\n");
+    }
+  }
+
+  // if nmer_frust_flag is on, perform appropriate initializations
+  if(nmer_frust_flag) {
+    nmer_frust_decoy_energies = new double[nmer_frust_ndecoys];
+    nmer_decoy_ixn_stats = new double[2];
+    nmer_seq_i = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_i[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_seq_j = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_j[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_seq_k = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_k[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_i = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_i[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_j = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_j[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_k = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_k[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_frust_output_file = fopen("nmer_frustration.dat","w");
+    nmer_frust_vmd_script = fopen("nmer_frustration.tcl","w");
+    if (strcmp(nmer_frust_mode, "pairwise")==0) {
+      fprintf(nmer_frust_output_file,"# i j ncontacts a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    }
+    else if (strcmp(nmer_frust_mode, "singlenmer")==0) {
+      fprintf(nmer_frust_output_file,"# i a_i native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    }
+    if(nmer_frust_trap_flag) {
+      nmer_frust_trap_file = fopen("nmer_traps.dat", "w");
+      fprintf(nmer_frust_trap_file,"# i a_i ss_i j a_j ss_j threshold_energy k a_k ss_k direction trap_energy\n");
+    }
+  }
+  
   // Allocate the table
   if (frag_mem_tb_flag) {
     if (fm_gamma->maxSep()!=-1)
@@ -553,7 +745,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 void FixBackbone::final_log_output()
 {
   double time, tmp;
-  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "SSB"};
+  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "Membrane", "SSB"};
   int me,nprocs;
 
   MPI_Comm_rank(world,&me);
@@ -645,6 +837,39 @@ FixBackbone::~FixBackbone()
 		delete [] fm_table[i];
 		}		
 		delete [] fm_table;*/
+  }
+
+  // if the fragment frustratometer was on, close the fragment frustration file
+  if (frag_frust_flag) {
+    fclose(fragment_frustration_file);
+    fclose(fragment_frustration_gap_file);
+    fclose(fragment_frustration_variance_file);
+    fclose(fragment_frustration_decoy_data);
+    fclose(fragment_frustration_native_data);
+    for (int i=0;i<n;++i) memory->sfree(decoy_mem_map[i]);
+    delete [] decoy_mem_map;
+    delete [] ilen_decoy_map;
+    for (int i=0;i<n_decoy_mems;i++) delete decoy_mems[i];
+    if (n_decoy_mems>0) memory->sfree(decoy_mems);
+    if (frag_frust_read_flag) {
+      delete [] frag_frust_read_mean;
+      delete [] frag_frust_read_variance;
+    }
+  }
+
+  // if the tertiary frustratometer was on, write the end of the vmd script and close the files
+  if (tert_frust_flag) {
+    fclose(tert_frust_output_file);
+    fclose(tert_frust_vmd_script);
+  }
+
+  // if the nmer frustratometer was on, write the end of the vmd script and close the files
+  if (nmer_frust_flag) {
+    fclose(nmer_frust_output_file);
+    fclose(nmer_frust_vmd_script);
+    if(nmer_frust_trap_flag) {
+      fclose(nmer_frust_trap_file);
+    }
   }
 	
   fclose(efile);
@@ -2959,7 +3184,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       
       if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
       
-      fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+      fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
       
       if (!fm_gamma->fourResTypes()) {
 	frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
@@ -3007,99 +3232,6 @@ void FixBackbone::compute_fragment_memory_potential(int i)
         f[jatom[k]][0] += -force*dx[0];
         f[jatom[k]][1] += -force*dx[1];
         f[jatom[k]][2] += -force*dx[2];
-      }
-    }
-  }
-}
-
-void FixBackbone::compute_fragment_memory_table()
-{
-  int i, j, js, je, ir, i_fm, k, itb, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
-  int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
-  double r, rf, dr, drsq, V, force;
-  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
-  Fragment_Memory *frag;
-  
-  iatom_type[0] = Fragment_Memory::FM_CA;
-  iatom_type[1] = Fragment_Memory::FM_CA;
-  iatom_type[2] = Fragment_Memory::FM_CB;
-  iatom_type[3] = Fragment_Memory::FM_CB;
-  
-  jatom_type[0] = Fragment_Memory::FM_CA; 
-  jatom_type[1] = Fragment_Memory::FM_CB; 
-  jatom_type[2] = Fragment_Memory::FM_CA; 
-  jatom_type[3] = Fragment_Memory::FM_CB;
-  
-  for (i=0; i<n; ++i) {  
-    iatom[0] = alpha_carbons[i];
-    iatom[1] = alpha_carbons[i];
-    iatom[2] = beta_atoms[i];
-    iatom[3] = beta_atoms[i];
-	  
-    //	  i_resno = res_no[i]-1;
-    i_resno = i;
-    ires_type = se_map[se[i_resno]-'A'];
-	  
-    for (i_fm=0; i_fm<ilen_fm_map[i_resno]; ++i_fm) {
-      frag = frag_mems[ frag_mem_map[i_resno][i_fm] ];
-		
-      epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
-		
-      js = i+fm_gamma->minSep();
-      je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
-      //		if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in memory potential");
-      if (je>=n) error->all(FLERR,"Missing residues in memory potential");
-		
-      for (j=js;j<=je;++j) {
-	//		  j_resno = res_no[j]-1;
-	j_resno = j;
-	jres_type = se_map[se[j_resno]-'A'];
-		  
-	//		  if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
-		  
-	fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
-		  
-	if (!fm_gamma->fourResTypes()) {
-	  frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
-	} else {
-	  frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
-	}
-	if (fm_gamma->error==fm_gamma->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of getGamma() function");
-		  
-	epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
-		  
-	jatom[0] = alpha_carbons[j];
-	jatom[1] = beta_atoms[j];
-	jatom[2] = alpha_carbons[j];
-	jatom[3] = beta_atoms[j];
-		  
-	for (k=0;k<4;++k) {
-	  if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
-	  if ( jatom_type[k]==frag->FM_CB && (se[j_resno]=='G' || frag->getSe(j_resno)=='G') ) continue;
-			
-	  itb = 4*tb_nbrs*i + 4*(j-js) + k;
-	  if (!fm_table[itb])
-	    fm_table[itb] = new TBV[tb_size];
-			
-	  rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
-	  if (frag->error==frag->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of Rf() function");
-	  for (ir=0;ir<tb_size;++ir) {
-	    r = tb_rmin + ir*tb_dr;
-				
-	    dr = r - rf;
-	    drsq = dr*dr;
-				
-	    V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
-				
-	    fm_table[itb][ir].energy += V;
-				
-	    fm_table[itb][ir].force += V*dr/(fm_sigma_sq*r);
-				
-	    //				fm_table[i][j-js][k][ir].energy = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
-				
-	    //				fm_table[i][j-js][k][ir].force = V*dr/(fm_sigma_sq*r);
-	  }
-	}
       }
     }
   }
@@ -3208,6 +3340,1568 @@ void FixBackbone::table_fragment_memory(int i, int j)
       fprintf(logfile, "r=%f\n", r);
     }	    
   }
+}
+
+void FixBackbone::compute_decoy_memory_potential(int i, int decoy_calc)
+{
+  // adapted from compute_fragment_memory_potential
+  // given a residue i and a decoy_calc index, calculates a decoy memory energy
+  // the energy is stored for residues i and j in the decoy_energy array
+  // for decoy_calc > 0, the fragment memory energy is calculated using a shuffled fragment library (only used in "shuffle" mode)
+  // for decoy_calc = 0, the fragment memory energy is calculated using the default fragment library 
+  // the decoy_calc = 0 energy is used as the native energy in compute_fragment_frustration
+
+  int j, js, je, i_fm, k, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
+  int i_resno, j_resno, ires_type, jres_type;
+  double *xi[4], *xj[4], dx[3], r, rf, dr, drsq, V;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma, k_seqsep;
+  Fragment_Memory *frag;
+  int num_frags;
+  
+  iatom_type[0] = Fragment_Memory::FM_CA;
+  iatom_type[1] = Fragment_Memory::FM_CA;
+  iatom_type[2] = Fragment_Memory::FM_CB;
+  iatom_type[3] = Fragment_Memory::FM_CB;
+  
+  jatom_type[0] = Fragment_Memory::FM_CA; 
+  jatom_type[1] = Fragment_Memory::FM_CB; 
+  jatom_type[2] = Fragment_Memory::FM_CA; 
+  jatom_type[3] = Fragment_Memory::FM_CB;
+  
+  xi[0] = xca[i];
+  xi[1] = xca[i];
+  xi[2] = xcb[i];
+  xi[3] = xcb[i];
+  
+  i_resno = res_no[i]-1;
+  ires_type = se_map[se[i_resno]-'A'];
+  
+  // initialize num_frags as the number of fragments for a residue i
+  if (decoy_calc == 0) 
+    {
+      num_frags=ilen_fm_map[i_resno];
+    }
+  else 
+    {
+      num_frags=ilen_decoy_map[i_resno];
+    }
+  
+  // loop over fragments associated with residue i
+  for (i_fm=0; i_fm<num_frags; ++i_fm) 
+    {      
+      
+      // declare frag to be a fragment memory object
+      if (decoy_calc == 0)
+	{
+	  frag = frag_mems[ frag_mem_map[i_resno][i_fm] ];
+	}
+      else
+	{
+	  frag = decoy_mems[ decoy_mem_map[i_resno][i_fm] ];
+	}
+      
+
+      
+      // loop over all residues j associated with residue i for fragment i_fm 
+      js = i+fm_gamma->minSep();
+      je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
+      
+      epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
+      
+      if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in decoy memory potential");
+      
+      for (j=js;j<=je;++j) 
+	{
+	  j_resno = res_no[j]-1;
+	  jres_type = se_map[se[j_resno]-'A'];
+	  
+	  if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Decoy Memory: Interaction between residues of different chains");
+	  
+	  fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
+	  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
+
+	  if (!fm_gamma->fourResTypes()) 
+	    {
+	      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
+	    } 
+	  else 
+	    {
+	      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
+	    }
+	  if (fm_gamma->error==fm_gamma->ERR_CALL) error->all(FLERR,"Decoy_Memory: Wrong call of getGamma() function");
+	  
+	  // sequence distance dependent gamma
+	  if (frag_frust_seqsep_flag)
+	    {
+	      k_seqsep = pow((abs(i_resno - j_resno)-fm_gamma->minSep()+1),-frag_frust_seqsep_gamma);
+	      frag_mem_gamma *=k_seqsep;
+	    }
+	  
+	  epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
+	  
+	  xj[0] = xca[j];
+	  xj[1] = xcb[j];
+	  xj[2] = xca[j];
+	  xj[3] = xcb[j];
+	  
+	  // loop over combinations of CA, CB pairs
+	  for (k=0;k<4;++k) {
+	    if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
+	    if ( jatom_type[k]==frag->FM_CB && (se[j_resno]=='G' || frag->getSe(j_resno)=='G') ) continue;
+	    
+	    dx[0] = xi[k][0] - xj[k][0];
+	    dx[1] = xi[k][1] - xj[k][1];
+	    dx[2] = xi[k][2] - xj[k][2];
+	    
+	    r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+	    rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+	    if (frag->error==frag->ERR_CALL) error->all(FLERR,"Fragment_Frustratometer: Wrong call of Rf() function");
+	    dr = r - rf;
+	    drsq = dr*dr;
+
+	    if(frag_frust_normalizeInteraction)
+	      {
+		V *= 1/sqrt(fm_sigma_sq);
+	      }
+	    
+	    V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+	    
+	    // add decoy memory energy to both residue i and j 
+	    decoy_energy[i_resno][decoy_calc] += V;
+	    decoy_energy[j_resno][decoy_calc] += V;
+	  }
+	}
+    }
+}
+
+// This function will shuffle the positions of the "decoy_mems" array
+// This is used in "shuffle" mode to generate the decoy energies
+void FixBackbone::randomize_decoys()
+{
+  //loops over decoy_mems and randomizes the starting position of each fragment object
+
+  int i, k, pos, len, min_sep, random_position;
+
+  for(i=0; i<n_decoy_mems; i++) 
+    {
+      // randomize the position of each decoy memory object such that the end of the fragment does not exceed the length of the protein
+      random_position = rand() % (n-decoy_mems[i]->len+1);
+      decoy_mems[i]->pos = random_position;
+    }
+  
+  // repopulate decoy memory map
+  for (i=0;i<n;++i) 
+    {
+      ilen_decoy_map[i] = 0;
+      decoy_mem_map[i] = NULL;
+    }
+  
+  min_sep = fm_gamma->minSep();
+  
+  for (k=0;k<n_decoy_mems;++k) 
+    {
+      pos = decoy_mems[k]->pos;
+      len = decoy_mems[k]->len;
+      
+      if (pos+len>n) 
+	{
+	  fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
+	  error->all(FLERR,"Fragment_Frustratometer: Incorrectly defined memory fragment");
+	}
+      
+      for (i=pos; i<pos+len-min_sep; ++i) 
+	{
+	  ilen_decoy_map[i]++;
+	  decoy_mem_map[i] = (int *) memory->srealloc(decoy_mem_map[i],ilen_decoy_map[i]*sizeof(int),"modify:decoy_mem_map");
+	  decoy_mem_map[i][ilen_decoy_map[i]-1] = k;
+	}
+    }
+}
+
+// This routine is used in both "shuffle" and "read" modes to compute the per residue
+// fragment frustration. Because the number of decoy fragments can be larger or smaller
+// than the number of "native" fragments in "shuffle" mode, a normalization is applied.
+// In "read" mode, all of the decoy structures should be the same size as the target
+// structure and uses the same number of fragments to calculate the energy, so no normalization
+// is necessary.
+void FixBackbone::compute_fragment_frustration()
+{
+  int residueindex, decoyindex;
+  double averagedecoyenergy, variancedecoyenergy, frustrationindex;
+  double nativeenergy;
+  
+  // if using shuffle method, normalize energies
+  if (frag_frust_shuffle_flag)
+    {
+      // normalize native and decoy energies by number of respective memories
+      for (residueindex=0; residueindex<n; residueindex++)
+      	{
+      	  decoy_energy[residueindex][0] /= n_frag_mems;
+	  
+      	  for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+      	    {
+      	      decoy_energy[residueindex][decoyindex] /= n_decoy_mems;
+      	    }
+      	}
+    }
+  
+  // perform per residue statistics and calculate frustration index
+  for (residueindex=0; residueindex<n; residueindex++)
+    {
+      // in "shuffle" mode, the mean and variance must be calculated from the decoy energy
+      // distribution during every frustration calculation
+      if (frag_frust_shuffle_flag)
+	{
+	  // zero per-residue variables
+	  averagedecoyenergy=0.0;
+	  variancedecoyenergy=0.0;
+	  // i=0 is native, start at i=1
+	  // compute average decoy energy
+	  for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	    {
+	      averagedecoyenergy += decoy_energy[residueindex][decoyindex];
+	    }
+	  // divide sum over decoys by num_decoy_calcs-1 (because native is excluded from sum)
+	  averagedecoyenergy /= (num_decoy_calcs-1);
+	  
+	  // compute variance decoy energy
+	  for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	    {
+	      variancedecoyenergy += pow(decoy_energy[residueindex][decoyindex]-averagedecoyenergy,2);
+	    }
+	  variancedecoyenergy /= (num_decoy_calcs-1); 
+	}
+      // in "read" mode, the decoy energy distribution is computed once
+      // and reused for every frustration calculation
+      else if (frag_frust_read_flag)
+	{
+	  averagedecoyenergy = frag_frust_read_mean[residueindex];
+	  variancedecoyenergy = frag_frust_read_variance[residueindex];
+	}
+      else
+	{
+	  // throw an error because only shuffle and read are valid modes
+	  error->all(FLERR,"Fragment_Frustratometer: only shuffle and read are valid modes.");
+	}
+      
+      // compute frustration index
+      nativeenergy = decoy_energy[residueindex][0]; // the "native" energy is stored in index 0 of decoy_energy
+      // the frustration index: f_i = E_i-<E_d>/(sqrt(/\E_d^2))
+      frustrationindex = (nativeenergy-averagedecoyenergy)/(sqrt(variancedecoyenergy));
+      // print out the frustration index to the fragment_frustration file
+      fprintf(fragment_frustration_file, "%f ",frustrationindex);
+      fprintf(fragment_frustration_gap_file, "%f ",(nativeenergy-averagedecoyenergy));
+      fprintf(fragment_frustration_variance_file, "%f ",sqrt(variancedecoyenergy));
+    }
+  // print a new line for each new frustration calculation
+  fprintf(fragment_frustration_file, "\n");
+  fprintf(fragment_frustration_gap_file, "\n");
+  fprintf(fragment_frustration_variance_file, "\n");
+}
+
+// This routine is used in "read" mode to calculate the decoy energy distribution
+// It treats the decoy structures as if they were memories and uses the Rf() function
+// to return the appropriate pairwise distances.
+void FixBackbone::compute_generated_decoy_energies()
+{
+  int i, j, js, je, i_fm, k, iatom_type[4], jatom_type[4];
+  int i_resno, j_resno, ires_type, jres_type;
+  double r, rf, dr, drsq, V;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma, k_seqsep;
+  Fragment_Memory *frag, *decoy;
+  int num_frags;
+	  
+  int idecoy;
+  int decoyindex;
+  // for each generated decoy in the mem file
+  for (idecoy=0; idecoy<n_decoy_mems; idecoy++)
+    {
+      // set decoy memory object
+      decoy = decoy_mems[idecoy];
+
+      // for each residue in the protein
+      for (i=0;i<n;i++)
+	{
+	  i_resno = res_no[i]-1;
+	  	  
+	  iatom_type[0] = Fragment_Memory::FM_CA;
+	  iatom_type[1] = Fragment_Memory::FM_CA;
+	  iatom_type[2] = Fragment_Memory::FM_CB;
+	  iatom_type[3] = Fragment_Memory::FM_CB;
+	  
+	  jatom_type[0] = Fragment_Memory::FM_CA; 
+	  jatom_type[1] = Fragment_Memory::FM_CB; 
+	  jatom_type[2] = Fragment_Memory::FM_CA; 
+	  jatom_type[3] = Fragment_Memory::FM_CB;
+
+	  i_resno = res_no[i]-1;
+	  ires_type = se_map[se[i_resno]-'A'];
+
+	  // set number of frags for residue i_resno
+	  num_frags = ilen_fm_map[i_resno];
+
+	  // loop over fragments associated with residue i
+	  for (i_fm=0; i_fm<num_frags; ++i_fm) 
+	    {      
+	      frag = frag_mems[ frag_mem_map[i_resno][i_fm] ];
+	      
+	      epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
+	      
+	      // loop over all residues j associated with residue i for fragment i_fm 
+	      js = i+fm_gamma->minSep();
+	      je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
+	      
+	      if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in decoy memory potential");
+	      
+	      for (j=js;j<=je;++j) 
+		{
+		  j_resno = res_no[j]-1;
+		  jres_type = se_map[se[j_resno]-'A'];
+		  
+		  fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
+		  fm_sigma_sq = fm_sigma_sq*frag_frust_well_width*frag_frust_well_width;
+		  if (!fm_gamma->fourResTypes()) 
+		    {
+		      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
+		    } 
+		  else 
+		    {
+		      frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
+		    }
+		  if (fm_gamma->error==fm_gamma->ERR_CALL) error->all(FLERR,"Decoy_Memory: Wrong call of getGamma() function");
+		  
+		  // sequence distance dependent gamma
+		  if (frag_frust_seqsep_flag)
+		    {
+		      k_seqsep = pow((abs(i_resno - j_resno)-fm_gamma->minSep()+1),-frag_frust_seqsep_gamma);
+		      frag_mem_gamma *=k_seqsep;
+		    }
+
+		  epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
+		  
+		  // loop over combinations of CA, CB pairs
+		  for (k=0;k<4;++k) 
+		    {
+		      if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
+		      if ( jatom_type[k]==frag->FM_CB && (se[j_resno]=='G' || frag->getSe(j_resno)=='G') ) continue;
+
+		      r = decoy->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+		      rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+
+		      if (frag->error==frag->ERR_CALL) error->all(FLERR,"Fragment_Frustratometer: Wrong call of Rf() function");
+		      dr = r - rf;
+		      drsq = dr*dr;
+		      
+		      if(frag_frust_normalizeInteraction)
+			{
+			  V *= 1/sqrt(fm_sigma_sq);
+			}
+
+		      V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+		      
+		      // add decoy memory energy to both residue i and j 
+		      decoy_energy[i_resno][idecoy+1] += V; // shift all decoy energies by one
+		      decoy_energy[j_resno][idecoy+1] += V; // so that the native energy is in index 0
+		    }
+		}
+	    }
+	}
+    }
+  // compute statistics on the decoy_energy array
+  for (i=0; i<n; i++)
+    {
+      fprintf(fragment_frustration_native_data,"%f ",decoy_energy[i][0]);
+    }
+
+  // for every residue, average over idecoy to get frag_frust_read_mean and frag_frust_read_variance
+  for (i=0; i<n; i++)
+    {
+      // zero per-residue variables
+      frag_frust_read_mean[i]=0.0;
+      frag_frust_read_variance[i]=0.0;
+      // i=0 is native, start at i=1
+      // compute average decoy energy
+      // note that num_decoy_calcs is the size of the decoy_energy array, which in this case
+      // is one larger than n_decoy_mems because the native energy is stored in index 0
+      // which is why the loop starts with index 1
+      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	{
+	  fprintf(fragment_frustration_decoy_data," %f\n",decoy_energy[i][decoyindex]);
+	  frag_frust_read_mean[i] += decoy_energy[i][decoyindex];
+	}
+      // divide sum over decoys by n_decoy_mems
+      frag_frust_read_mean[i] /= n_decoy_mems;
+      
+      // compute variance decoy energy
+      // note that num_decoy_calcs is the size of the decoy_energy array, which in this case
+      // is one larger than n_decoy_mems because the native energy is stored in index 0
+      // which is why the loop starts with index 1
+      for (decoyindex=1;decoyindex<num_decoy_calcs;decoyindex++)
+	{
+	  frag_frust_read_variance[i] += pow(decoy_energy[i][decoyindex]-frag_frust_read_mean[i],2);
+	}
+      frag_frust_read_variance[i] /= n_decoy_mems;      
+    }
+}
+
+void FixBackbone::compute_tert_frust()
+{
+  double *xi, *xj, dx[3];
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij, rho_i, rho_j;
+  double native_energy;
+  double frustration_index;
+  int atomselect;
+
+  atomselect = 0; // for the vmd script output
+
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = get_residue_type(i_resno);
+    i_chno = chain_no[i]-1;
+
+    for (j=i+1;j<n;++j) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      jres_type = get_residue_type(j_resno);
+      j_chno = chain_no[j]-1;
+      
+      // get the distance between i and j
+      rij = get_residue_distance(i_resno, j_resno);
+
+      // if the atoms are within the threshold, compute the frustration
+      if (rij < tert_frust_cutoff && (abs(i-j)>=contact_cutoff || i_chno != j_chno)) {
+	rho_i = get_residue_density(i_resno);
+	rho_j = get_residue_density(j_resno);
+	native_energy = compute_native_ixn(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+	compute_decoy_ixns(i_resno, j_resno, rij, rho_i, rho_j);
+	frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
+	// write information out to output file
+ 	fprintf(tert_frust_output_file,"%d %d %f %f %f %c %c %f %f %f %f\n", i_resno+1, j_resno+1, rij, rho_i, rho_j, se[i_resno], se[j_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
+	if(frustration_index > 0.78 || frustration_index < -1) {
+	  // write information out to vmd script
+	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i_resno, i_resno+1);
+	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", j_resno, j_resno+1);
+	  fprintf(tert_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",atomselect);
+	  atomselect += 1;
+	  fprintf(tert_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",atomselect);
+	  atomselect += 1;
+	  if(frustration_index > 0.78) {
+	    fprintf(tert_frust_vmd_script,"draw color green\n");
+	  }
+	  else {
+	    fprintf(tert_frust_vmd_script,"draw color red\n");
+	  }
+	  if(rij < well->par.well_r_max[0]) {
+	    fprintf(tert_frust_vmd_script,"draw line $pos1 $pos2 style solid width 1\n");
+	  }
+	  else {
+	    fprintf(tert_frust_vmd_script,"draw line $pos1 $pos2 style dashed width 2\n");
+	  }
+	}
+      }
+    }
+  }
+  
+  // after looping over all pairs, write out the end of the vmd script
+  fprintf(tert_frust_vmd_script, "mol modselect 0 top \"all\"\n");
+  fprintf(tert_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
+  fprintf(tert_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+}
+
+void FixBackbone::compute_tert_frust_singleresidue()
+{
+  int i;
+  int ires_type, i_resno, i_chno;
+  double rho_i;
+  double native_energy;
+  double frustration_index;
+  int atomselect;
+
+  atomselect = 0; // for the vmd script output
+
+  // Loop over all residues 
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = get_residue_type(i_resno);
+    rho_i = get_residue_density(i_resno);
+    i_chno = chain_no[i]-1;
+
+    // compute native energy
+    native_energy = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno, tert_frust_cutoff, 0);
+
+    // compute decoy energies
+    compute_singleresidue_decoy_ixns(i_resno, rho_i, i_chno);
+
+    // compute frustration index
+    frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
+
+    // write information out to output file
+    fprintf(tert_frust_output_file,"%d %f %c %f %f %f %f\n", i_resno+1, rho_i, se[i_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
+    if(frustration_index > 0.78 || frustration_index < -1) {
+      // write information out to vmd script
+      atomselect += 1;
+      fprintf(tert_frust_vmd_script,"mol addrep 0\n");
+      fprintf(tert_frust_vmd_script,"mol modselect %d 0 resid %d\n", atomselect, i_resno+1);
+      fprintf(tert_frust_vmd_script,"mol modstyle %d 0 VDW %f 12.000000\n", atomselect, 0.5*abs(frustration_index));
+      fprintf(tert_frust_vmd_script,"mol modmaterial %d 0 Transparent\n", atomselect);
+      if(frustration_index > 0.78) {
+    	// color the residue green\n
+        fprintf(tert_frust_vmd_script,"mol modcolor %d 0 ColorID 7\n", atomselect);
+      }
+      else {
+    	// color the residue red\n
+	fprintf(tert_frust_vmd_script,"mol modcolor %d 0 ColorID 1\n", atomselect);
+      }
+    }
+  }
+  
+  // after looping over all pairs, write out the end of the vmd script
+  fprintf(tert_frust_vmd_script, "mol modselect 0 top \"all\"\n");
+  fprintf(tert_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
+  fprintf(tert_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+}
+
+double FixBackbone::compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
+{
+  double water_energy, burial_energy_i, burial_energy_j, rik, rjk, rho_k;
+  int k, kres_type;
+
+  // compute the energies for the (i,j) pair
+  water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+  burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
+  burial_energy_j = compute_burial_energy(j_resno, jres_type, rho_j);
+
+  // in configurational mode, only the (i,j) contact contributes to the native energy
+  // so we are ready to return the sum of water_ij+burial_i+burial_j
+  if (strcmp(tert_frust_mode, "configurational")==0) {
+    return water_energy + burial_energy_i + burial_energy_j;
+  }
+  // in mutational mode, all (i,k) and (j,k) pairs also contribute to the native energy
+  // so we have to compute those first, then return the sum
+  else if (strcmp(tert_frust_mode, "mutational")==0) {
+    for (k=0; k<n; k++) {
+      // make sure to exclude the native interactions because you have already counted those
+      if (k==i_resno || k==j_resno) {
+	continue;
+      }
+      // get interaction parameters for resdiue k
+      rho_k = get_residue_density(k);
+      kres_type = get_residue_type(k);
+
+      // check to see if i and k are in contact; if so, add the energy
+      rik = get_residue_distance(i_resno, k);
+      if (rik < tert_frust_cutoff) {
+	// add (i,k) contribution
+	water_energy += compute_water_energy(rik, i_resno, k, ires_type, kres_type, rho_i, rho_k);
+      }
+      // check to see if j and k are in contact; if so, add the energy
+      rjk = get_residue_distance(j_resno, k);
+      if (rjk < tert_frust_cutoff) {	
+	// add (j,k) contribution
+	water_energy += compute_water_energy(rjk, j_resno, k, jres_type, kres_type, rho_j, rho_k);
+      }
+    }
+    return water_energy+burial_energy_i+burial_energy_j;
+  }
+}
+
+void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, double rho_i_orig, double rho_j_orig)
+{
+  int decoy_i, rand_i_resno, rand_j_resno, ires_type, jres_type, k, kres_type;
+  double rij, rho_i, rho_j, water_energy, burial_energy_i, burial_energy_j, rik, rjk, rho_k;
+  
+  for (decoy_i=0; decoy_i<tert_frust_ndecoys; decoy_i++) {
+    if (strcmp(tert_frust_mode, "configurational")==0) {
+      // choose random rij, rho_i, rho_j 
+      rand_i_resno = get_random_residue_index();
+      rand_j_resno = get_random_residue_index();
+      rij = get_residue_distance(rand_i_resno, rand_j_resno);
+      // make sure that the randomly chosen residues are in contact
+      while(rij > tert_frust_cutoff) { 
+	rand_i_resno = get_random_residue_index();
+	rand_j_resno = get_random_residue_index();
+	rij = get_residue_distance(rand_i_resno, rand_j_resno);
+      }
+      // get new pair of random residues for burial term
+      rand_i_resno = get_random_residue_index();
+      rand_j_resno = get_random_residue_index();
+      rho_i = get_residue_density(rand_i_resno);
+      rho_j = get_residue_density(rand_j_resno);
+    }
+    else {
+      // if in mutational mode, use configurational parameters passed into the function
+      rij = rij_orig;
+      rho_i = rho_i_orig;
+      rho_j = rho_j_orig;
+    }
+
+    // choose random ires_type, jres_type
+    rand_i_resno = get_random_residue_index();
+    rand_j_resno = get_random_residue_index();
+    ires_type = get_residue_type(rand_i_resno);
+    jres_type = get_residue_type(rand_j_resno);
+
+    // compute energy terms for the (i,j) pair
+    water_energy = compute_water_energy(rij, rand_i_resno, rand_j_resno, ires_type, jres_type, rho_i, rho_j);
+    burial_energy_i = compute_burial_energy(rand_i_resno, ires_type, rho_i);
+    burial_energy_j = compute_burial_energy(rand_j_resno, jres_type, rho_j);
+
+    // in mutational mode, all (i,k) and (j,k) pairs also contribute to the decoy energy
+    // so we have to compute those first, then return the sum
+    if (strcmp(tert_frust_mode, "mutational")==0) {
+      for (k=0; k<n; k++) {
+	// make sure to exclude the native interactions because you have already counted those
+	if (k==i_resno || k==j_resno) {
+	  continue;
+	}
+	// get interaction parameters for resdiue k
+	rho_k = get_residue_density(k);
+	kres_type = get_residue_type(k);
+	
+	// check to see if i and k are in contact; if so, add the energy
+	rik = get_residue_distance(i_resno, k);
+	if (rik < tert_frust_cutoff) {
+	  // add (i,k) contribution
+	  water_energy += compute_water_energy(rik, rand_i_resno, k, ires_type, kres_type, rho_i, rho_k);
+	}
+	// check to see if j and k are in contact; if so, add the energy
+	rjk = get_residue_distance(j_resno, k);
+	if (rjk < tert_frust_cutoff) {	
+	  // add (j,k) contribution
+	  water_energy += compute_water_energy(rjk, rand_j_resno, k, jres_type, kres_type, rho_j, rho_k);
+	}
+      }
+    }
+
+    // sum the energy terms, store in array
+    tert_frust_decoy_energies[decoy_i] = water_energy + burial_energy_i + burial_energy_j;
+  }
+
+  // save the mean and standard deviation into the decoy_ixn_stats array
+  decoy_ixn_stats[0] = compute_array_mean(tert_frust_decoy_energies, tert_frust_ndecoys);
+  decoy_ixn_stats[1] = compute_array_std(tert_frust_decoy_energies, tert_frust_ndecoys);
+
+}
+
+double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff, bool nmercalc)
+{
+  double water_energy, burial_energy_i, rij, rho_j;
+  int j, j_resno, jres_type, j_chno;
+
+  // find burial energy for residue i
+  burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
+
+  // initialize water energy
+  water_energy = 0.0;
+
+  // loop over all possible interacting residues
+  for (j=0; j<n; j++) {
+    // get information about residue j
+    j_resno = res_no[j]-1;
+    jres_type = get_residue_type(j_resno);
+    j_chno = chain_no[j]-1;
+    rho_j = get_residue_density(j_resno);
+
+    // don't interact with self
+    if (i_resno == j_resno) {
+      continue;
+    }
+
+    // don't double count water energy for nmer calculations
+    if (j_resno > i_resno && nmercalc) {
+      continue;
+    }
+
+    // find distance between residues i and j
+    rij = get_residue_distance(i_resno, j_resno);
+    
+    // if within the interaction distance, compute energy
+    if (rij < cutoff && (abs(i_resno-j_resno)>=contact_cutoff || i_chno != j_chno)) {
+      // compute the energies for the (i,j) pair
+      water_energy += compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+    }
+  }
+
+  return water_energy + burial_energy_i;
+}
+
+void FixBackbone::compute_singleresidue_decoy_ixns(int i_resno, double rho_i, int i_chno)
+{
+  int decoy_i, rand_i_resno, ires_type;
+  
+  for (decoy_i=0; decoy_i<tert_frust_ndecoys; decoy_i++) {
+    // randomize ires_type
+    rand_i_resno = get_random_residue_index();
+    ires_type = get_residue_type(rand_i_resno);
+
+    // compute the decoy energy
+    tert_frust_decoy_energies[decoy_i] = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno, tert_frust_cutoff, 0);
+  }
+
+  // save the mean and standard deviation into the decoy_ixn_stats array
+  decoy_ixn_stats[0] = compute_array_mean(tert_frust_decoy_energies, tert_frust_ndecoys);
+  decoy_ixn_stats[1] = compute_array_std(tert_frust_decoy_energies, tert_frust_ndecoys);
+}
+
+double FixBackbone::compute_array_mean(double *array, int arraysize)
+{
+  double mean;
+  int i;
+
+  mean = 0;
+  for(i = 0; i < arraysize; i++) {
+    mean += array[i];
+  }
+  mean /= (double)arraysize;
+
+  return mean;
+}
+
+double FixBackbone::compute_array_std(double *array, int arraysize)
+{
+  double mean, std;
+  int i;
+
+  mean = compute_array_mean(array, arraysize);
+
+  std = 0.0;
+  for(i = 0; i < arraysize; i++) {
+    std += (array[i] - mean)*(array[i] - mean);
+  }
+  std /= (double)arraysize;
+  std = sqrt(std);
+
+  return std;
+}
+
+double FixBackbone::compute_water_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
+{
+  double water_gamma_0_direct, water_gamma_1_direct, water_gamma_prot_mediated, water_gamma_wat_mediated;
+  double sigma_wat, sigma_prot, sigma_gamma_direct, sigma_gamma_mediated;
+  double t_min_direct, t_max_direct, theta_direct, t_min_mediated, t_max_mediated, theta_mediated;
+  double water_energy;
+
+  // if(abs(i_resno-j_resno)<contact_cutoff) return 0.0;
+
+  water_gamma_0_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 0);
+  water_gamma_1_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 1);
+
+  water_gamma_prot_mediated = get_water_gamma(i_resno, j_resno, 1, ires_type, jres_type, 0);
+  water_gamma_wat_mediated = get_water_gamma(i_resno, j_resno, 1, ires_type, jres_type, 1);
+
+  sigma_wat = 0.25*(1.0 - tanh(well->par.kappa_sigma*(rho_i-well->par.treshold)))*(1.0 - tanh(well->par.kappa_sigma*(rho_j-well->par.treshold)));
+  sigma_prot = 1.0 - sigma_wat;
+  
+  sigma_gamma_direct = (water_gamma_0_direct + water_gamma_1_direct)/2;
+  sigma_gamma_mediated = sigma_prot*water_gamma_prot_mediated + sigma_wat*water_gamma_wat_mediated;
+
+  t_min_direct = tanh( well->par.kappa*(rij - well->par.well_r_min[0]) );
+  t_max_direct = tanh( well->par.kappa*(well->par.well_r_max[0] - rij) );
+  theta_direct = 0.25*(1.0 + t_min_direct)*(1.0 + t_max_direct);
+
+  t_min_mediated = tanh( well->par.kappa*(rij - well->par.well_r_min[1]) );
+  t_max_mediated = tanh( well->par.kappa*(well->par.well_r_max[1] - rij) );
+  theta_mediated = 0.25*(1.0 + t_min_mediated)*(1.0 + t_max_mediated);
+
+  water_energy = -epsilon*k_water*(sigma_gamma_direct*theta_direct+sigma_gamma_mediated*theta_mediated);
+
+  return water_energy;
+}
+
+double FixBackbone::compute_burial_energy(int i_resno, int ires_type, double rho_i)
+{
+  double t[3][2];
+  double burial_gamma_0, burial_gamma_1, burial_gamma_2, burial_energy;
+
+  t[0][0] = tanh( burial_kappa*(rho_i - burial_ro_min[0]) );
+  t[0][1] = tanh( burial_kappa*(burial_ro_max[0] - rho_i) );
+  t[1][0] = tanh( burial_kappa*(rho_i - burial_ro_min[1]) );
+  t[1][1] = tanh( burial_kappa*(burial_ro_max[1] - rho_i) );
+  t[2][0] = tanh( burial_kappa*(rho_i - burial_ro_min[2]) );
+  t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - rho_i) );
+  
+  burial_gamma_0 = get_burial_gamma(i_resno, ires_type, 0);
+  burial_gamma_1 = get_burial_gamma(i_resno, ires_type, 1);
+  burial_gamma_2 = get_burial_gamma(i_resno, ires_type, 2);
+
+  burial_energy = 0.0;
+  burial_energy += -0.5*epsilon*k_burial*burial_gamma_0*(t[0][0] + t[0][1]);
+  burial_energy += -0.5*epsilon*k_burial*burial_gamma_1*(t[1][0] + t[1][1]);
+  burial_energy += -0.5*epsilon*k_burial*burial_gamma_2*(t[2][0] + t[2][1]);
+
+  return burial_energy;
+}
+
+// generates a random but valid residue index
+int FixBackbone::get_random_residue_index()
+{
+  int index;
+  index = rand() % n; 
+  return index;
+}
+
+// returns the CB-CB distance between two residues (CA for GLY)
+double FixBackbone::get_residue_distance(int i_resno, int j_resno)
+{
+  double dx[3];
+  double *xi, *xj;
+  double r;
+	
+  if (se[i_resno]=='G') { xi = xca[i_resno]; }
+  else { xi = xcb[i_resno]; }
+  if (se[j_resno]=='G') { xj = xca[j_resno]; }
+  else { xj = xcb[j_resno]; }
+	
+  dx[0] = xi[0] - xj[0];
+  dx[1] = xi[1] - xj[1];
+  dx[2] = xi[2] - xj[2];
+  
+  r = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+
+  return r;
+}
+
+// returns the local density around residue i
+double FixBackbone::get_residue_density(int i)
+{
+  return well->ro(i);
+}
+
+// returns the residue type of residue i_resno
+int FixBackbone::get_residue_type(int i_resno)
+{
+  return se_map[se[i_resno]-'A'];
+}
+
+// given the native energy and the mean and variance of the decoy energy distribution, computes the frustration index
+double FixBackbone::compute_frustration_index(double native_energy, double *decoy_stats)
+{
+  double frustration_index;
+
+  frustration_index = (decoy_stats[0] - native_energy)/decoy_stats[1];
+
+  return frustration_index;
+}
+
+void FixBackbone::compute_nmer_frust()
+{
+  int i, j, atomselect, nmer_contacts;
+  double native_energy, frustration_index;
+
+  atomselect = 0; // for the vmd script output
+
+  // Double loop over all nmers
+  for (i=0;i<n-nmer_frust_size;++i) {
+    // get sequence of nmer starting at i
+    get_nmer_seq(i, nmer_seq_i, 0);
+    for (j=i+1;j<n-nmer_frust_size;++j) {
+      // get sequence of nmer starting at j
+      get_nmer_seq(j, nmer_seq_j, 0);
+      // compute the number of contacts between the two nmers
+      nmer_contacts = compute_nmer_contacts(i, j);
+      // if the nmers have at least the number of required contacts and are non-overlapping, compute the frustration
+      // this will need to be fixed to take multiple chains into account
+      if (nmer_contacts >= nmer_contacts_cutoff && j-i >= nmer_frust_size) {
+	native_energy = compute_nmer_native_ixn(i, j);
+	compute_nmer_decoy_ixns(i, j);
+	if (nmer_frust_trap_flag) {
+	  // compute traps and keep track of how many times you wrote to tcl file
+	  atomselect = compute_nmer_traps(i, j, atomselect, native_energy-nmer_frust_trap_num_sigma*nmer_decoy_ixn_stats[1], nmer_seq_i, nmer_seq_j); 
+	  atomselect = compute_nmer_traps(j, i, atomselect, native_energy-nmer_frust_trap_num_sigma*nmer_decoy_ixn_stats[1], nmer_seq_j, nmer_seq_i);
+	}
+	frustration_index = compute_frustration_index(native_energy, nmer_decoy_ixn_stats);
+	// write information out to output file
+	fprintf(nmer_frust_output_file,"%d %d %d %s %s %f %f %f %f\n", i+1, j+1, nmer_contacts, nmer_seq_i, nmer_seq_j, native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
+	
+	if(frustration_index > nmer_frust_min_frust_threshold || frustration_index < nmer_frust_high_frust_threshold || nmer_output_neutral_flag) {
+	  // write information out to vmd script
+	  fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i+nmer_frust_size/2, i+1+nmer_frust_size/2);
+	  fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", j+nmer_frust_size/2, j+1+nmer_frust_size/2);
+	  fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",atomselect);
+	  atomselect += 1;
+	  fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",atomselect);
+	  atomselect += 1;
+	  if(frustration_index > nmer_frust_min_frust_threshold) {
+	    fprintf(nmer_frust_vmd_script,"draw color green\n");
+	  }
+	  else if (frustration_index < nmer_frust_high_frust_threshold) {
+	    fprintf(nmer_frust_vmd_script,"draw color red\n");
+	  }
+	  else {
+	    fprintf(nmer_frust_vmd_script,"draw color blue\n");
+	  }
+	  fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style solid width 1\n");
+	}
+      }
+    }
+  }
+  
+  // after looping over all pairs, write out the end of the vmd script
+  fprintf(nmer_frust_vmd_script, "mol modselect 0 top \"all\"\n");
+  fprintf(nmer_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
+  fprintf(nmer_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+}
+
+void FixBackbone::compute_singlenmer_frust()
+{
+  double native_energy, frustration_index;
+  int i, i_resno, atomselect;
+
+  // write out style information to the vmd script
+  fprintf(nmer_frust_vmd_script, "mol modselect 0 top \"all\"\n");
+  fprintf(nmer_frust_vmd_script, "mol modstyle 0 top newcartoon\n");
+  fprintf(nmer_frust_vmd_script, "mol modcolor 0 top colorid 15\n");
+
+  // initialize representation counter
+  atomselect = 0;
+
+  // Loop over each nmer
+  for (i=0;i<n-nmer_frust_size+1;++i) {
+    // get the nmer sequence
+    get_nmer_seq(i, nmer_seq_i, 0);
+    // get the reside number
+    i_resno = res_no[i]-1;
+    // calculate the native energy
+    native_energy = compute_singlenmer_native_ixn(i_resno);
+    // calculate the decoy energies
+    compute_singlenmer_decoy_ixns(i_resno);
+    // Calculate frustration index
+    frustration_index = compute_frustration_index(native_energy, nmer_decoy_ixn_stats);
+    // write information out to output file
+    fprintf(nmer_frust_output_file,"%d %s %f %f %f %f\n", i+1, nmer_seq_i, native_energy, nmer_decoy_ixn_stats[0], nmer_decoy_ixn_stats[1], frustration_index);
+    
+    if(frustration_index > nmer_frust_min_frust_threshold || frustration_index < nmer_frust_high_frust_threshold) {
+      // write information out to vmd script
+      atomselect += 1;
+      fprintf(nmer_frust_vmd_script,"mol addrep 0\n");
+      fprintf(nmer_frust_vmd_script,"mol modselect %d 0 resid %d to %d\n", atomselect, i_resno+1, i_resno+nmer_frust_size);
+      fprintf(nmer_frust_vmd_script,"mol modstyle %d 0 VDW %f 12.000000\n", atomselect, 0.5*abs(frustration_index));
+      // fprintf(nmer_frust_vmd_script,"mol modstyle %d 0 NewCartoon %f 10.000000 4.100000 0\n", atomselect, 0.5*abs(frustration_index));
+      // fprintf(nmer_frust_vmd_script,"mol modstyle %d 0 QuickSurf 0.500000 0.500000 1.000000 1.000000\n", atomselect);
+      fprintf(nmer_frust_vmd_script,"mol modmaterial %d 0 Transparent\n", atomselect);
+      if(frustration_index > nmer_frust_min_frust_threshold) {
+    	// color the residue green\n
+        fprintf(nmer_frust_vmd_script,"mol modcolor %d 0 ColorID 7\n", atomselect);
+      }
+      else if(frustration_index < nmer_frust_high_frust_threshold) {
+    	// color the residue red\n
+	fprintf(nmer_frust_vmd_script,"mol modcolor %d 0 ColorID 1\n", atomselect);
+      }
+    }
+  }  
+}
+
+double FixBackbone::compute_singlenmer_native_ixn(int i_resno)
+{
+  int j, j_resno, jres_type, j_chno;
+  double native_energy, rho_j;
+
+  // initialize native energy
+  native_energy = 0.0;
+
+  // Loop over each residue in the nmer
+  for (j=i_resno;j<i_resno+nmer_frust_size;j++) {
+    // get information about residue i
+    j_resno = res_no[j]-1;
+    jres_type = get_residue_type(j_resno);
+    j_chno = chain_no[j]-1;
+    rho_j = get_residue_density(j_resno);
+    
+    // Calculate native energy
+    native_energy += compute_singleresidue_native_ixn(j_resno, jres_type, rho_j, j_chno, nmer_frust_cutoff, 1);
+  }
+
+  return native_energy;
+}
+
+void FixBackbone::compute_singlenmer_decoy_ixns(int i_resno)
+{
+  double rij, rho_i, rho_j;
+  int jres_type, j_rand, decoy_i, j_resno, j_chno;
+  int j;
+
+  // do the decoy calculation nmer_frust_ndecoys times
+  for (decoy_i=0; decoy_i<nmer_frust_ndecoys; decoy_i++) {
+    // zero out this spot in the decoy energy array
+    nmer_frust_decoy_energies[decoy_i] = 0.0;
+    // get a random index to define the sequence of the decoy nmer
+    j_rand = get_random_residue_index();
+    // if the nmer would go off of the end of the sequence
+    // then choose new j_rand and j_rand and repeat
+    while(j_rand + nmer_frust_size > n) {
+      j_rand = get_random_residue_index();
+    }
+    // Mutate the residues
+    get_nmer_seq(j_rand, nmer_seq_j, 0);
+    // Loop over each residue in the nmer
+    for (j=i_resno;j<i_resno+nmer_frust_size;j++) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      // choose the next element in the nmer_seq_j array
+      jres_type = se_map[nmer_seq_j[j-i_resno]-'A'];
+      // choose a random residue type
+      // jres_type = get_residue_type(get_random_residue_index());
+      j_chno = chain_no[j]-1;
+      rho_j = get_residue_density(j_resno);
+      
+      // compute decoy interaction energy, add to total
+      nmer_frust_decoy_energies[decoy_i] += compute_singleresidue_native_ixn(j_resno, jres_type, rho_j, j_chno, nmer_frust_cutoff, 1);
+    }
+  }
+
+  nmer_decoy_ixn_stats[0] = compute_array_mean(nmer_frust_decoy_energies, nmer_frust_ndecoys);
+  nmer_decoy_ixn_stats[1] = compute_array_std(nmer_frust_decoy_energies, nmer_frust_ndecoys);
+}
+
+int FixBackbone::get_nmer_ss_dist(char *nmer_ss_j, char *nmer_ss_k)
+{
+  int i;
+  int ss_dist;
+
+  ss_dist=0;
+
+  for(i=0; i<nmer_frust_size; i++) {
+    if(nmer_ss_j[i]!=nmer_ss_k[i]) {
+      ss_dist++;
+    }
+  }
+
+  return ss_dist;
+}
+
+int FixBackbone::compute_nmer_traps(int i_start, int j_start, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2)
+{
+  int k_start;
+  double total_trap_energy;
+  int tcl_index;
+  int i, j, k;
+  int ires_type, jres_type;
+  double rho_i, rho_j, rij;
+  int ss_dist;
+  int backward;
+
+  get_nmer_secondary_structure(i_start, nmer_ss_i);
+  get_nmer_secondary_structure(j_start, nmer_ss_j);
+
+  // start writing to tcl script at the appropriate index
+  tcl_index = atomselect;
+  static int rep_index=1;
+
+  // loop over possible forward and backward sequences
+  for (backward=0;backward<2;backward++) {
+    // loop over all possible nmer traps
+    for (k_start=0;k_start<n-nmer_frust_size;k_start++) {
+      // if the nmer at position k_start doesn't overlap the nmers starting at position i_start, 
+      // swap the sequence at k_start into j_start and calculate the energy
+      if (abs(k_start-j_start)<=nmer_frust_size || abs(k_start-i_start)<=nmer_frust_size && i_start!=k_start) {
+	continue;
+      }
+      get_nmer_seq(k_start, nmer_seq_k, backward);
+      get_nmer_secondary_structure(k_start, nmer_ss_k);
+      ss_dist = get_nmer_ss_dist(nmer_ss_j, nmer_ss_k);
+      // check to make sure that the secondary structure distance constraint is satisfied
+      if (ss_dist > nmer_frust_size*(1-nmer_frust_ss_frac)) {
+	continue;
+      }
+      total_trap_energy = 0.0;
+    
+      // loop over all residues individually, compute burial energies
+      for (i = i_start; i < i_start+nmer_frust_size; i++) {
+	ires_type = get_residue_type(i);
+	rho_i = get_residue_density(i);
+	total_trap_energy += compute_burial_energy(i, ires_type, rho_i);
+      }
+    
+      for (j = j_start; j < j_start+nmer_frust_size; j++) {
+	// get the sequence starting from k rather than j
+	jres_type = get_residue_type(((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start)));
+	rho_j = get_residue_density(j);
+	total_trap_energy += compute_burial_energy(j, jres_type, rho_j);
+      }
+    
+      // loop over all pairs of residues between the two nmers, compute water interaction
+      for (i = i_start; i < i_start+nmer_frust_size; i++) {
+	// get information about residue i
+	ires_type = get_residue_type(i);
+      
+	for (j = j_start; j < j_start+nmer_frust_size; j++) {
+	  // get the sequence starting from k rather than j
+	  jres_type = get_residue_type(((1-backward)*(j-j_start))+backward*(nmer_frust_size-(j-j_start)));
+	
+	  // get interaction parameters
+	  rij = get_residue_distance(i, j);
+	  rho_i = get_residue_density(i);
+	  rho_j = get_residue_density(j);
+	
+	  // compute water interaction energy, add to total
+	  total_trap_energy += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+	}
+      }
+      if(total_trap_energy<threshold_energy) {
+	// write out to trap file and trap tcl script
+	if (backward) {
+	  fprintf(nmer_frust_trap_file,"%d %s %s %d %s %s %f %d %s <-- %s %f \n", i_start+1, nmer_seq_1, nmer_ss_i, j_start+1, nmer_seq_2, nmer_ss_j, threshold_energy, k_start+1, nmer_seq_k, nmer_ss_k, total_trap_energy);
+	}
+	else {
+	  fprintf(nmer_frust_trap_file,"%d %s %s %d %s %s %f %d %s --> %s %f \n", i_start+1, nmer_seq_1, nmer_ss_i, j_start+1, nmer_seq_2, nmer_ss_j, threshold_energy, k_start+1, nmer_seq_k, nmer_ss_k, total_trap_energy);
+	}
+	if(nmer_frust_draw_trap_flag) {
+	  // if this is a case of "self-recognition", make that part of the sequence purple
+	  if (i_start == k_start) {
+	    fprintf(nmer_frust_vmd_script,"mol addrep 0\n",rep_index);
+	    fprintf(nmer_frust_vmd_script,"mol modselect %d 0 resid %d to %d\n",rep_index,i_start+1,i_start+nmer_frust_size);
+	    fprintf(nmer_frust_vmd_script,"mol modcolor %d 0 ColorID 11\n",rep_index);
+	    fprintf(nmer_frust_vmd_script,"mol modstyle %d 0 NewCartoon 0.350000 10.000000 4.100000 0\n",rep_index);
+	    rep_index++;
+	  }
+	  // if not self-recognition, draw a purple line
+	  else {
+	    fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i_start+nmer_frust_size/2, i_start+1+nmer_frust_size/2);
+	    fprintf(nmer_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", k_start+nmer_frust_size/2, k_start+1+nmer_frust_size/2);
+	    fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos1\n",tcl_index);
+	    tcl_index += 1;
+	    fprintf(nmer_frust_vmd_script,"lassign [atomselect%d get {x y z}] pos2\n",tcl_index);
+	    tcl_index += 1;
+	    fprintf(nmer_frust_vmd_script,"draw color purple\n");
+	    if(backward) {
+	      fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style dashed width 1\n");  
+	    }
+	    else {
+	      fprintf(nmer_frust_vmd_script,"draw line $pos1 $pos2 style solid width 1\n");  
+	    }
+	  }
+	}
+      }
+    }
+  }
+  return tcl_index; // return the new tcl_index (atomselect) so that you can continue writing to the tcl file in the other functions
+}
+
+// computes the number of contacts between two nmers of size nmer_frust_size starting at positions i_resno and j_resno
+int FixBackbone::compute_nmer_contacts(int i_start, int j_start)
+{
+  int numcontacts;
+  int i,j;
+  double distance;
+
+  numcontacts = 0;
+
+  // loop over all pairs of residues between the two nmers
+  for (i = i_start; i < i_start+nmer_frust_size; i++) {
+    for (j = j_start; j < j_start+nmer_frust_size; j++) {
+      // if you are not beyond minimum sequence separation for the water potential, then you are not a contact
+      if(abs(i-j) < contact_cutoff) continue;
+      // compute distance between the two residues
+      distance = get_residue_distance(i, j);
+      // if less than the threshold, incrememnt number of contacts
+      if (distance < nmer_frust_cutoff) {
+	numcontacts++;
+      }
+    }
+  }
+
+  return numcontacts;
+}
+
+// returns a string that is the sequence of the nmer of size nmer_frust_size starting at position i
+void FixBackbone::get_nmer_seq(int i_start, char *nmer_seq, int backward)
+{
+  int i;
+
+  for(i=0; i<nmer_frust_size; i++) {
+    nmer_seq[i] = se[((1-backward)*(i_start+i))+backward*(i_start+nmer_frust_size-i)];
+  }
+  //printf("%s\n",nmer_seq);
+}
+
+void FixBackbone::get_nmer_secondary_structure(int i_start, char *nmer_secondary_structure)
+{
+  int i;
+
+  for(i=0; i<nmer_frust_size; i++) {
+    // if assigned to be beta, show an E
+    if(aps[4][i+i_start]==1.0) nmer_secondary_structure[i] = 'E';
+    // if assigned to be helix, show an H
+    if(aps[3][i+i_start]==1.0) nmer_secondary_structure[i] = 'H';
+    // if assigned to both, show an !
+    if(aps[4][i+i_start]==1.0 && aps[3][i+i_start]==1.0) nmer_secondary_structure[i] = '!';
+    // if anything else, show a -
+    if(aps[4][i+i_start]!=1.0 && aps[3][i+i_start]!=1.0) nmer_secondary_structure[i] = '-';
+  }
+}
+
+double FixBackbone::compute_nmer_native_ixn(int i_start, int j_start)
+{
+  double total_native_energy, rij, rho_i, rho_j;
+  int ires_type, jres_type;
+  int i, j;
+
+  total_native_energy = 0.0;
+
+  // loop over all residues individually, compute burial energies
+  for (i = i_start; i < i_start+nmer_frust_size; i++) {
+    ires_type = get_residue_type(i);
+    rho_i = get_residue_density(i);
+    total_native_energy += compute_burial_energy(i, ires_type, rho_i);
+  }
+
+  for (j = j_start; j < j_start+nmer_frust_size; j++) {
+    jres_type = get_residue_type(j);
+    rho_j = get_residue_density(j);
+    total_native_energy += compute_burial_energy(j, jres_type, rho_j);
+  }
+
+  // loop over all pairs of residues between the two nmers, compute water interaction
+  for (i = i_start; i < i_start+nmer_frust_size; i++) {
+    // get information about residue i
+    ires_type = get_residue_type(i);
+    
+    for (j = j_start; j < j_start+nmer_frust_size; j++) {
+      // get information about residue j
+      jres_type = get_residue_type(j);
+
+      // get interaction parameters
+      rij = get_residue_distance(i, j);
+      rho_i = get_residue_density(i);
+      rho_j = get_residue_density(j);
+
+      // compute water interaction energy, add to total
+      total_native_energy += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+    }
+  }
+
+  return total_native_energy;
+}
+
+void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
+{
+  double total_decoy_energy, rij, rho_i, rho_j, decoy_energy;
+  int ires_type, jres_type, i_rand, j_rand, decoy_i;
+  int i, j, itemp, jtemp;
+  int atomselect;
+
+  atomselect = 0;
+
+  // do the decoy calculation nmer_frust_ndecoys times
+  for (decoy_i=0; decoy_i<nmer_frust_ndecoys; decoy_i++) {
+    // zero out this spot in the decoy energy array
+    nmer_frust_decoy_energies[decoy_i] = 0.0;
+    // get two random indices to define the sequence of the decoy nmers
+    i_rand = get_random_residue_index();
+    j_rand = get_random_residue_index();
+    // make sure that j > i so that we can test for overlap
+    if(i_rand > j_rand) {
+      itemp = i_rand;
+      jtemp = j_rand;
+      j_rand = itemp;
+      i_rand = jtemp;
+    }
+    // if either nmer would go off of the end of the sequence or they are overlapping
+    // then choose new i_rand and j_rand and repeat
+    while(i_rand + nmer_frust_size > n || j_rand + nmer_frust_size > n || j_rand-i_rand < nmer_frust_size) {
+      i_rand = get_random_residue_index();
+      j_rand = get_random_residue_index();
+      if(i_rand > j_rand) {
+	itemp = i_rand;
+	jtemp = j_rand;
+	j_rand = itemp;
+	i_rand = jtemp;
+      }
+    }
+    // loop over all residues individually, compute burial energies
+    for (i = i_start; i < i_start+nmer_frust_size; i++) {
+      ires_type = get_residue_type(i_rand+i-i_start);
+      rho_i = get_residue_density(i);
+      nmer_frust_decoy_energies[decoy_i] += compute_burial_energy(i, ires_type, rho_i);
+    }
+    for (j = j_start; j < j_start+nmer_frust_size; j++) {
+      jres_type = get_residue_type(j_rand+j-j_start);
+      rho_j = get_residue_density(j);
+      nmer_frust_decoy_energies[decoy_i] += compute_burial_energy(j, jres_type, rho_j);
+    }
+
+    // loop over all pairs of residues between the two nmers
+    for (i = i_start; i < i_start+nmer_frust_size; i++) {
+      // assign random residue type to residue i
+      ires_type = get_residue_type(i_rand+i-i_start);
+      
+      for (j = j_start; j < j_start+nmer_frust_size; j++) {
+	// assign random residue type to residue j
+	jres_type = get_residue_type(j_rand+j-j_start);
+	
+	// get interaction parameters
+	rij = get_residue_distance(i, j);
+	rho_i = get_residue_density(i);
+	rho_j = get_residue_density(j);
+
+	// compute decoy interaction energy, add to total
+	nmer_frust_decoy_energies[decoy_i] += compute_water_energy(rij, i, j, ires_type, jres_type, rho_i, rho_j);
+      }
+    }
+  }
+
+  nmer_decoy_ixn_stats[0] = compute_array_mean(nmer_frust_decoy_energies, nmer_frust_ndecoys);
+  nmer_decoy_ixn_stats[1] = compute_array_std(nmer_frust_decoy_energies, nmer_frust_ndecoys);
+}
+
+void FixBackbone::compute_fragment_memory_table()
+{
+  int i, j, js, je, ir, i_fm, k, itb, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
+  int i_first_res, i_last_res, i_resno, j_resno, ires_type, jres_type;
+  double r, rf, dr, drsq, V, force;
+  double fm_sigma_sq, frag_mem_gamma, epsilon_k_weight, epsilon_k_weight_gamma;
+  Fragment_Memory *frag;
+  
+  iatom_type[0] = Fragment_Memory::FM_CA;
+  iatom_type[1] = Fragment_Memory::FM_CA;
+  iatom_type[2] = Fragment_Memory::FM_CB;
+  iatom_type[3] = Fragment_Memory::FM_CB;
+  
+  jatom_type[0] = Fragment_Memory::FM_CA; 
+  jatom_type[1] = Fragment_Memory::FM_CB; 
+  jatom_type[2] = Fragment_Memory::FM_CA; 
+  jatom_type[3] = Fragment_Memory::FM_CB;
+  
+  for (i=0; i<n; ++i) {  
+    iatom[0] = alpha_carbons[i];
+    iatom[1] = alpha_carbons[i];
+    iatom[2] = beta_atoms[i];
+    iatom[3] = beta_atoms[i];
+	  
+    //	  i_resno = res_no[i]-1;
+    i_resno = i;
+    ires_type = se_map[se[i_resno]-'A'];
+	  
+    for (i_fm=0; i_fm<ilen_fm_map[i_resno]; ++i_fm) {
+      frag = frag_mems[ frag_mem_map[i_resno][i_fm] ];
+		
+      epsilon_k_weight = epsilon*k_frag_mem*frag->weight;
+		
+      js = i+fm_gamma->minSep();
+      je = MIN(frag->pos+frag->len-1, i+fm_gamma->maxSep());
+      //		if (je>=n || res_no[je]-res_no[i]!=je-i) error->all(FLERR,"Missing residues in memory potential");
+      if (je>=n) error->all(FLERR,"Missing residues in memory potential");
+		
+      for (j=js;j<=je;++j) {
+	//		  j_resno = res_no[j]-1;
+	j_resno = j;
+	jres_type = se_map[se[j_resno]-'A'];
+		  
+	//		  if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
+		  
+	fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
+	fm_sigma_sq = fm_sigma_sq*frag_table_well_width*frag_table_well_width;
+			  
+	if (!fm_gamma->fourResTypes()) {
+	  frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
+	} else {
+	  frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, frag->resType(i_resno), frag->resType(j_resno), i_resno, j_resno);
+	}
+	if (fm_gamma->error==fm_gamma->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of getGamma() function");
+		  
+	epsilon_k_weight_gamma = epsilon_k_weight*frag_mem_gamma;
+		  
+	jatom[0] = alpha_carbons[j];
+	jatom[1] = beta_atoms[j];
+	jatom[2] = alpha_carbons[j];
+	jatom[3] = beta_atoms[j];
+		  
+	for (k=0;k<4;++k) {
+	  if ( iatom_type[k]==frag->FM_CB && (se[i_resno]=='G' || frag->getSe(i_resno)=='G') ) continue;
+	  if ( jatom_type[k]==frag->FM_CB && (se[j_resno]=='G' || frag->getSe(j_resno)=='G') ) continue;
+			
+	  itb = 4*tb_nbrs*i + 4*(j-js) + k;
+	  if (!fm_table[itb])
+	    fm_table[itb] = new TBV[tb_size];
+			
+	  rf = frag->Rf(i_resno, iatom_type[k], j_resno, jatom_type[k]);
+	  if (frag->error==frag->ERR_CALL) error->all(FLERR,"Fragment_Memory: Wrong call of Rf() function");
+	  for (ir=0;ir<tb_size;++ir) {
+	    r = tb_rmin + ir*tb_dr;
+				
+	    dr = r - rf;
+	    drsq = dr*dr;
+				
+	    V = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+				
+	    fm_table[itb][ir].energy += V;
+			
+	    fm_table[itb][ir].force += V*dr/(fm_sigma_sq*r);
+				
+	    //				fm_table[i][j-js][k][ir].energy = -epsilon_k_weight_gamma*exp(-drsq/(2*fm_sigma_sq));
+				
+	    //				fm_table[i][j-js][k][ir].force = V*dr/(fm_sigma_sq*r);
+	  }
+	}
+      }
+    }
+  }
+  if(fm_energy_debug_flag) {
+    output_fragment_memory_table();
+  }
+}
+
+// this routine outputs the contents of fm_table (only the energies) to a file called fmenergies.log
+void FixBackbone::output_fragment_memory_table()
+{
+  int itb,ir; // loop variables
+  double energyvalue;
+
+  // loop over all interactions
+  for (itb=0; itb<4*n*tb_nbrs; itb++) {
+    // loop over all distances
+    for (ir=0; ir<tb_size; ir++) {
+      // don't try to read out the energies if it was never allocated because of the exception for glycines
+      // instead, output a row of zeroes so that the row indices remain meaningful
+      if (fm_table[itb] == NULL)
+	{
+	  energyvalue = 0.0;
+	}
+      else
+	{
+	  energyvalue = fm_table[itb][ir].energy;
+	}
+      // output fm_table energies to file for debugging/visualization
+      fprintf(fmenergiesfile,"%.4f ",energyvalue);
+    }
+    // put every interaction on a new line of the file
+    fprintf(fmenergiesfile,"\n");
+  }
+}
+
+void FixBackbone::compute_membrane_potential(int i)
+{
+
+//  k_bin is coming from the input
+//  gamma[0][0] is an array coming from input
+//  k_overall_memb coming from input
+//  rho0_distor is coming from the input 
+//  rho0_max= is coming from the input
+//  memb_len= is coming from the input
+//  memb_pore_type = is coming from the input
+
+
+  double V, x_actual, y_actual, z_actual;
+  double dx, dy, dz, *xi;
+  double memb_a, memb_b;
+  double rho_actual, rho0;
+  double s_per, s_mem, s_cyt, s_por, s_nopor;
+  double dz_per, dz_mem, dz_cyt, dr1_dz;
+  double dz_s_por, dx_s_por, dy_s_por;
+  double dz_s_nopor, dx_s_nopor, dy_s_nopor;
+  double dz_s_por_smem, dz_s_nopor_smem;
+  double dV_dx, dV_dy, dV_dz;
+  double memb_force_x, memb_force_y, memb_force_z;
+
+  int iatom;
+
+//  int z_res[i] = is coming from zim file
+
+  int i_resno = res_no[i]-1;
+
+  if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
+  else { xi = xcb[i]; iatom  = beta_atoms[i]; }
+
+
+  x_actual=xi[0];
+  y_actual=xi[1];
+  z_actual=xi[2];
+
+  dx=x_actual-memb_xo[0];
+  dy=y_actual-memb_xo[1];
+  dz=z_actual-memb_xo[2];
+
+  memb_a = rho0_distor*rho0_max;
+  memb_b = memb_len/2;
+
+  rho_actual = sqrt(dx*dx+dy*dy);
+
+// if (memb_pore_type == 0){
+  rho0=(rho0_max-memb_a) + ((memb_a)/(memb_len))*(dz+memb_b);
+// }
+// else if (memb_pore_type == 1) {
+//  rho0=rho0_max-(dz<=memb_b ? sqrt(1-pow(dz/memb_b,2)):0)*memb_a;
+// }
+
+
+
+//definition of swithing functions
+  s_per=0.5*(1+tanh(k_bin*(dz-memb_b)));
+  s_mem=0.5*((tanh(k_bin*(dz+memb_b)))+(tanh(k_bin*(memb_b-dz))));
+  s_cyt=0.5*(1+tanh(k_bin*(-memb_b-dz)));
+  s_por=0.5*(1-(tanh(k_bin*(rho_actual-rho0))));
+  s_nopor=(1-s_por);
+
+  if (z_res[i] == 1) {
+    V=(-g_memb[0][0]*s_per)+(-g_memb[0][1]*s_cyt)+(g_memb[0][2]*s_mem*s_nopor)+(-g_memb[0][3]*s_mem*s_por);
+  }
+  else if (z_res[i] == 2){
+    V=(g_memb[1][0]*s_per)+(g_memb[1][1]*s_cyt)+(-g_memb[1][2]*s_mem*s_nopor)+(g_memb[1][3]*s_mem*s_por);
+  }
+  else if (z_res[i] == 3) {
+    V=(-g_memb[2][0]*s_per)+(-g_memb[2][1]*s_cyt)+(g_memb[2][2]*s_mem*s_nopor)+(-g_memb[2][3]*s_mem*s_por);
+  }
+
+// modify energy matrix to accomodate membrane potential
+  energy[ET_MEMB] += epsilon*k_overall_memb*V;
+
+// parcial derivatives
+dz_per=0.5*k_bin*(1-pow((tanh(k_bin*(dz-memb_b))),2));
+dz_mem=-0.5*k_bin*pow(tanh(k_bin*(dz+memb_b)),2)+0.5*k_bin*pow(tanh(k_bin*(memb_b-dz)),2);
+dz_cyt=-0.5*k_bin*(1-pow((tanh(k_bin*(-memb_b-dz))),2));
+
+// if (memb_pore_type == 0){
+  dr1_dz=((memb_a)/(memb_len));
+//  }
+// else if (memb_pore_type == 1){
+//  dr1_dz=(1/(dz<=memb_b ? (sqrt(1-pow(dz/memb_b,2))):0))*(dz/pow(memb_b,2))*memb_a;
+//  }
+
+dz_s_por=0.5*k_bin*(1-pow(tanh(k_bin*(rho_actual-rho0)),2))*dr1_dz;
+
+dx_s_por=((-0.5*k_bin*dx)/rho_actual)*(1-pow(tanh(k_bin*(rho_actual-rho0)),2));
+dy_s_por=((-0.5*k_bin*dy)/rho_actual)*(1-pow(tanh(k_bin*(rho_actual-rho0)),2));
+
+//some definitions to be used in "calculate general derivatives"
+dx_s_nopor=-dx_s_por;
+dy_s_nopor=-dy_s_por;
+dz_s_nopor=-dz_s_por;
+
+dz_s_por_smem=s_mem*dz_s_por+dz_mem*s_por;
+dz_s_nopor_smem=s_mem*dz_s_nopor+dz_mem*s_nopor;
+
+//calculate general derivatives
+ if (z_res[i] == 1) {
+   dV_dx=g_memb[0][2]*s_mem*dx_s_nopor+(-g_memb[0][3])*s_mem*dx_s_por;
+   dV_dy=g_memb[0][2]*s_mem*dy_s_nopor+(-g_memb[0][3])*s_mem*dy_s_por;
+   dV_dz=-g_memb[0][0]*dz_per+(-g_memb[0][1])*dz_cyt+g_memb[0][2]*dz_s_nopor_smem+(-g_memb[0][3])*dz_s_por_smem;
+   }
+ else if (z_res[i] == 2){
+   dV_dx=-g_memb[1][2]*s_mem*dx_s_nopor+g_memb[1][3]*s_mem*dx_s_por;
+   dV_dy=-g_memb[1][2]*s_mem*dy_s_nopor+g_memb[1][3]*s_mem*dy_s_por;
+   dV_dz=g_memb[1][0]*dz_per+g_memb[1][1]*dz_cyt+(-g_memb[1][2])*dz_s_nopor_smem+g_memb[1][3]*dz_s_por_smem;
+   }
+ else if (z_res[i] == 3){
+   dV_dx=g_memb[2][2]*s_mem*dx_s_nopor+(-g_memb[2][3])*s_mem*dx_s_por;
+   dV_dy=g_memb[2][2]*s_mem*dy_s_nopor+(-g_memb[2][3])*s_mem*dy_s_por;
+   dV_dz=-g_memb[2][0]*dz_per+(-g_memb[2][1])*dz_cyt+g_memb[2][2]*dz_s_nopor_smem+(-g_memb[2][3])*dz_s_por_smem;
+   }
+
+// calculate forces
+  memb_force_x = -epsilon*k_overall_memb*dV_dx;
+  memb_force_y = -epsilon*k_overall_memb*dV_dy;
+  memb_force_z = -epsilon*k_overall_memb*dV_dz;
+
+// add forces
+  f[iatom][0] += memb_force_x;
+  f[iatom][1] += memb_force_y;
+  f[iatom][2] += memb_force_z;
+
 }
 
 void FixBackbone::compute_solvent_barrier(int i, int j)
@@ -3830,6 +5524,20 @@ void FixBackbone::compute_backbone()
   }
 	
   timerEnd(TIME_HELIX);
+
+  for (i=0;i<nn;i++) {
+    if (memb_flag && res_info[i]==LOCAL)
+      compute_membrane_potential(i);
+  }
+
+  if (memb_flag && ntimestep>=sStep && ntimestep<=eStep) {
+    fprintf(dout, "Membrane: %d\n", ntimestep);
+    fprintf(dout, "Membrane_Energy: %f\n\n", energy[ET_MEMB]);
+    print_forces();
+  }
+
+  timerEnd(TIME_MEMB);
+
 	
   for (i=0;i<nn;i++) {
     if (frag_mem_flag && res_info[i]==LOCAL)
@@ -3900,6 +5608,9 @@ void FixBackbone::compute_backbone()
     if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i_resno]!='G')
       compute_rama_potential(i);
 
+    if (memb_flag && res_info[i]==LOCAL)
+      compute_membrane_potential(i);
+
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
@@ -3935,8 +5646,76 @@ void FixBackbone::compute_backbone()
       
     if (vec_frag_mem_flag && res_info[i]==LOCAL)
       compute_vector_fragment_memory_potential(i);
+
   }
 
+  // if the fragment frustratometer is on and it is time to compute the fragment frustration, do so!
+  if (frag_frust_flag && ntimestep % frag_frust_output_freq == 0) {
+    // if running in shuffle mode...
+    if (frag_frust_shuffle_flag) {
+      // zero decoy energy array (because new decoy energies are generated at every calculation in "shuffle" mode)
+      for (i=0; i<n; i++) {
+	for (j=0; j<num_decoy_calcs; j++) {
+	  decoy_energy[i][j] = 0.0;
+	}
+      }
+      // loop over decoys to be generated
+      for (int idecoy=0; idecoy<num_decoy_calcs; idecoy++) {
+	// compute and store decoy energies for each residue
+	for (i=0;i<n;i++) {
+	  compute_decoy_memory_potential(i,idecoy);
+	}
+	// randomize decoy memory positions
+	randomize_decoys();
+      }
+    }
+    // if running in read mode ...
+    else if (frag_frust_read_flag) {
+      // zero native energies (because only the native energies are recalculated at every calculation in "read" mode)
+      for (i=0;i<n;i++) {
+	decoy_energy[i][0] = 0.0;
+      }
+      // compute and store native energies
+      for (i=0;i<n;i++) {
+	compute_decoy_memory_potential(i,0);
+      }
+      // on time step zero, compute the decoy energy distribution
+      if (ntimestep == 0) {
+	compute_generated_decoy_energies();
+      }
+    }
+    else {
+      // throw an error because only shuffle and read are valid modes
+      error->all(FLERR,"Fragment_Frustratometer: only shuffle and read are valid modes.");
+    }
+    // regardless of what mode you are using, calculate and output per-residue frustration index
+    compute_fragment_frustration();
+  }
+
+  // if it is time to compute the tertiary frustration, do it
+  if (tert_frust_flag && ntimestep % tert_frust_output_freq == 0) {
+    fprintf(tert_frust_output_file,"# timestep: %d\n", ntimestep);
+    fprintf(tert_frust_vmd_script,"# timestep: %d\n", ntimestep);
+    if (strcmp(tert_frust_mode, "configurational")==0 || strcmp(tert_frust_mode, "mutational")==0) {
+      compute_tert_frust();
+    }
+    else if (strcmp(tert_frust_mode, "singleresidue")==0) {
+      compute_tert_frust_singleresidue();
+    }
+  }
+
+  // if it is time to compute the nmer frustration, do it
+  if (nmer_frust_flag && ntimestep % nmer_frust_output_freq == 0) {
+    fprintf(nmer_frust_output_file,"# timestep: %d\n", ntimestep);
+    fprintf(nmer_frust_vmd_script,"# timestep: %d\n", ntimestep);
+    if (strcmp(nmer_frust_mode, "pairwise")==0) {
+      compute_nmer_frust();
+    }
+    else if (strcmp(nmer_frust_mode, "singlenmer")==0) {
+      compute_singlenmer_frust();
+    }
+  }
+ 
   if (amh_go_flag)
     compute_amh_go_model();
 

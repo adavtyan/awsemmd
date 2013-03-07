@@ -4,7 +4,9 @@ Copyright (2010) Aram Davtyan and Garegin Papoian
 Papoian's Group, University of Maryland at Collage Park
 http://papoian.chem.umd.edu/
 
-Last Update: 12/01/2010
+The modified density depending on zim file is included
+
+Last Update: 3/9/2012
 ------------------------------------------------------------------------- */
 
 typedef struct WPV {
@@ -266,6 +268,8 @@ public:
 	void compute_sigma(int i, int j);
 	void compute_H(int i);
 	void compute_ro(int i);
+	WPV par;
+
 private:
 	int n, m, nw;
 	T ***v_theta;
@@ -280,7 +284,6 @@ private:
 	int *gRo;
 	int *ind;
 	U *lc;
-	WPV par;
 };
 
 template <typename T, typename U>
@@ -493,6 +496,14 @@ void cWell<T, U>::compute_ro(int i)
   		v_ro[i] += theta(i, j, 0);
   }
   
+// add new density which depend on z (if memb potential is on)
+  if ( lc->memb_flag){
+   if (lc->z_res[i]==2){
+     v_ro[i] +=lc->memb_dens_offset;
+  }
+}
+
+
 //  for (j=0;j<i-1;++j) v_ro[i] += theta(i, j, 0);
 //  for (j=i+2;j<n;++j) v_ro[i] += theta(i, j, 0);
 }

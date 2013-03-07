@@ -21,7 +21,7 @@
   * Copy awsemmd/Makefiles/Makefile.serial file to LAMMPS_DIR/src/MAKE/ and adjust the paths according to FFTW installation above
   * Go back to LAMMPS_DIR/src/ directory and execute _make clean-all_; _make serial_
   * If everything goes well, you must find lmp_serial executable in src directory.
-See the list of known issues [PossibleIssues# here].
+See the list of known issues [Possible_Issues# here].
 
 For more information on LAMMPS compilation and inclusion of optional packages see the following link
 http://lammps.sandia.gov/doc/Section_start.html#start_2

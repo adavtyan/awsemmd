@@ -266,6 +266,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> frag_mems_file;
       in >> fm_gamma_file;
       in >> fm_sigma_exp;
+      in >> frag_table_well_width;
+      in >> fm_energy_debug_flag;
+      in >> fm_sigma_exp;
     } else if (strcmp(varsection, "[Fragment_Memory_Table]")==0) {
       frag_mem_tb_flag = 1;
       if (comm->me==0) print_log("Fragment_Memory_Table flag on\n");
@@ -274,6 +277,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> fm_gamma_file;
       in >> tb_rmin >> tb_rmax >> tb_dr;
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
+      
     } else if (strcmp(varsection, "[Vector_Fragment_Memory]")==0) {
       vec_frag_mem_flag = 1;
       if (comm->me==0) print_log("Vector Fragment_Memory flag on\n");
@@ -281,9 +285,17 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> vfm_sigma;
       vfm_sigma_sq = vfm_sigma*vfm_sigma;
     } else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
-      in >> frag_table_well_width;
-      in >> fm_energy_debug_flag;
-      in >> fm_sigma_exp;
+      ssb_flag = 1;
+      if (comm->me==0) print_log("Solvent separated barrier flag on\n");
+      in >> k_solventb1;
+      in >> ssb_rmin1 >> ssb_rmax1;
+      in >> k_solventb2;
+      in >> ssb_rmin2 >> ssb_rmax2;
+      in >> ssb_kappa;
+      in >> ssb_ij_sep;
+      in >> ssb_rad_cor;
+      for (int j=0;j<20;++j)
+        in >> ssb_rshift[j];
     } else if (strcmp(varsection, "[Membrane]")==0) {
       memb_flag = 1;
       print_log("Membrane flag on\n");
@@ -350,19 +362,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	// throw an error if the "mode" is anything but "configurational" or "mutational"
 	error->all(FLERR,"Only \"pairwise\", \"singlenmer\" are acceptable modes for the Nmer_Frustratometer.");
       }	    
-    }
-      else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
-      ssb_flag = 1;
-      if (comm->me==0) print_log("Solvent separated barrier flag on\n");
-      in >> k_solventb1;
-      in >> ssb_rmin1 >> ssb_rmax1;
-      in >> k_solventb2;
-      in >> ssb_rmin2 >> ssb_rmax2;
-      in >> ssb_kappa;
-      in >> ssb_ij_sep;
-      in >> ssb_rad_cor;
-      for (int j=0;j<20;++j)
-        in >> ssb_rshift[j];
     } else if (strcmp(varsection, "[Phosphorylation]")==0) {
       if (!water_flag) error->all(FLERR,"Cannot run phosphorylation without water potential");
       phosph_flag = 1;
@@ -371,8 +370,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> n_phosph_res;
       if (n_phosph_res > 20) error->all(FLERR,"Number of phosphorylated residues may not exceed 20");
       for (int i=0;i<n_phosph_res;++i)
-	in >> phosph_res[i];
-      
+	in >> phosph_res[i]; 
     } else if (strcmp(varsection, "[Epsilon]")==0) {
       in >> epsilon;
     } else if (strcmp(varsection, "[Amylometer]")==0) {

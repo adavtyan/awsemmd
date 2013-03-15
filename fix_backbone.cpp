@@ -265,10 +265,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_frag_mem;
       in >> frag_mems_file;
       in >> fm_gamma_file;
-      in >> fm_sigma_exp;
-      in >> frag_table_well_width;
-      in >> fm_energy_debug_flag;
-      in >> fm_sigma_exp;
     } else if (strcmp(varsection, "[Fragment_Memory_Table]")==0) {
       frag_mem_tb_flag = 1;
       if (comm->me==0) print_log("Fragment_Memory_Table flag on\n");
@@ -277,7 +273,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> fm_gamma_file;
       in >> tb_rmin >> tb_rmax >> tb_dr;
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
-      
+      in >> frag_table_well_width;
+      in >> fm_energy_debug_flag;
+      in >> fm_sigma_exp;      
     } else if (strcmp(varsection, "[Vector_Fragment_Memory]")==0) {
       vec_frag_mem_flag = 1;
       if (comm->me==0) print_log("Vector Fragment_Memory flag on\n");

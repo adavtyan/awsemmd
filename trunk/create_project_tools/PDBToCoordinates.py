@@ -182,7 +182,14 @@ for ch in chains:
             xyz_N = res['N'].get_coord()
             xyz_CA = res['CA'].get_coord()
             xyz_C = res['C'].get_coord()
-            xyz_O = res['O'].get_coord()
+#            xyz_O = res['O'].get_coord()
+            # Get coordinates of O, including for labeled terminal residues 
+            if(res.has_id('O')):
+                xyz_O = res['O'].get_coord()
+            elif(res.has_id('OT')):
+               xyz_O = res['OT'].get_coord()
+            else:
+               xyz_O = res['OT1'].get_coord()
             if resname != 'GLY':
               if not res.has_id('CB'):
                 print ires, resname, "missing CB atom!"

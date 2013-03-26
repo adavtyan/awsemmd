@@ -1283,7 +1283,7 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
   int file_state, nstr;
   int tpos, fpos, len;
   double weight;
-  char ln[100], *line, *str[10];
+  char ln[500], *line, *str[10];
   FILE *file;
   Fragment_Memory **mems_array = NULL;
   

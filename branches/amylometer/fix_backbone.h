@@ -226,7 +226,7 @@ public:
   char se[1000]; // Protein sequance
   int nch, ch_len[100], ch_pos[100];
   
-  double energy[15], energy_all[15];
+  double energy[16], energy_all[16];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
 		   ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_MEMB, ET_SSB, nEnergyTerms};
   

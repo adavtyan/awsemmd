@@ -176,6 +176,7 @@ public:
   int number_of_nmers;
   char amylometer_structure_file[100];
   double amylometer_contact_cutoff;
+
   // Membrane potential
   double k_overall_memb;
   double memb_dens_offset;
@@ -186,6 +187,10 @@ public:
   double rho0_max;
   double rho0_distor;
   double g_memb[3][4];
+
+  // Selection Temperature
+  char selection_temperature_file_name[100];
+  int selection_temperature_output_frequency;
 
   // Standart lammaps interface
   int igroup2, group2bit;
@@ -217,6 +222,7 @@ public:
   bool frag_frust_flag;
   bool tert_frust_flag;
   bool nmer_frust_flag;
+  bool selection_temperature_flag;
   
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
@@ -293,6 +299,9 @@ public:
   int compute_nmer_traps(int i, int j, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2);
   int get_nmer_ss_dist(char *nmer_ss_j, char *nmer_ss_k);
 
+  // Selection Temperature functions
+  void output_selection_temperature_data();
+
   void allocate();
   inline void Construct_Computational_Arrays();
   int Tag(int index);
@@ -351,6 +360,9 @@ public:
   FILE *nmer_frust_output_file;
   FILE *nmer_frust_vmd_script;
   FILE *nmer_frust_trap_file;
+
+  // Selection temperature file
+  FILE *selection_temperature_file;
   };
   
 }

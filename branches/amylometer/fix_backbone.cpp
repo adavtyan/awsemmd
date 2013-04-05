@@ -105,7 +105,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
   ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = vec_frag_mem_flag = 0;
-  ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = 0;
+  ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = selection_temperature_flag = 0;
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
 	
@@ -383,6 +383,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	in >> amylometer_contact_cutoff;
       }
       read_amylometer_sequences(amylometer_sequence_file, amylometer_nmer_size, amylometer_mode);
+    } else if (strcmp(varsection, "[Selection_Temperature]")==0) {
+      selection_temperature_flag = 1;
+      if (comm->me==0) print_log("Selection_Temperature flag on \n");
+      in >> selection_temperature_file_name;
+      in >> selection_temperature_output_frequency;
     }
     varsection[0]='\0'; // Clear buffer
   }
@@ -712,6 +717,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       fprintf(nmer_frust_trap_file,"# i a_i ss_i j a_j ss_j threshold_energy k a_k ss_k direction trap_energy\n");
     }
   }
+
+  // Selection temperature file
+  if (selection_temperature_flag) {
+    selection_temperature_file = fopen(selection_temperature_file_name, "w");
+    fprintf(selection_temperature_file, "# i j a_i a_j rij rho_i rho_j water burial_i burial_j\n");
+  }
   
   // Allocate the table
   if (frag_mem_tb_flag) {
@@ -866,6 +877,11 @@ FixBackbone::~FixBackbone()
     if(nmer_frust_trap_flag) {
       fclose(nmer_frust_trap_file);
     }
+  }
+
+  // if the selection temperature was being output, close the file
+  if (selection_temperature_flag) {
+    fclose(selection_temperature_file);
   }
 	
   fclose(efile);
@@ -3740,6 +3756,43 @@ void FixBackbone::compute_generated_decoy_energies()
     }
 }
 
+void FixBackbone::output_selection_temperature_data()
+{
+  double *xi, *xj, dx[3];
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij, rho_i, rho_j;
+  double water_energy, burial_energy_i, burial_energy_j;
+
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = get_residue_type(i_resno);
+    i_chno = chain_no[i]-1;
+    for (j=i+1;j<n;++j) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      jres_type = get_residue_type(j_resno);
+      j_chno = chain_no[j]-1;
+      // get the distance between i and j
+      rij = get_residue_distance(i_resno, j_resno);
+      rho_i = get_residue_density(i_resno);
+      rho_j = get_residue_density(j_resno);
+      // compute the energies for the (i,j) pair
+      water_energy = 0.0;
+      if ((abs(i-j)>=contact_cutoff || i_chno != j_chno)) {
+	water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+      }
+
+      burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
+      burial_energy_j = compute_burial_energy(j_resno, jres_type, rho_j);
+
+      fprintf(selection_temperature_file,"%d %d %c %c %f %f %f %f %f %f\n", i+1, j+1, se[i], se[j], rij, rho_i, rho_j, water_energy, burial_energy_i, burial_energy_j);
+    }
+  }  
+}
+
 void FixBackbone::compute_tert_frust()
 {
   double *xi, *xj, dx[3];
@@ -5710,6 +5763,12 @@ void FixBackbone::compute_backbone()
     else if (strcmp(nmer_frust_mode, "singlenmer")==0) {
       compute_singlenmer_frust();
     }
+  }
+
+  // if it is time to output the selection temperature file, do it
+  if (selection_temperature_flag && ntimestep % selection_temperature_output_frequency == 0) {
+    fprintf(selection_temperature_file,"# timestep: %d\n", ntimestep);
+    output_selection_temperature_data();
   }
  
   if (amh_go_flag)

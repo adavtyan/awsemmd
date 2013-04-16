@@ -238,12 +238,12 @@ public:
   int sStep, eStep;
   void print_forces(int coord=0);
   
-  double tmpforce1[1000][3];
+/*  double tmpforce1[1000][3];
   double tmpforce2[1000][3];
   double tmpmax;
   double tmpmax2;
   int iresmax, imax, jmax, steptmp;
-  int iresmax2, steptmp2, jresmax2;
+  int iresmax2, steptmp2, jresmax2;*/
 };
 
 }

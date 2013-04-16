@@ -563,8 +563,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   in_rs.close();
   
   // Debug
-  tmpmax = 0.0;
-  tmpmax2 = 0.0;
+//  tmpmax = 0.0;
+//  tmpmax2 = 0.0;
 }
 
 void FixBackbone::final_log_output()
@@ -588,10 +588,10 @@ void FixBackbone::final_log_output()
   fprintf(dout, "\n");
   
   // Debug
-  printf("\n\ntmpmax=%f\n", tmpmax);
+/*  printf("\n\ntmpmax=%f\n", tmpmax);
   printf("iresmax=%d imax=%d jmax=%d steptmp=%d\n\n", iresmax, imax, jmax, steptmp);
   printf("\n\ntmpmax2=%f\n", tmpmax2);
-  printf("iresmax2=%d jresmax2=%d steptmp2=%d\n\n", iresmax2, jresmax2, steptmp2);
+  printf("iresmax2=%d jresmax2=%d steptmp2=%d\n\n", iresmax2, jresmax2, steptmp2);*/
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2840,7 +2840,7 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
 	    f[beta_atoms[j]][2] += forcej[2];
 	    
 	    //Debug
-	    tmpforce1[alpha_carbons[i]][0] += -forcei[0];
+/*	    tmpforce1[alpha_carbons[i]][0] += -forcei[0];
 	    tmpforce1[alpha_carbons[i]][1] += -forcei[1];
 	    tmpforce1[alpha_carbons[i]][2] += -forcei[2];
 	    
@@ -2854,7 +2854,7 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
 	    
 	    tmpforce1[beta_atoms[j]][0] += forcej[0];
 	    tmpforce1[beta_atoms[j]][1] += forcej[1];
-	    tmpforce1[beta_atoms[j]][2] += forcej[2];
+	    tmpforce1[beta_atoms[j]][2] += forcej[2];*/
 	  }
     }
   }
@@ -3001,7 +3001,8 @@ void FixBackbone::table_vector_fragment_memory(int i, int j)
   forcej[1] = ff*(vi[1]-vj[1]*vp/vmsqj);
   forcej[2] = ff*(vi[2]-vj[2]*vp/vmsqj);
 
-  if (fabs(forcei[0])>tmpmax2) {
+   // Debug
+/*  if (fabs(forcei[0])>tmpmax2) {
 	tmpmax2 = fabs(forcei[0]);
 	steptmp2 = update->ntimestep;
 	iresmax2 = i;
@@ -3036,7 +3037,7 @@ void FixBackbone::table_vector_fragment_memory(int i, int j)
 	steptmp2 = update->ntimestep;
 	iresmax2 = i;
 	jresmax2 = j;
-  }
+  }*/
   
 /* if (update->ntimestep==0 && (i_resno==1 || j_resno==1)) {
   		printf("table_vector_fragment_memory\n");
@@ -3081,7 +3082,7 @@ void FixBackbone::table_vector_fragment_memory(int i, int j)
 //  }
   
   //Debug
-	tmpforce2[alpha_carbons[i]][0] += -forcei[0];
+/*	tmpforce2[alpha_carbons[i]][0] += -forcei[0];
 	tmpforce2[alpha_carbons[i]][1] += -forcei[1];
 	tmpforce2[alpha_carbons[i]][2] += -forcei[2];
 	
@@ -3095,7 +3096,7 @@ void FixBackbone::table_vector_fragment_memory(int i, int j)
 	
 	tmpforce2[beta_atoms[j]][0] += forcej[0];
 	tmpforce2[beta_atoms[j]][1] += forcej[1];
-	tmpforce2[beta_atoms[j]][2] += forcej[2];
+	tmpforce2[beta_atoms[j]][2] += forcej[2];*/
 }
 
 void FixBackbone::compute_fragment_memory_potential(int i)
@@ -3637,10 +3638,10 @@ void FixBackbone::compute_backbone()
   xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
 
  // Debug  
- for (i=0;i<atom->nlocal;i++) {
+/* for (i=0;i<atom->nlocal;i++) {
  	tmpforce1[i][0] = tmpforce1[i][1] = tmpforce1[i][2] = 0.0;
  	tmpforce2[i][0] = tmpforce2[i][1] = tmpforce2[i][2] = 0.0;
- } 
+ }*/
 
 #ifdef DEBUGFORCES
 
@@ -3982,7 +3983,7 @@ void FixBackbone::compute_backbone()
   }
   
   // Debug
-  int ii;
+/*  int ii;
   double dtmp;
   for (i=0;i<nn;i++) {
   	for (j=0;j<3;j++) {
@@ -4016,7 +4017,7 @@ void FixBackbone::compute_backbone()
   			steptmp = ntimestep;
   		}
   	}
-  }
+  }*/
   
 /*  if (ntimestep==0) {
     printf("tmpforce1 CA\n");

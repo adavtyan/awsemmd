@@ -112,14 +112,18 @@ public:
   char fm_gamma_file[100];
   
   // Table Fragment Memory parameters
-    TBV **fm_table;
-//  TBV ****fm_table;
+  TBV **fm_table;
   int tb_size, tb_nbrs;
   double tb_rmin, tb_rmax, tb_dr;
   
   // Vector Fragment Memory
   double k_vec_frag_mem;
   double vfm_sigma, vfm_sigma_sq;
+  
+  // Table Vector Fragment Memory
+  TBV **vfm_table;
+  int vfm_tb_size;
+  double vfm_tb_vmin, vfm_tb_vmax, vfm_tb_dv;
 
   // Solvent separated barrier
   double k_solventb1, k_solventb2;
@@ -151,7 +155,7 @@ public:
   bool abc_flag, chain_flag, shake_flag, chi_flag, rama_flag, rama_p_flag, excluded_flag, p_excluded_flag, r6_excluded_flag;
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
   bool phosph_flag;
-  bool frag_mem_tb_flag, vec_frag_mem_flag;
+  bool frag_mem_tb_flag, vec_frag_mem_flag, vec_frag_mem_tb_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -189,6 +193,8 @@ public:
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
   void compute_vector_fragment_memory_potential(int i);
+  void compute_vector_fragment_memory_table();
+  void table_vector_fragment_memory(int i, int j);
 
   void allocate();
   inline void Construct_Computational_Arrays();
@@ -231,6 +237,13 @@ public:
   FILE *dout;
   int sStep, eStep;
   void print_forces(int coord=0);
+  
+  double tmpforce1[1000][3];
+  double tmpforce2[1000][3];
+  double tmpmax;
+  double tmpmax2;
+  int iresmax, imax, jmax, steptmp;
+  int iresmax2, steptmp2, jresmax2;
 };
 
 }

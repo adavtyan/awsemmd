@@ -112,18 +112,14 @@ public:
   char fm_gamma_file[100];
   
   // Table Fragment Memory parameters
-  TBV **fm_table;
+    TBV **fm_table;
+//  TBV ****fm_table;
   int tb_size, tb_nbrs;
   double tb_rmin, tb_rmax, tb_dr;
   
   // Vector Fragment Memory
   double k_vec_frag_mem;
   double vfm_sigma, vfm_sigma_sq;
-  
-  // Table Vector Fragment Memory
-  TBV **vfm_table;
-  int vfm_tb_size;
-  double vfm_tb_vmin, vfm_tb_vmax, vfm_tb_dv;
 
   // Solvent separated barrier
   double k_solventb1, k_solventb2;
@@ -131,6 +127,13 @@ public:
   int ssb_ij_sep;
   bool ssb_rad_cor;
   double ssb_rshift[20];
+
+  // Electrostatic Interaction from Huckel Method 
+  double k_PlusPlus, k_MinusMinus, k_PlusMinus;
+  double k_screening;
+  double screening_length;
+  double dielectric_constant, ion_concentration;
+
 
   // Standart lammaps interface
   int igroup2, group2bit;
@@ -150,12 +153,14 @@ public:
   double **xca, **xcb, **xo, **xn, **xcp, **xh;
   double **x, **f;
   int *image;
+  double *charge_on_residue; 
   double prd[3], half_prd[3];
   int *periodicity;
   bool abc_flag, chain_flag, shake_flag, chi_flag, rama_flag, rama_p_flag, excluded_flag, p_excluded_flag, r6_excluded_flag;
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
   bool phosph_flag;
-  bool frag_mem_tb_flag, vec_frag_mem_flag, vec_frag_mem_tb_flag;
+  bool frag_mem_tb_flag, vec_frag_mem_flag;
+  bool huckel_flag; //flag to turn on DebyeHuckel
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -164,14 +169,22 @@ public:
   char se[1000]; // Protein sequance
   int nch, ch_len[100], ch_pos[100];
   
-  double energy[15], energy_all[15];
+//  double energy[15], energy_all[15];
+//  enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
+//                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_SSB, nEnergyTerms};
+//  double ctime[15], previous_time; 
+//  enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
+//  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_SSB, TIME_N};
+  double energy[16], energy_all[16]; // Incremented by one, to add Huckel term.
+
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
-                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_SSB, nEnergyTerms};
+                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_SSB, ET_DH, nEnergyTerms};
   
-  double ctime[15], previous_time;
+  double ctime[16], previous_time; //Increment by one, to account Huckel.
   enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
-  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_SSB, TIME_N};
+  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_SSB, TIME_DH, TIME_N};
   
+//
  private:
   void compute_backbone();
   void compute_chain_potential(int i);
@@ -193,9 +206,8 @@ public:
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
   void compute_vector_fragment_memory_potential(int i);
-  void compute_vector_fragment_memory_table();
-  void table_vector_fragment_memory(int i, int j);
 
+  void compute_DebyeHuckel_Interaction(int i, int j);
   void allocate();
   inline void Construct_Computational_Arrays();
   int Tag(int index);
@@ -237,13 +249,6 @@ public:
   FILE *dout;
   int sStep, eStep;
   void print_forces(int coord=0);
-  
-/*  double tmpforce1[1000][3];
-  double tmpforce2[1000][3];
-  double tmpmax;
-  double tmpmax2;
-  int iresmax, imax, jmax, steptmp;
-  int iresmax2, steptmp2, jresmax2;*/
 };
 
 }

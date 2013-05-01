@@ -1,0 +1,107 @@
+#Last updated: 6/26/12
+
+# 3d protein simulation
+
+units real
+
+timestep 5
+
+dimension       3
+
+#boundary s s s
+boundary p p p
+
+dielectric      80.0
+
+neighbor        10 bin
+neigh_modify    delay 5
+
+atom_modify sort 0 0.0
+
+special_bonds coul 1 1 1
+
+kspace_style pppm 0.00001
+kspace_modify order 5
+
+atom_style      peptide
+
+bond_style	class2
+
+angle_style class2
+
+pair_style hybrid/overlay coul/long 40.0 ex/gauss/coul/cut 20.0 
+
+read_data data.dna
+
+``masses
+
+pair_coeff * * ex/gauss/coul/cut ion.par 20.0
+pair_coeff * * coul/long
+
+``excluded_pairs
+
+#Savelyev's Chemically Accurate CG ds-DNA
+#bond_coeff	1	4.96	2.625		-0.226		0.0149
+#bond_coeff	2	9.9	0.115		-0.041		0.058
+#bond_coeff	3	12.3	0.040		-0.010		0.0008
+#bond_coeff	4	9.2	0.0955		-0.0459		0.00502
+#bond_coeff	5	13.45	0.123		-0.040		0.0037
+#bond_coeff	6	10.2	0.1378		-0.0527		0.005
+##bond_coeff	7	14.7	0.085		-0.0444		0.005
+#bond_coeff	8	12.5	0.1386		-0.0568		0.005
+#bond_coeff	9	16.35	1.324e-06	-0.0122		0.00185
+#bond_coeff	10	16.9	0.3626		-0.077		0.005
+#bond_coeff	11	17.1	0.0467		0.0021		0.000146
+#bond_coeff	12	11.3	2.92		0.41		0.072
+#angle_coeff	*	156	9.22312		4.16223		1.07826
+
+#bond_coeff      1       4.9     2.62572 	-0.226309       0.0149927
+#bond_coeff      2       9.6     0.11508		-0.04131        0.0058
+#bond_coeff      3       13      0.04062 	-0.01052        0.000833333
+#bond_coeff      4       8.9     0.09546 	-0.04589        0.00502
+#bond_coeff      5       14.5    0.123105        -0.039945       0.00375
+#bond_coeff      6       10.4    0.13779 	-0.05267        0.005
+#bond_coeff      7       15.6    0.08504 	-0.04443        0.005
+#bond_coeff      8       13.85   0.13857 	-0.05683        0.005
+#bond_coeff      9       16.5    1.324e-06       -0.0122 	0.001854
+#bond_coeff      10      17.5    0.36266 	-0.07683        0.005
+#bond_coeff      11      17.7    0.0466962       0.00211317      0.000145585
+#bond_coeff      12      11.3    2.92349 	0.41427		 0.07197
+#angle_coeff     *       156     9.22312 	4.16223	 	1.07826
+
+bond_coeff      1       4.9     2.62572         -0.226309       0.0149927
+bond_coeff      2       9.9     0.080556        -0.028917       0.00406
+bond_coeff      3       12.3    0.028434        -0.007364       0.000583333
+bond_coeff      4       9.2     0.066822        -0.032123       0.003514
+bond_coeff      5       13.45   0.0861735       -0.0279615      0.002625
+bond_coeff      6       10.2    0.096453        -0.036869       0.0035
+bond_coeff      7       14.4    0.059528        -0.031101       0.0035
+bond_coeff      8       11.9    0.096999        -0.039781       0.0035
+bond_coeff      9       15.95   9.268e-07       -0.00854        0.0012978
+bond_coeff      10      16.9    0.253862        -0.053781       0.0035
+bond_coeff      11      15.9    0.0326874       0.00147922      0.000101909
+bond_coeff      12      11.0    2.92349         0.41427         0.07197
+angle_coeff	1	156	9.22312		4.16223		1.07826
+
+velocity	all create 300.0 415451
+
+fix		1 all nvt temp 300.0 300.0 100.0
+fix_modify	1 energy yes
+
+thermo_style	custom step temp epair ebond eangle emol pe ke etotal 
+
+thermo 1000
+
+variable e equal etotal
+
+fix 2 all print 1000 "$e" file etotal.txt screen no
+
+dump		1 all atom 1000 dump.lammpstrj
+#dump		2 all dcd 1000 dump.dcd
+
+dump_modify     1 sort id
+
+reset_timestep  0
+minimize 0.001 0.01 1000 1000000
+run             10000
+

@@ -71,7 +71,7 @@
 5 8
 4
 
-[Water]-
+[Water]
 1.0
 5.0 7.0
 2.6
@@ -80,7 +80,7 @@
 4.5 6.5 1
 6.5 9.5 1
 
-[Burial]-
+[Burial]
 1.0
 4.0
 0.0 3.0
@@ -120,10 +120,10 @@ mem_file
 gamma_file
 rmin rmax dr
 
-[Fragment_Memory_Table]-
-1.0
+[Fragment_Memory_Table]
+0.2
 1r69.mem
-1r69.gamma
+uniform.gamma
 0 50 0.1
 
 #[Solvent_Barrier]
@@ -155,3 +155,16 @@ phosphorylated residue index (or indices)
 1.2
 1
 17
+
+#[DebyeHuckel]
+k_PlusPlus, k_MinusMinus, k_PlusMinus (electrostatic sclaing factors)
+k_screening (scaling factor in the exponential decay function of Debye-Huckel)
+screening_length
+dielectric_constant, ion_concentration
+
+[DebyeHuckel]
+0.1 0.1 0.1
+1.0
+0.01
+30.0 0.15
+

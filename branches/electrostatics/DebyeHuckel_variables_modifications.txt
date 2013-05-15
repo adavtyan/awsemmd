@@ -1,0 +1,48 @@
+
+The Debye-Huckel (DH) interaction is included in the 
+AWSEM fix_backbone.cpp. The fix_backbone.h is also modified with the 
+definition of new set of variables.  The  DH interaction term is a 
+two body term, and closly follows a similar implementation of solvent 
+barrier. 
+
+
+INPUT VARIABLES
+-----------------------------------------------------------------------------
+INPUT from the fix_backbone_coeff.dat:
+ k_PlusPlus, k_MinusMinus, k_PlusMinus;# optimization variables
+ k_screening  # an additional paramter to tune the screening term
+ screening_length; # screening length in the debye huckel
+ dielectric_constant, ion_concentration;# required to compute 
+ the screening length
+-----------------------------------------------------------------------------
+
+
+READING THF CHARGES
+-----------------------------------------------------------------------------
+The actual charges on the residues are read from the file 
+"charge_on_residues.dat". Here, the first column is the residue number 
+and the second column is the charge on the beta atom. At present, only 
+beta atom is included for the charge-charge interaction. Other atoms 
+could also be included in a similar fashion. 
+-----------------------------------------------------------------------------
+
+
+
+
+NEW VARIABLES AND MODIFICATIONS
+-----------------------------------------------------------------------------
+
+eheader[Elect];#just a header for nice print
+
+huckel_flag=0; #turns on the flag to read the charge data
+
+txt_timer[DH]; # to record the timer (not checked yet)
+
+charge_on_residue[]; is the array holding the charges
+
+
+compute_DebyeHuckel_Interaction(i, j) is the function that computes the 
+electrostatic interaction and returns the value. This function is similar 
+to other two body terms. 
+-----------------------------------------------------------------------------
+

@@ -259,6 +259,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_amh_go;
       in >> amh_go_p;
       in >> amh_go_rc;
+      in >> frustration_censoring_flag;
     } else if (strcmp(varsection, "[Fragment_Memory]")==0) {
       frag_mem_flag = 1;
       if (comm->me==0) print_log("Fragment_Memory flag on\n");
@@ -565,7 +566,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     if (m_amh_go->error==m_amh_go->ERR_FILE) error->all(FLERR,"Cannot read file amh-go.gro");
     if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all(FLERR,"AMH_Go: Wrong atom count in memory structure file");
     if (m_amh_go->error==m_amh_go->ERR_RES) error->all(FLERR,"AMH_Go: Unknown residue");
-		
+
+    // if frustration censoring is on, read in frustration censored interactions
+    if (frustration_censoring_flag == 1) {
+      std::ifstream infile("frustration_censored_contacts.dat");
+      int i, j;
+      while(infile >> i >> j) {
+	frustration_censoring_map[i-1][j-1] = 1;
+      }
+    }
+
     // Calculate normalization factor for AMH-GO potential
     compute_amhgo_normalization();
   }
@@ -813,6 +823,12 @@ FixBackbone::~FixBackbone()
 			
       delete m_amh_go;
       delete amh_go_gamma;
+      if (frustration_censoring_flag == 1) {
+	for (int i=0;i<n;i++) {
+	  delete [] frustration_censoring_map[i];
+	}
+	delete [] frustration_censoring_map;
+      }
     }
     
     if (frag_mem_flag || frag_mem_tb_flag) {
@@ -946,6 +962,17 @@ void FixBackbone::allocate()
       amh_go_force[i] = new double[3];
     }
     amh_go_norm = new double[nch];
+
+    // if frustration censoring is on, allocate the frustration_censoring_map table
+    if (frustration_censoring_flag == 1){
+      frustration_censoring_map = new int*[n];
+      for (int i=0;i<n;i++) {
+	frustration_censoring_map[i] = new int[n];
+	for (int j=0;j<n;j++) {
+	  frustration_censoring_map[i][j] = 0;
+	}
+      }
+    }
   }
 	
   allocated = true;
@@ -2836,6 +2863,11 @@ void FixBackbone::compute_amhgo_normalization()
 	  for (jatom=Fragment_Memory::FM_CA; jatom<=Fragment_Memory::FM_CB - (se[j]=='G' ? 1 : 0); ++jatom) {
 					
 	    if (abs(i-j)<amh_go_gamma->minSep()) continue;
+
+	    // if frustration censoring is on, check to see if interaction is censored
+	    // if (frustration_censoring_flag == 1){
+	    //   if (frustration_censoring_map[i][j] == 1 || frustration_censoring_map[j][i] == 1) continue;
+	    // }
 						
 	    rnative = m_amh_go->Rf(i, iatom, j, jatom);
 	    if (rnative<amh_go_rc) {
@@ -2900,6 +2932,13 @@ void FixBackbone::compute_amh_go_model()
         jres = atom->residue[j];
         jmol = atom->molecule[j];
         jres_type = se_map[se[jres-1]-'A'];
+
+	// test to see if the interactions between ires and jres are censored
+	if (frustration_censoring_flag == 1){
+	  if (frustration_censoring_map[ires-1][jres-1] == 1 || frustration_censoring_map[jres-1][ires-1] == 1){
+	    continue;
+	  }
+	}
         
         // atom j is either C-Alpha or C-Bata
         if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && abs(ires-jres)>=amh_go_gamma->minSep() && imol==jmol ) {

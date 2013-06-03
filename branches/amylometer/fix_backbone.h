@@ -105,6 +105,7 @@ public:
   double **amh_go_force;
   int *amh_go_force_map;
   double *amh_go_norm;
+  int **frustration_censoring_map;
   
   // Fragment Memory parameters
   double k_frag_mem;
@@ -223,6 +224,7 @@ public:
   bool tert_frust_flag;
   bool nmer_frust_flag;
   bool selection_temperature_flag;
+  bool frustration_censoring_flag;
   
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};

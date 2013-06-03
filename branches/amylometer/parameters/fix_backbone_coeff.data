@@ -102,10 +102,17 @@
 
 NOTE: helix_cutoff can be 7.0 instead fo 15.0
 
+#[AMH-Go]
+kamhgo
+pvalue
+cutoffdistance
+frustration_censoring_flag (if 1, must have frustration_censored_contacts.dat containing pairs of censored contacts)
+
 [AMH-Go]-
 1.0
 1
 8.0
+0
 
 NOTE: If you use AMH-Go you need to make sure that neigbour list cutoff and skin distance are set right
 

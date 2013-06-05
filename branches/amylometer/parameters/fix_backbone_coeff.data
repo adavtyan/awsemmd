@@ -162,3 +162,15 @@ phosphorylated residue index (or indices)
 1.2
 1
 17
+
+#[Optimization]-
+output frequency
+
+[Optimization]-
+1
+
+#[Burial_Optimization]-
+output frequency
+
+[Burial_Optimization]-
+1

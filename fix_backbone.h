@@ -193,6 +193,12 @@ public:
   char selection_temperature_file_name[100];
   int selection_temperature_output_frequency;
 
+  // Optimization block parameters
+  int optimization_output_freq;
+
+  // Burial Optimization block parameters
+  int burial_optimization_output_freq;
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -225,7 +231,8 @@ public:
   bool nmer_frust_flag;
   bool selection_temperature_flag;
   bool frustration_censoring_flag;
-  
+  bool optimization_flag;
+  bool burial_optimization_flag;
   
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -304,6 +311,16 @@ public:
   // Selection Temperature functions
   void output_selection_temperature_data();
 
+  // Optimziation functions
+  void compute_optimization();
+  void shuffler();
+  double compute_direct_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  double compute_proteinmed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  double compute_watermed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  
+  // Burial Optimization functions
+  void compute_burial_optimization();
+
   void allocate();
   inline void Construct_Computational_Arrays();
   int Tag(int index);
@@ -365,8 +382,18 @@ public:
 
   // Selection temperature file
   FILE *selection_temperature_file;
-  };
+
+  // Optimization file
+  FILE *optimization_file;
+  FILE *native_optimization_file;
+  FILE *optimization_norm_file;
+  FILE *native_optimization_norm_file;
   
+  // Burial Optimization file
+  FILE *burial_optimization_file;
+  FILE *native_burial_optimization_file;
+  FILE *burial_optimization_norm_file;
+  };
 }
 
 #endif

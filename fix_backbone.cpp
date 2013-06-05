@@ -389,6 +389,15 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       if (comm->me==0) print_log("Selection_Temperature flag on \n");
       in >> selection_temperature_file_name;
       in >> selection_temperature_output_frequency;
+    } else if (strcmp(varsection, "[Optimization]")==0) {
+      optimization_flag = 1;
+      if (comm->me==0) print_log("Optimization flag on\n");
+      in >> optimization_output_freq;
+    }
+    else if (strcmp(varsection, "[Burial_Optimization]")==0) {
+      burial_optimization_flag = 1;
+      if (comm->me==0) print_log("Burial Optimization flag on\n");
+      in >> burial_optimization_output_freq;
     }
     varsection[0]='\0'; // Clear buffer
   }
@@ -734,6 +743,24 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     fprintf(selection_temperature_file, "# i j a_i a_j rij rho_i rho_j water burial_i burial_j\n");
   }
   
+  // if optimization_flag is on, perform appropriate initializations
+  if(optimization_flag) {
+    optimization_file = fopen("optimization_energies.dat","w");    
+    fprintf(optimization_file,"#direct protein water \n");
+    
+    native_optimization_file = fopen("native_optimization_energies.dat","w");
+    fprintf(native_optimization_file,"#direct protein water \n");
+    
+    optimization_norm_file = fopen("optimization_norms.dat","w");
+    native_optimization_norm_file = fopen("native_optimization_norms.dat","w");
+  }
+  
+  if (burial_optimization_flag) { 
+    burial_optimization_file = fopen("burial_optimization_energies.dat","w");
+    native_burial_optimization_file = fopen("native_burial_optimization_energies.dat","w");	
+    burial_optimization_norm_file = fopen("burial_optimization_norm.dat","w");
+  }
+  
   // Allocate the table
   if (frag_mem_tb_flag) {
     if (fm_gamma->maxSep()!=-1)
@@ -899,7 +926,20 @@ FixBackbone::~FixBackbone()
   if (selection_temperature_flag) {
     fclose(selection_temperature_file);
   }
-	
+
+  // if the optimization block was on, close the files
+  if (optimization_flag) {
+    fclose(optimization_file);
+    fclose(native_optimization_file);	
+    fclose(optimization_norm_file);
+    fclose(native_optimization_norm_file);
+  }
+  if (burial_optimization_flag) {
+    fclose(burial_optimization_file);
+    fclose(native_burial_optimization_file);
+    fclose(burial_optimization_norm_file);
+  }
+  
   fclose(efile);
 }
 
@@ -5248,6 +5288,256 @@ void FixBackbone::compute_amylometer()
   return;
 }
 
+void FixBackbone::compute_optimization()
+{
+  // computes and writes out the energies for all interaction types 
+  // for direct, protein-mediated, and water-mediated potentials
+
+  double *xi, *xj, dx[3];
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij, rho_i, rho_j;
+  double direct_energy, proteinmed_energy, watermed_energy;
+  double direct_energies[20][20], protein_energies[20][20], water_energies[20][20];
+  double contact_norm[20][20];
+
+  direct_energy=0.0;
+  proteinmed_energy=0.0;
+  watermed_energy=0.0;
+
+  // array initialization
+  for (i=0;i<20;++i) {
+    for (j=i;j<20;++j) {
+      direct_energies[i][j] = direct_energies[j][i] = 0.0;
+      protein_energies[i][j] = protein_energies[j][i] = 0.0;
+      water_energies[i][j] = water_energies[j][i] = 0.0;      
+      contact_norm[i][j] = contact_norm[j][i] = 0.0;
+    }
+  }
+  
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = se_map[se[i_resno]-'A'];
+    i_chno = chain_no[i]-1;
+    
+    rho_i = get_residue_density(i);
+    
+    for (j=i+1;j<n;++j) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      jres_type = se_map[se[j_resno]-'A'];
+      j_chno = chain_no[j]-1;
+      
+      // Select beta atom unless the residue type is GLY, then select alpha carbon
+      if (se[i_resno]=='G') { xi = xca[i]; }
+      else { xi = xcb[i]; }
+      if (se[j_resno]=='G') { xj = xca[j]; }
+      else { xj = xcb[j]; }
+	  
+      // compute distance between the two atoms
+      dx[0] = xi[0] - xj[0];
+      dx[1] = xi[1] - xj[1];
+      dx[2] = xi[2] - xj[2];
+      rij = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+      
+      // if the atoms are within the threshold, compute the energies
+      if (abs(i-j)>=contact_cutoff || i_chno != j_chno) {
+	// rho_i = get_residue_density(i);
+	rho_j = get_residue_density(j);
+	// calculate direct, protein-mediated, water-mediated energies
+	direct_energies[ires_type][jres_type] += compute_direct_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j); 
+	protein_energies[ires_type][jres_type] += compute_proteinmed_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+	water_energies[ires_type][jres_type] += compute_watermed_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+	contact_norm[ires_type][jres_type] += 1.0;
+      }
+    }
+  }
+
+  for (i=0;i<20;++i) {
+    for (j=i;j<20;++j) {
+      direct_energies[i][j] = direct_energies[i][j] + direct_energies[j][i];
+      protein_energies[i][j] = protein_energies[i][j] + protein_energies[j][i];
+      water_energies[i][j] = water_energies[i][j] + water_energies[j][i];
+      contact_norm[i][j] = contact_norm[i][j] + contact_norm[j][i];
+    }
+  }
+
+  for (i=0;i<20;++i) {
+    direct_energies[i][i] /= 2.0;
+    protein_energies[i][i] /= 2.0;
+    water_energies[i][i] /= 2.0;
+    contact_norm[i][i] /= 2.0;
+  }
+
+
+  // write output calculated using native sequence on step 0
+  // if step !=0 then write output calculated with shuffled sequence
+  if (ntimestep == 0){
+    for (i=0;i<20;++i) {
+      for (j=i;j<20;++j) {
+	fprintf(native_optimization_file,"%f %f %f \n", direct_energies[i][j], protein_energies[i][j], water_energies[i][j]);
+	fprintf(native_optimization_norm_file,"%f \n", contact_norm[i][j]);
+      }
+    }
+  }
+  else {
+    for (i=0;i<20;++i) {
+      for (j=i;j<20;++j) {
+	fprintf(optimization_file,"%f %f %f \n", direct_energies[i][j], protein_energies[i][j], water_energies[i][j]);
+	fprintf(optimization_norm_file,"%f \n", contact_norm[i][j]);
+      }
+    }
+  }
+}
+
+void FixBackbone::shuffler()
+{
+  // sequence shuffler
+  for (int i=0; i<n; i++) {
+	int r = i + (rand() % (n-i)); // Random remaining position.
+	int temp = se[i]; se[i] = se[r]; se[r] = temp;
+  }  
+}
+
+double FixBackbone::compute_direct_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
+{
+  double water_gamma_0_direct, water_gamma_1_direct;
+  double sigma_wat, sigma_prot, sigma_gamma_direct, sigma_gamma_mediated;
+  double t_min_direct, t_max_direct, theta_direct, t_min_mediated, t_max_mediated, theta_mediated;
+  double direct_energy;
+
+  if(abs(i_resno-j_resno)<contact_cutoff) return 0.0;
+
+  // grab direct contact gamma for ires_type and jres_type
+  // water_gamma_0_direct and water_gamma_1_direct should be equivalent (relic of compute_water_potential)
+  water_gamma_0_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 0);
+  water_gamma_1_direct = get_water_gamma(i_resno, j_resno, 0, ires_type, jres_type, 1);
+  sigma_gamma_direct = (water_gamma_0_direct + water_gamma_1_direct)/2;
+
+  // compute theta function (eq. 9 in AWSEM SI)
+  t_min_direct = tanh( well->par.kappa*(rij - well->par.well_r_min[0]) );
+  t_max_direct = tanh( well->par.kappa*(well->par.well_r_max[0] - rij) );
+  theta_direct = 0.25*(1.0 + t_min_direct)*(1.0 + t_max_direct);
+
+  direct_energy = -epsilon*k_water*(sigma_gamma_direct*theta_direct);
+
+  return direct_energy;
+}
+
+double FixBackbone::compute_proteinmed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
+{
+  double water_gamma_prot_mediated;
+  double sigma_wat, sigma_prot;
+  double t_min_mediated, t_max_mediated, theta_mediated;
+  double proteinmed_energy;
+
+  if(abs(i_resno-j_resno)<contact_cutoff) return 0.0;
+
+  water_gamma_prot_mediated = get_water_gamma(i_resno, j_resno, 1, ires_type, jres_type, 0);
+
+  // compute sigma_prot
+  sigma_wat = 0.25*(1.0 - tanh(well->par.kappa_sigma*(rho_i-well->par.treshold)))*(1.0 - tanh(well->par.kappa_sigma*(rho_j-well->par.treshold)));
+  sigma_prot = 1.0 - sigma_wat;
+  
+  // compute theta function
+  t_min_mediated = tanh( well->par.kappa*(rij - well->par.well_r_min[1]) );
+  t_max_mediated = tanh( well->par.kappa*(well->par.well_r_max[1] - rij) );
+  theta_mediated = 0.25*(1.0 + t_min_mediated)*(1.0 + t_max_mediated);
+
+  proteinmed_energy = -epsilon*k_water*sigma_prot*water_gamma_prot_mediated*theta_mediated;
+
+  return proteinmed_energy;
+}
+
+double FixBackbone::compute_watermed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)
+{
+  double water_gamma_wat_mediated;
+  double sigma_wat;
+  double t_min_mediated, t_max_mediated, theta_mediated;
+  double watermed_energy;  
+
+  if(abs(i_resno-j_resno)<contact_cutoff) return 0.0;
+
+  water_gamma_wat_mediated = get_water_gamma(i_resno, j_resno, 1, ires_type, jres_type, 1);
+
+  // compute sigma_wat
+  sigma_wat = 0.25*(1.0 - tanh(well->par.kappa_sigma*(rho_i-well->par.treshold)))*(1.0 - tanh(well->par.kappa_sigma*(rho_j-well->par.treshold)));
+
+  // compute theta function
+  t_min_mediated = tanh( well->par.kappa*(rij - well->par.well_r_min[1]) );
+  t_max_mediated = tanh( well->par.kappa*(well->par.well_r_max[1] - rij) );
+  theta_mediated = 0.25*(1.0 + t_min_mediated)*(1.0 + t_max_mediated);
+
+  watermed_energy = -epsilon*k_water*sigma_wat*water_gamma_wat_mediated*theta_mediated;
+
+  return watermed_energy;
+}
+
+void FixBackbone::compute_burial_optimization()
+{
+  // computes and writes out the energies for all interaction types 
+  // for direct, protein-mediated, and water-mediated potentials
+
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rho_i, rho_j;
+  double burial_energy;
+ 
+  double t[3][2];
+  double burial_gamma_0, burial_gamma_1, burial_gamma_2;
+  double norm_array[20], burial_array[3][20];
+
+  // array initialization
+  for (i=0;i<20;++i) {
+    norm_array[i]=0.0;
+    for (j=0;j<3;++j) {
+      burial_array[j][i]=0.0;
+    }
+  }
+    
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = se_map[se[i_resno]-'A'];
+    i_chno = chain_no[i]-1;
+    
+    rho_i = get_residue_density(i);
+    
+    t[0][0] = tanh( burial_kappa*(rho_i - burial_ro_min[0]) );
+    t[0][1] = tanh( burial_kappa*(burial_ro_max[0] - rho_i) );
+    t[1][0] = tanh( burial_kappa*(rho_i - burial_ro_min[1]) );
+    t[1][1] = tanh( burial_kappa*(burial_ro_max[1] - rho_i) );
+    t[2][0] = tanh( burial_kappa*(rho_i - burial_ro_min[2]) );
+    t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - rho_i) );
+	
+    burial_gamma_0 = get_burial_gamma(i_resno, ires_type, 0);
+    burial_gamma_1 = get_burial_gamma(i_resno, ires_type, 1);
+    burial_gamma_2 = get_burial_gamma(i_resno, ires_type, 2);
+    
+    burial_array[0][ires_type] +=-0.5*epsilon*k_burial*burial_gamma_0*(t[0][0] + t[0][1]);
+    burial_array[1][ires_type] += -0.5*epsilon*k_burial*burial_gamma_1*(t[1][0] + t[1][1]);
+    burial_array[2][ires_type] += -0.5*epsilon*k_burial*burial_gamma_2*(t[2][0] + t[2][1]);
+    
+    norm_array[ires_type] += 1.0;
+  }
+  
+  // write output calculated using native sequence on step 0
+  // if step !=0 then write output calculated with shuffled sequence
+  if (ntimestep == 0){
+    for (i=0;i<20;++i) {
+      fprintf(native_burial_optimization_file,"%f %f %f \n", burial_array[0][i], burial_array[1][i], burial_array[2][i]);
+      fprintf(burial_optimization_norm_file,"%f \n",norm_array[i]);
+    }
+  }
+  else {
+    for (i=0;i<20;++i) {
+      fprintf(burial_optimization_file,"%f %f %f \n", burial_array[0][i], burial_array[1][i], burial_array[2][i]);
+    }
+  }
+}
+
 void FixBackbone::print_forces(int coord)
 {
   int index;
@@ -5809,7 +6099,19 @@ void FixBackbone::compute_backbone()
     fprintf(selection_temperature_file,"# timestep: %d\n", ntimestep);
     output_selection_temperature_data();
   }
- 
+
+  // if it is time to output energies for contact potential optimization DO IT
+  if (optimization_flag && ntimestep % optimization_output_freq == 0) {
+    compute_optimization();
+  }
+  // if it is time to output energies for burial potential optimization DO IT
+  if (burial_optimization_flag && ntimestep % burial_optimization_output_freq == 0) {
+    compute_burial_optimization();
+  }
+  // if collecting energies for optimization, shuffle the sequence.  (native sequence used on step 0)
+  if (optimization_flag || burial_optimization_flag){
+    shuffler();
+  }
   if (amh_go_flag)
     compute_amh_go_model();
 

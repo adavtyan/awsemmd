@@ -5282,7 +5282,7 @@ void FixBackbone::compute_debyehuckel_optimization()
       charge_i = -1.0;
     }
     else {
-      return;
+      continue;
     }
     
     for (j=i+1;j<n;++j) {
@@ -5301,7 +5301,7 @@ void FixBackbone::compute_debyehuckel_optimization()
 	charge_j = -1.0;
       }
       else {
-	return;
+	continue;
       }
    
       // Select beta atom unless the residue type is GLY, then select alpha carbon
@@ -5356,11 +5356,11 @@ void FixBackbone::compute_debyehuckel_optimization()
   // if step !=0 then write output calculated with shuffled sequence
   if (ntimestep == 0){
     fprintf(debyehuckel_native_optimization_file,"%f %f %f \n", debyehuckel_energies[0][0], debyehuckel_energies[1][1], debyehuckel_energies[1][0]);
-    fprintf(debyehuckel_native_optimization_norm_file,"%f \n", contact_norm[i][j]);
+    fprintf(debyehuckel_native_optimization_norm_file,"%f %f %f \n", contact_norm[0][0], contact_norm[1][1], contact_norm[1][0]);
   }
   else {
     fprintf(debyehuckel_optimization_file,"%f %f %f \n", debyehuckel_energies[0][0], debyehuckel_energies[1][1], debyehuckel_energies[1][0]);
-    fprintf(debyehuckel_optimization_norm_file,"%f \n", contact_norm[i][j]);
+    fprintf(debyehuckel_optimization_norm_file,"%f %f %f \n", contact_norm[0][0], contact_norm[1][1], contact_norm[1][0]);
   }
 }
 
@@ -6398,7 +6398,7 @@ void FixBackbone::compute_backbone()
     compute_debyehuckel_optimization();
   }
   // if collecting energies for optimization, shuffle the sequence.  (native sequence used on step 0)
-  if (optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag){
+  if (optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag) {
     shuffler();
   }
   if (amh_go_flag)

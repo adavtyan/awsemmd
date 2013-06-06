@@ -207,6 +207,9 @@ public:
   // Burial Optimization block parameters
   int burial_optimization_output_freq;
 
+  // DebyeHuckel Optimization block parameters
+  int debyehuckel_optimization_output_freq;
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -241,7 +244,8 @@ public:
   bool frustration_censoring_flag;
   bool optimization_flag;
   bool burial_optimization_flag;
-  
+  bool debyehuckel_optimization_flag;
+
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
@@ -330,6 +334,9 @@ public:
   // Burial Optimization functions
   void compute_burial_optimization();
 
+  // DebyeHuckel Optimization functions
+  void compute_debyehuckel_optimization();
+
   void allocate();
   inline void Construct_Computational_Arrays();
   int Tag(int index);
@@ -402,6 +409,12 @@ public:
   FILE *burial_optimization_file;
   FILE *native_burial_optimization_file;
   FILE *burial_optimization_norm_file;
+
+  // DebyeHuckel Optimization file
+  FILE *debyehuckel_optimization_file;
+  FILE *debyehuckel_native_optimization_file;
+  FILE *debyehuckel_optimization_norm_file;
+  FILE *debyehuckel_native_optimization_norm_file;
   };
 }
 

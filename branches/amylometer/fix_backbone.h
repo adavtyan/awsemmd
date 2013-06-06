@@ -169,6 +169,14 @@ public:
   bool ssb_rad_cor;
   double ssb_rshift[20];
 
+  // Electrostatic Interaction from Huckel Method 
+  double k_PlusPlus, k_MinusMinus, k_PlusMinus;
+  double k_screening;
+  double screening_length;
+  double dielectric_constant, ion_concentration;
+  double *charge_on_residue; 
+  bool huckel_flag; //flag to turn on DebyeHuckel
+
   // Amylometer variables
   char amylometer_sequence_file[100];  
   int amylometer_nmer_size;
@@ -241,13 +249,13 @@ public:
   char se[1000]; // Protein sequance
   int nch, ch_len[100], ch_pos[100];
   
-  double energy[16], energy_all[16];
+  double energy[17], energy_all[17];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
-		   ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_MEMB, ET_SSB, nEnergyTerms};
+		   ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_MEMB, ET_SSB, ET_DH, nEnergyTerms};
   
-  double ctime[15], previous_time;
+  double ctime[17], previous_time;
   enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
-		   TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_MEMB, TIME_SSB, TIME_N};
+		   TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_MEMB, TIME_SSB, TIME_DH, TIME_N};
   
  private:
   void compute_backbone();
@@ -278,6 +286,7 @@ public:
   void compute_amylometer();
   void read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size, int amylometer_mode);
   void compute_membrane_potential(int i);
+  void compute_DebyeHuckel_Interaction(int i, int j);
 
   // Tertiary Frustratometer Functions
   void compute_tert_frust();

@@ -92,7 +92,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   strcat(forcefile, ".dat");
   dout = fopen(forcefile, "w");
 	
-  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tMembrane\tSSB     \tVTotal\n";
+  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tMembrane\tSSB     \tElectro.\tVTotal\n";
   fprintf(efile, "%s", eheader);
 
   scalar_flag = 1;
@@ -106,6 +106,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
   ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = vec_frag_mem_flag = 0;
   ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = selection_temperature_flag = 0;
+  huckel_flag = 0;
+
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
 	
@@ -398,6 +400,21 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       burial_optimization_flag = 1;
       if (comm->me==0) print_log("Burial Optimization flag on\n");
       in >> burial_optimization_output_freq;
+    } else if (strcmp(varsection, "[DebyeHuckel]")==0) {
+      huckel_flag = 1;
+      if (comm->me==0) print_log("DebyeHuckel on\n");
+      in >> k_PlusPlus >> k_MinusMinus >> k_PlusMinus;
+      in >> k_screening;
+      in >> screening_length;
+      in >> dielectric_constant >> ion_concentration;
+      
+      double boltzman_factor = 0.0019872041; 
+      double room_temperature = 293.0;
+      double ionic_strength = 0.5*ion_concentration;
+      double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
+      double screening_length_from_concentration = pow((boltzman_factor*room_temperature/(dielectric_constant_factor*4.0*3.14*2.0*ionic_strength)),0.5);
+      screening_length =  screening_length_from_concentration;
+      fprintf(screen, "Debye-Huckel Screening Length (1/Ang) = %8.6f", screening_length);  
     }
     varsection[0]='\0'; // Clear buffer
   }
@@ -778,6 +795,30 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     if (comm->me==0) print_log("Computing FM table...\n");
     compute_fragment_memory_table();
   }
+
+  // If using Debye_Huckel potential, read charges from file
+  if (huckel_flag) {
+    int residue_number, total_residues; 
+    double charge_value;
+    double total_charge =0;
+    ifstream input_charge("charge_on_residues.dat");
+    if (!input_charge) error->all(FLERR,"File charge_on_residues.dat doesn't exist");
+    input_charge >> total_residues;
+    
+    //fprintf(screen, "check charge data \n");
+    fprintf(screen, "Number of Charge input = %5d \n", total_residues);
+    for(int ires = 0; ires<total_residues; ires++)
+      {
+	input_charge >> residue_number >> charge_value;
+	int res_min_one = residue_number -1;
+	charge_on_residue[res_min_one] = charge_value;
+	total_charge = total_charge + charge_value;
+	//fprintf(screen, "residue=%5d, charge on residue =%8.6f\n", residue_number, charge_value);
+	//fprintf(screen, "residue=%5d, charge on residue =%8.6f\n", res_min_one, charge_on_residue[res_min_one]);
+      }
+    input_charge.close();
+    fprintf(screen, "Total Charge on the System = %8.4f\n", total_charge ); 
+  }
   
   sStep=0, eStep=0;
   ifstream in_rs("record_steps");
@@ -789,7 +830,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 void FixBackbone::final_log_output()
 {
   double time, tmp;
-  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "Membrane", "SSB"};
+  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "Membrane", "SSB", "DH"};
   int me,nprocs;
 
   MPI_Comm_rank(world,&me);
@@ -939,6 +980,8 @@ FixBackbone::~FixBackbone()
     fclose(native_burial_optimization_file);
     fclose(burial_optimization_norm_file);
   }
+
+  delete[] charge_on_residue;
   
   fclose(efile);
 }
@@ -960,6 +1003,8 @@ void FixBackbone::allocate()
   xn = new double*[n];
   xcp = new double*[n];
   xh = new double*[n];
+
+  charge_on_residue = new double[n];
 	
   water_par = WPV(water_kappa, water_kappa_sigma, treshold, n_wells, well_flag, well_r_min, well_r_max);
   helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold, n_helix_wells, helix_well_flag, helix_well_r_min, helix_well_r_max);
@@ -979,6 +1024,8 @@ void FixBackbone::allocate()
     xn[i] = new double [3];
     xcp[i] = new double [3];
     xh[i] = new double [3];
+    
+    charge_on_residue[i] = 0.0;
   }
 
   for (i = 0; i < 12; ++i) {
@@ -5102,6 +5149,79 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
   f[jatom][2] += -force2*dx[2];
 }
 
+void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
+{
+  //if (i==j) return;
+  if (abs(i-j)<9) return;
+  
+  double dx[3];
+  double *xi, *xj, r;
+  int iatom, jatom;
+  double charge_i = 0.0;
+  double charge_j = 0.0;
+  double term_qq_by_r = 0.0;
+  double force_term = 0.0;
+  double rcut=1.0;
+    
+  charge_i = charge_on_residue[i]; 
+  charge_j = charge_on_residue[j]; 
+  
+  if (charge_i == 0 && charge_j == 0) return;
+  
+  int i_resno = res_no[i]-1;
+  int j_resno = res_no[j]-1;
+  
+  int ires_type = se_map[se[i_resno]-'A'];
+  int jres_type = se_map[se[j_resno]-'A'];
+  
+  if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
+  else { xi = xcb[i]; iatom  = beta_atoms[i]; }
+  if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
+  else { xj = xcb[j]; jatom  = beta_atoms[j]; }
+  
+  dx[0] = xi[0] - xj[0];
+  dx[1] = xi[1] - xj[1];
+  dx[2] = xi[2] - xj[2];
+  
+  r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+  
+  if( (charge_i > 0.0) && (charge_j > 0.0) ) {
+    term_qq_by_r = k_PlusPlus*charge_i*charge_j/r;
+  }
+  else if(charge_i < 0.0 && charge_j < 0.0) {
+    term_qq_by_r = k_MinusMinus*charge_i*charge_j/r;
+  }
+  else if( (charge_i < 0.0 && charge_j > 0.0) || (charge_i > 0.0 && charge_j < 0.0)) {
+    term_qq_by_r = k_PlusMinus*charge_i*charge_j/r;
+  }
+  
+  if(r < rcut) return;
+  
+  double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
+  double term_exp_decay = exp(-k_screening*screening_length*r);
+  double term_energy = epsilon*dielectric_constant_factor*term_qq_by_r*term_exp_decay; 
+  energy[ET_DH] += term_energy;
+  
+  force_term = (term_energy/r)*(1.0/r + screening_length);
+  
+  f[iatom][0] += force_term*dx[0];
+  f[iatom][1] += force_term*dx[1];
+  f[iatom][2] += force_term*dx[2];
+  
+  f[jatom][0] += -force_term*dx[0];
+  f[jatom][1] += -force_term*dx[1];
+  f[jatom][2] += -force_term*dx[2];
+  
+  //printf("%d %d %c %c %f %f %f\n", i, j, se[i_resno], se[j_resno], r, force_term, term_energy);
+  
+  //fprintf(screen, "iatom= %5d, jatom=%5d, i = %5d, j = %5d \n", iatom, jatom, i, j);
+  //if(i <10 && j < 10)
+  //{
+  //fprintf(screen, "iatom= %5d, jatom=%5d, i = %5d, j = %5d \n", i, j, iatom, jatom);
+  //fprintf(screen, "E_DH=%8.6f, F_DH_x=%8.6f, F_DH_y=%8.6f, F_DH_z=%8.6f\n", term_energy, force_term*dx[0], force_term*dx[1], force_term*dx[2]);
+  //}
+}
+
 void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size, int amylometer_mode)
 {
   // Read in sequences, split into n-mers
@@ -5864,15 +5984,35 @@ void FixBackbone::compute_backbone()
 	compute_solvent_barrier(i, j);
     }
   }
-	
+
   if (ssb_flag && ntimestep>=sStep && ntimestep<=eStep) {
     fprintf(dout, "SSB: %d\n", ntimestep);
     fprintf(dout, "SSB_Energy: %f\n\n", energy[ET_SSB]);
     print_forces();
   }
-	
+  
   timerEnd(TIME_SSB);
 
+  for (i=0;i<nn;i++) {
+    i_resno = res_no[i]-1;
+    i_chno = chain_no[i]-1;
+    for (j=0;j<nn;j++) {
+      j_resno = res_no[j]-1;
+      j_chno = chain_no[j]-1;
+      if (huckel_flag) {
+        compute_DebyeHuckel_Interaction(i, j);
+      }
+    }
+  }
+	
+  if (huckel_flag && ntimestep >=sStep && ntimestep <=eStep) {
+    fprintf(dout, "DH: %d\n", ntimestep);
+    fprintf(dout, "DH_Elect_Energy: %f\n\n", energy[ET_DH]);
+    print_forces();
+  }
+
+  timerEnd(TIME_DH);
+	
   for (i=0;i<nn;i++) {
     if (burial_flag && res_info[i]==LOCAL)
       compute_burial_potential(i);
@@ -6009,6 +6149,9 @@ void FixBackbone::compute_backbone()
 
       if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL)
 	compute_solvent_barrier(i, j);
+
+      if (huckel_flag && (j > i || i_chno!=j_chno) && res_info[i]==LOCAL)
+        compute_DebyeHuckel_Interaction(i, j);
     }
 		
     if (burial_flag && res_info[i]==LOCAL)

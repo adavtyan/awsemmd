@@ -415,6 +415,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       double screening_length_from_concentration = pow((boltzman_factor*room_temperature/(dielectric_constant_factor*4.0*3.14*2.0*ionic_strength)),0.5);
       screening_length =  screening_length_from_concentration;
       fprintf(screen, "Debye-Huckel Screening Length (1/Ang) = %8.6f", screening_length);  
+    } else if (strcmp(varsection, "[DebyeHuckel_Optimization]")==0) {
+      debyehuckel_optimization_flag = 1;
+      if (comm->me==0) print_log("DebyeHuckel_Optimization flag on\n");
+      in >> debyehuckel_optimization_output_freq;
     }
     varsection[0]='\0'; // Clear buffer
   }
@@ -777,6 +781,13 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     native_burial_optimization_file = fopen("native_burial_optimization_energies.dat","w");	
     burial_optimization_norm_file = fopen("burial_optimization_norm.dat","w");
   }
+
+  if (debyehuckel_optimization_flag) { 
+    debyehuckel_optimization_file = fopen("debyehuckel_optimization_energies.dat","w");
+    debyehuckel_native_optimization_file = fopen("debyehuckel_native_optimization_energies.dat","w");	
+    debyehuckel_optimization_norm_file = fopen("debyehuckel_optimization_norm.dat","w");
+    debyehuckel_native_optimization_norm_file = fopen("debyehuckel_native_optimization_norm.dat","w");
+  }
   
   // Allocate the table
   if (frag_mem_tb_flag) {
@@ -797,7 +808,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   }
 
   // If using Debye_Huckel potential, read charges from file
-  if (huckel_flag) {
+  // Skip if DebyeHuckel optimization is on, because it uses a residue type based potential
+  // instead of residue index based potential (so that sequence shuffling can be used)
+  if (huckel_flag && !debyehuckel_optimization_flag) {
     int residue_number, total_residues; 
     double charge_value;
     double total_charge =0;
@@ -979,6 +992,12 @@ FixBackbone::~FixBackbone()
     fclose(burial_optimization_file);
     fclose(native_burial_optimization_file);
     fclose(burial_optimization_norm_file);
+  }
+  if (debyehuckel_optimization_flag) {
+    fclose(debyehuckel_optimization_file);
+    fclose(debyehuckel_native_optimization_file);
+    fclose(debyehuckel_optimization_norm_file);
+    fclose(debyehuckel_native_optimization_norm_file);
   }
 
   delete[] charge_on_residue;
@@ -5222,6 +5241,129 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   //}
 }
 
+void FixBackbone::compute_debyehuckel_optimization()
+{
+  // computes and writes out the energies for debyehuckel
+
+  double *xi, *xj, dx[3];
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij;
+  double debyehuckel_energy;
+  double debyehuckel_energies[2][2];
+  double contact_norm[2][2];
+  int i_charge_type, j_charge_type;
+  double charge_i, charge_j;
+
+  debyehuckel_energy=0.0;
+
+  // array initialization
+  for (i=0;i<2;++i) {
+    for (j=i;j<2;++j) {
+      debyehuckel_energies[i][j] = debyehuckel_energies[j][i] = 0.0;
+      contact_norm[i][j] = contact_norm[j][i] = 0.0;
+    }
+  }
+  
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = se_map[se[i_resno]-'A'];
+    i_chno = chain_no[i]-1;
+
+    // check if ires_type is D, E, R or K; if not, skip; if so, assign charge type
+    if (se[i_resno]=='R' || se[i_resno]=='K') {
+      i_charge_type = 0;
+      charge_i = 1.0;
+    }
+    else if (se[i_resno]=='D' || se[i_resno]=='E') {
+      i_charge_type = 1;
+      charge_i = -1.0;
+    }
+    else {
+      return;
+    }
+    
+    for (j=i+1;j<n;++j) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      jres_type = se_map[se[j_resno]-'A'];
+      j_chno = chain_no[j]-1;
+
+      // check if ires_type is D, E, R or K; if not, skip; if so, assign charge type
+      if (se[j_resno]=='R' || se[j_resno]=='K') {
+	j_charge_type = 0;
+	charge_j = 1.0;
+      }
+      else if (se[j_resno]=='D' || se[j_resno]=='E') {
+	j_charge_type = 1;
+	charge_j = -1.0;
+      }
+      else {
+	return;
+      }
+   
+      // Select beta atom unless the residue type is GLY, then select alpha carbon
+      if (se[i_resno]=='G') { xi = xca[i]; }
+      else { xi = xcb[i]; }
+      if (se[j_resno]=='G') { xj = xca[j]; }
+      else { xj = xcb[j]; }
+	  
+      // compute distance between the two atoms
+      dx[0] = xi[0] - xj[0];
+      dx[1] = xi[1] - xj[1];
+      dx[2] = xi[2] - xj[2];
+      rij = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+      
+      // if the atoms are within the threshold, compute the energies
+      if (abs(i-j)>=10 || i_chno != j_chno) {
+	// calculate debyehuckel energies
+	double term_qq_by_r = 0.0;
+
+	if( (charge_i > 0.0) && (charge_j > 0.0) ) {
+	  term_qq_by_r = k_PlusPlus*charge_i*charge_j/rij;
+	}
+	else if(charge_i < 0.0 && charge_j < 0.0) {
+	  term_qq_by_r = k_MinusMinus*charge_i*charge_j/rij;
+	}
+	else if( (charge_i < 0.0 && charge_j > 0.0) || (charge_i > 0.0 && charge_j < 0.0)) {
+	  term_qq_by_r = k_PlusMinus*charge_i*charge_j/rij;
+	}
+	double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
+	double term_exp_decay = exp(-k_screening*screening_length*rij);
+	double term_energy = epsilon*dielectric_constant_factor*term_qq_by_r*term_exp_decay; 
+	debyehuckel_energies[i_charge_type][j_charge_type] += term_energy;
+	contact_norm[i_charge_type][j_charge_type] += 1.0;
+      }
+    }
+  }
+
+  for (i=0;i<2;++i) {
+    for (j=i;j<2;++j) {
+      debyehuckel_energies[i][j] = debyehuckel_energies[i][j] + debyehuckel_energies[j][i];
+      contact_norm[i][j] = contact_norm[i][j] + contact_norm[j][i];
+    }
+  }
+
+  for (i=0;i<2;++i) {
+    debyehuckel_energies[i][i] /= 2.0;
+    contact_norm[i][i] /= 2.0;
+  }
+
+
+  // write output calculated using native sequence on step 0
+  // if step !=0 then write output calculated with shuffled sequence
+  if (ntimestep == 0){
+    fprintf(debyehuckel_native_optimization_file,"%f %f %f \n", debyehuckel_energies[0][0], debyehuckel_energies[1][1], debyehuckel_energies[1][0]);
+    fprintf(debyehuckel_native_optimization_norm_file,"%f \n", contact_norm[i][j]);
+  }
+  else {
+    fprintf(debyehuckel_optimization_file,"%f %f %f \n", debyehuckel_energies[0][0], debyehuckel_energies[1][1], debyehuckel_energies[1][0]);
+    fprintf(debyehuckel_optimization_norm_file,"%f \n", contact_norm[i][j]);
+  }
+}
+
 void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size, int amylometer_mode)
 {
   // Read in sequences, split into n-mers
@@ -6251,8 +6393,12 @@ void FixBackbone::compute_backbone()
   if (burial_optimization_flag && ntimestep % burial_optimization_output_freq == 0) {
     compute_burial_optimization();
   }
+  // if it is time to output energies for DebyeHuckel potential optimization DO IT
+  if (debyehuckel_optimization_flag && ntimestep % debyehuckel_optimization_output_freq == 0) {
+    compute_debyehuckel_optimization();
+  }
   // if collecting energies for optimization, shuffle the sequence.  (native sequence used on step 0)
-  if (optimization_flag || burial_optimization_flag){
+  if (optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag){
     shuffler();
   }
   if (amh_go_flag)

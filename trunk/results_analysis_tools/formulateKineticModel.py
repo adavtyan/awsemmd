@@ -575,7 +575,7 @@ def decimalfoldonstate(binaryfoldonstate):
     return decimalfoldonstate
 
 def binaryfoldonstate(decimalfoldonstate):
-    return bin(decimalfoldonstate)[2:].zfill(len(foldons))
+    return bin(decimalfoldonstate)[2:].ljust(len(foldons), '0')
 
 def computeReducedEnergies():
     # Compute reduced potentials from all simulations in all thermodynamic states.
@@ -614,7 +614,7 @@ import pymbar
 #########
 # The metadata file, containing links to the dump files and Qw/Potential energy
 # files. The format is: dumpfile qw-pot-file
-metadataFile = './metadatashort'
+metadataFile = './metadata'
 # Foldon file: each line contains the residues in a foldon
 # each residue in the protein should be included once and only once
 foldonFile = './foldonsfullank'
@@ -646,11 +646,11 @@ qType = 'QW'
 # Which atom type to consider for contacts? CA or CB?
 atomType = 'CA'
 # Native contact threshold, in Angstroms, to be applied to Ca-Ca distances:
-nativeContactThreshold = 8.0
+nativeContactThreshold = 9.5
 # Contact factor: two residues are in contact if their distances is less than contactFactor*nativedistance (only used for qType = 'QC')
 contactFactor = 1.2
 # Include interface contacts? If False, only those native contacts for residues within the same foldon will be used
-includeInterfaceContacts = False
+includeInterfaceContacts = True
 # Minimum sequence separation for two residues in contact
 minSeqSep = 3
 # Foldon foldedness threshold
@@ -658,9 +658,9 @@ foldonThreshold = 0.6
 # Downhill rate
 k0 = 1000000
 # Minimum temperature for computing overall rate
-starttemp = 250
+starttemp = 275
 # Maximum temperature for computing overall rate
-endtemp = 300
+endtemp = 325
 # Temperature incremement
 tempinc = 1
 # Temperature array
@@ -692,12 +692,13 @@ calculateEquilibriumFlux = True
 
 # Time saving variables
 # read trajectories from metadata? if not, load trajectories.pkl
-readTrajectoriesFromMetadata = False
+readTrajectoriesFromMetadata = True
 # Initialize MBAR? Otherwise, load from pickle file
 initializeMBAR = True
 
 # MBAR parameters
-subsample = False
+subsample = True  # subsample the umbrella sampled data by first calculating the autocorrelation time for that simulation
+                  # otherwise, just use every sample
 
 ########################
 # Variables and arrays #
@@ -757,7 +758,7 @@ biasing_value = []
 # Main program #
 ################
 # find folding temperature
-foldingtemperature = 267
+foldingtemperature = 320
 print "Folding temperature: " + str(foldingtemperature)
 # read in native coordinates for the purposes of computing contacts
 print "Reading native dump file..."

@@ -575,7 +575,7 @@ def decimalfoldonstate(binaryfoldonstate):
     return decimalfoldonstate
 
 def binaryfoldonstate(decimalfoldonstate):
-    return bin(decimalfoldonstate)[2:].ljust(len(foldons), '0')
+    return bin(decimalfoldonstate)[2:].zfill(len(foldons))[::-1]
 
 def computeReducedEnergies():
     # Compute reduced potentials from all simulations in all thermodynamic states.

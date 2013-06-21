@@ -176,6 +176,7 @@ public:
   double dielectric_constant, ion_concentration;
   double *charge_on_residue; 
   bool huckel_flag; //flag to turn on DebyeHuckel
+  int debye_huckel_min_sep; // minimum sequence separation for DH interaction
 
   // Amylometer variables
   char amylometer_sequence_file[100];  

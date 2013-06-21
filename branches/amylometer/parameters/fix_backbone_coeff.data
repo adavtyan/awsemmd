@@ -174,3 +174,18 @@ output frequency
 
 [Burial_Optimization]-
 1
+
+#[DebyeHuckel]
+k_PlusPlus, k_MinusMinus, k_PlusMinus (electrostatic scaling factors)
+k_screening (1=screening on, 0=screening off)
+screening_length (in Angstroms)
+debye_huckel_min_sep (minimum sequence separation for DH interaction)
+
+[DebyeHuckel]
+1.0 1.0 1.0
+1.0
+10.0
+10
+
+[DebyeHuckel_Optimization]-
+1

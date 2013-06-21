@@ -106,7 +106,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
   ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = vec_frag_mem_flag = 0;
   ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = selection_temperature_flag = 0;
-  frag_frust_flag = tert_frust_flag = nmer_frust_flag = optimization_flag = burial_optimization_flag = 0;
   huckel_flag = 0;
 
   epsilon = 1.0; // general energy scale
@@ -407,15 +406,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_PlusPlus >> k_MinusMinus >> k_PlusMinus;
       in >> k_screening;
       in >> screening_length;
-      in >> dielectric_constant >> ion_concentration;
-      
-      double boltzman_factor = 0.0019872041; 
-      double room_temperature = 293.0;
-      double ionic_strength = 0.5*ion_concentration;
-      double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
-      double screening_length_from_concentration = pow((boltzman_factor*room_temperature/(dielectric_constant_factor*4.0*3.14*2.0*ionic_strength)),0.5);
-      screening_length =  screening_length_from_concentration;
-      fprintf(screen, "Debye-Huckel Screening Length (1/Ang) = %8.6f", screening_length);  
+      fprintf(screen, "Debye-Huckel Screening Length = %8.6f Angstroms\n", screening_length);  
+      in >> debye_huckel_min_sep;
     } else if (strcmp(varsection, "[DebyeHuckel_Optimization]")==0) {
       debyehuckel_optimization_flag = 1;
       if (comm->me==0) print_log("DebyeHuckel_Optimization flag on\n");
@@ -5169,8 +5161,7 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
 
 void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
 {
-  //if (i==j) return;
-  if (abs(i-j)<9) return;
+  if (abs(i-j)<debye_huckel_min_sep) return;
   
   double dx[3];
   double *xi, *xj, r;
@@ -5215,9 +5206,7 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   
   if(r < rcut) return;
   
-  double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
-  double term_exp_decay = exp(-k_screening*screening_length*r);
-  double term_energy = epsilon*dielectric_constant_factor*term_qq_by_r*term_exp_decay; 
+  double term_energy = epsilon*term_qq_by_r*exp(-k_screening*r/screening_length);
   energy[ET_DH] += term_energy;
   
   force_term = (term_energy/r)*(1.0/r + screening_length);
@@ -5229,15 +5218,6 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   f[jatom][0] += -force_term*dx[0];
   f[jatom][1] += -force_term*dx[1];
   f[jatom][2] += -force_term*dx[2];
-  
-  //printf("%d %d %c %c %f %f %f\n", i, j, se[i_resno], se[j_resno], r, force_term, term_energy);
-  
-  //fprintf(screen, "iatom= %5d, jatom=%5d, i = %5d, j = %5d \n", iatom, jatom, i, j);
-  //if(i <10 && j < 10)
-  //{
-  //fprintf(screen, "iatom= %5d, jatom=%5d, i = %5d, j = %5d \n", i, j, iatom, jatom);
-  //fprintf(screen, "E_DH=%8.6f, F_DH_x=%8.6f, F_DH_y=%8.6f, F_DH_z=%8.6f\n", term_energy, force_term*dx[0], force_term*dx[1], force_term*dx[2]);
-  //}
 }
 
 void FixBackbone::compute_debyehuckel_optimization()
@@ -5281,7 +5261,7 @@ void FixBackbone::compute_debyehuckel_optimization()
       charge_i = -1.0;
     }
     else {
-      continue;
+      return;
     }
     
     for (j=i+1;j<n;++j) {
@@ -5300,7 +5280,7 @@ void FixBackbone::compute_debyehuckel_optimization()
 	charge_j = -1.0;
       }
       else {
-	continue;
+	return;
       }
    
       // Select beta atom unless the residue type is GLY, then select alpha carbon
@@ -5316,7 +5296,7 @@ void FixBackbone::compute_debyehuckel_optimization()
       rij = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
       
       // if the atoms are within the threshold, compute the energies
-      if (abs(i-j)>=10 || i_chno != j_chno) {
+      if (abs(i-j)>=debye_huckel_min_sep || i_chno != j_chno) {
 	// calculate debyehuckel energies
 	double term_qq_by_r = 0.0;
 
@@ -5329,9 +5309,8 @@ void FixBackbone::compute_debyehuckel_optimization()
 	else if( (charge_i < 0.0 && charge_j > 0.0) || (charge_i > 0.0 && charge_j < 0.0)) {
 	  term_qq_by_r = k_PlusMinus*charge_i*charge_j/rij;
 	}
-	double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
-	double term_exp_decay = exp(-k_screening*screening_length*rij);
-	double term_energy = epsilon*dielectric_constant_factor*term_qq_by_r*term_exp_decay; 
+	
+	double term_energy = epsilon*term_qq_by_r*exp(-k_screening*rij/screening_length);
 	debyehuckel_energies[i_charge_type][j_charge_type] += term_energy;
 	contact_norm[i_charge_type][j_charge_type] += 1.0;
       }
@@ -5355,11 +5334,11 @@ void FixBackbone::compute_debyehuckel_optimization()
   // if step !=0 then write output calculated with shuffled sequence
   if (ntimestep == 0){
     fprintf(debyehuckel_native_optimization_file,"%f %f %f \n", debyehuckel_energies[0][0], debyehuckel_energies[1][1], debyehuckel_energies[1][0]);
-    fprintf(debyehuckel_native_optimization_norm_file,"%f %f %f \n", contact_norm[0][0], contact_norm[1][1], contact_norm[1][0]);
+    fprintf(debyehuckel_native_optimization_norm_file,"%f \n", contact_norm[i][j]);
   }
   else {
     fprintf(debyehuckel_optimization_file,"%f %f %f \n", debyehuckel_energies[0][0], debyehuckel_energies[1][1], debyehuckel_energies[1][0]);
-    fprintf(debyehuckel_optimization_norm_file,"%f %f %f \n", contact_norm[0][0], contact_norm[1][1], contact_norm[1][0]);
+    fprintf(debyehuckel_optimization_norm_file,"%f \n", contact_norm[i][j]);
   }
 }
 
@@ -6397,7 +6376,7 @@ void FixBackbone::compute_backbone()
     compute_debyehuckel_optimization();
   }
   // if collecting energies for optimization, shuffle the sequence.  (native sequence used on step 0)
-  if (optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag) {
+  if (optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag){
     shuffler();
   }
   if (amh_go_flag)

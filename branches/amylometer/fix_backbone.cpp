@@ -768,10 +768,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   // if optimization_flag is on, perform appropriate initializations
   if(optimization_flag) {
     optimization_file = fopen("optimization_energies.dat","w");    
-    fprintf(optimization_file,"#direct protein water \n");
     
     native_optimization_file = fopen("native_optimization_energies.dat","w");
-    fprintf(native_optimization_file,"#direct protein water \n");
     
     optimization_norm_file = fopen("optimization_norms.dat","w");
     native_optimization_norm_file = fopen("native_optimization_norms.dat","w");

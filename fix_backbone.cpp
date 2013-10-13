@@ -108,6 +108,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = selection_temperature_flag = 0;
   frag_frust_flag = tert_frust_flag = nmer_frust_flag = optimization_flag = burial_optimization_flag = 0;
   huckel_flag = debyehuckel_optimization_flag = 0;
+  shuffler_flag = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -413,7 +414,13 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       debyehuckel_optimization_flag = 1;
       if (comm->me==0) print_log("DebyeHuckel_Optimization flag on\n");
       in >> debyehuckel_optimization_output_freq;
+    } else if (strcmp(varsection, "[Shuffler]")==0) {
+      in >> shuffler_flag;
+      if ( shuffler_flag == 1 ) {
+	if (comm->me==0) print_log("Shuffler flag on\n");
+      }
     }
+      
     varsection[0]='\0'; // Clear buffer
   }
   in.close();
@@ -6376,7 +6383,7 @@ void FixBackbone::compute_backbone()
     compute_debyehuckel_optimization();
   }
   // if collecting energies for optimization, shuffle the sequence.  (native sequence used on step 0)
-  if (optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag) {
+  if ((optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag) && (shuffler_flag)){
     shuffler();
   }
   if (amh_go_flag)

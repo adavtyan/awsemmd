@@ -246,6 +246,7 @@ public:
   bool optimization_flag;
   bool burial_optimization_flag;
   bool debyehuckel_optimization_flag;
+  bool shuffler_flag;
 
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};

@@ -189,3 +189,15 @@ debye_huckel_min_sep (minimum sequence separation for DH interaction)
 
 [DebyeHuckel_Optimization]-
 1
+
+#[Tertiary_Frustratometer]
+9.5 (CB-CB cutoff)
+1000 (Num. decoys)
+1    (Output freq.)
+mutational (configurational or mutational)
+
+[Tertiary_Frustratometer]
+9.5
+1000
+1
+mutational

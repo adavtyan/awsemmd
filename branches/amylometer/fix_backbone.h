@@ -211,6 +211,11 @@ public:
   // DebyeHuckel Optimization block parameters
   int debyehuckel_optimization_output_freq;
 
+  // Average Sequence Optimization parameters
+  double **average_sequence;
+  int average_sequence_optimization_output_freq;
+  char average_sequence_input_file_name[100];
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -246,6 +251,7 @@ public:
   bool optimization_flag;
   bool burial_optimization_flag;
   bool debyehuckel_optimization_flag;
+  bool average_sequence_optimization_flag;
   bool shuffler_flag;
 
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
@@ -332,6 +338,9 @@ public:
   double compute_direct_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
   double compute_proteinmed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
   double compute_watermed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+
+  // Average Sequence Optimization functions and variables
+  void compute_average_sequence_optimization();
   
   // Burial Optimization functions
   void compute_burial_optimization();
@@ -417,6 +426,11 @@ public:
   FILE *debyehuckel_native_optimization_file;
   FILE *debyehuckel_optimization_norm_file;
   FILE *debyehuckel_native_optimization_norm_file;
+
+  // Average Sequence Optimization files
+  FILE *average_sequence_optimization_file;
+  FILE *average_sequence_optimization_norm_file;
+
   };
 }
 

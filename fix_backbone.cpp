@@ -108,6 +108,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = selection_temperature_flag = 0;
   frag_frust_flag = tert_frust_flag = nmer_frust_flag = optimization_flag = burial_optimization_flag = 0;
   huckel_flag = debyehuckel_optimization_flag = 0;
+  average_sequence_optimization_flag = 0;
   shuffler_flag = 0;
 
   epsilon = 1.0; // general energy scale
@@ -397,6 +398,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       optimization_flag = 1;
       if (comm->me==0) print_log("Optimization flag on\n");
       in >> optimization_output_freq;
+    } else if (strcmp(varsection, "[Average_Sequence_Optimization]")==0) {
+      average_sequence_optimization_flag = 1;
+      if (comm->me==0) print_log("Average Sequence Optimization flag on\n");
+      in >> average_sequence_optimization_output_freq;
+      in >> average_sequence_input_file_name;
     }
     else if (strcmp(varsection, "[Burial_Optimization]")==0) {
       burial_optimization_flag = 1;
@@ -787,6 +793,19 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     debyehuckel_optimization_norm_file = fopen("debyehuckel_optimization_norm.dat","w");
     debyehuckel_native_optimization_norm_file = fopen("debyehuckel_native_optimization_norm.dat","w");
   }
+
+  // if optimization_flag is on, perform appropriate initializations
+  if(average_sequence_optimization_flag) {
+    average_sequence_optimization_file = fopen("average_sequence_optimization_energies.dat","w");    
+    average_sequence_optimization_norm_file = fopen("average_sequence_optimization_norms.dat","w");
+    ifstream in_average_sequence(average_sequence_input_file_name);
+    for(i=0;i<n;i++) {
+      for(j=0;j<20;j++) {
+	in_average_sequence >> average_sequence[i][j];
+      }
+    }
+    in_average_sequence.close();
+  }
   
   // Allocate the table
   if (frag_mem_tb_flag) {
@@ -998,6 +1017,11 @@ FixBackbone::~FixBackbone()
     fclose(debyehuckel_optimization_norm_file);
     fclose(debyehuckel_native_optimization_norm_file);
   }
+  // if the Average Sequence optimization block was on, close the files
+  if (average_sequence_optimization_flag) {
+    fclose(average_sequence_optimization_file);
+    fclose(average_sequence_optimization_norm_file);
+  }
 
   delete[] charge_on_residue;
   
@@ -1076,6 +1100,16 @@ void FixBackbone::allocate()
 	for (int j=0;j<n;j++) {
 	  frustration_censoring_map[i][j] = 0;
 	}
+      }
+    }
+  }
+  
+  if (average_sequence_optimization_flag) {
+    average_sequence = new double*[n];
+    for (int i=0;i<n;i++) {
+      average_sequence[i] = new double[20];
+      for (int j=0;j<20;j++) {
+	average_sequence[i][j] = 0.0;
       }
     }
   }
@@ -5639,6 +5673,116 @@ void FixBackbone::compute_optimization()
   }
 }
 
+void FixBackbone::compute_average_sequence_optimization()
+{
+  // computes and writes out the energies for all interaction types 
+  // for direct, protein-mediated, and water-mediated potentials
+  // uses an "average sequence" computed from a multiple sequence alignment
+  // to spread the contribution to the counts across multiple residue pairs
+
+  double *xi, *xj, dx[3];
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij, rho_i, rho_j;
+  double direct_energy, proteinmed_energy, watermed_energy;
+  double direct_energies[20][20], protein_energies[20][20], water_energies[20][20];
+  double contact_norm[20][20];
+  double average_sequence_factor;
+  int itype, jtype;
+
+  direct_energy=0.0;
+  proteinmed_energy=0.0;
+  watermed_energy=0.0;
+
+  // array initialization
+  for (i=0;i<20;++i) {
+    for (j=i;j<20;++j) {
+      direct_energies[i][j] = direct_energies[j][i] = 0.0;
+      protein_energies[i][j] = protein_energies[j][i] = 0.0;
+      water_energies[i][j] = water_energies[j][i] = 0.0;      
+      contact_norm[i][j] = contact_norm[j][i] = 0.0;
+    }
+  }
+  
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // Loop over all 20 residue types for residue i
+    for (itype=0;itype<20;++itype) {
+      // get information about residue i
+      i_resno = res_no[i]-1;
+      if (average_sequence[i_resno][itype] == 0.0) {
+	continue;
+      }
+      ires_type = itype;
+      i_chno = chain_no[i]-1;
+      
+      rho_i = get_residue_density(i);
+    
+      for (j=i+1;j<n;++j) {
+	// Loop over all 20 residue types for residue j
+	for (jtype=0;jtype<20;++jtype) {
+	  // get information about residue j
+	  j_resno = res_no[j]-1;
+	  if (average_sequence[j_resno][jtype] == 0.0) {
+	    continue;
+	  }
+	  jres_type = jtype;
+	  j_chno = chain_no[j]-1;
+	  
+	  // Select beta atom unless the residue type is GLY, then select alpha carbon
+	  if (itype==9) { xi = xca[i]; }
+	  else { xi = xcb[i]; }
+	  if (jtype==9) { xj = xca[j]; }
+	  else { xj = xcb[j]; }
+	  
+	  // compute distance between the two atoms
+	  dx[0] = xi[0] - xj[0];
+	  dx[1] = xi[1] - xj[1];
+	  dx[2] = xi[2] - xj[2];
+	  rij = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+	  
+	  // if the atoms are within the threshold, compute the energies
+	  if (abs(i-j)>=contact_cutoff || i_chno != j_chno) {
+	    // rho_i = get_residue_density(i);
+	    rho_j = get_residue_density(j);
+	    average_sequence_factor = average_sequence[i_resno][itype]*average_sequence[j_resno][jtype];
+	    // calculate direct, protein-mediated, water-mediated energies
+	    direct_energies[ires_type][jres_type] += average_sequence_factor*compute_direct_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j); 
+	    protein_energies[ires_type][jres_type] += average_sequence_factor*compute_proteinmed_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+	    water_energies[ires_type][jres_type] += average_sequence_factor*compute_watermed_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+	    contact_norm[ires_type][jres_type] += average_sequence_factor*1.0;
+	  }
+	}
+      }
+    }
+  }
+  
+  for (i=0;i<20;++i) {
+    for (j=i;j<20;++j) {
+      direct_energies[i][j] = direct_energies[i][j] + direct_energies[j][i];
+      protein_energies[i][j] = protein_energies[i][j] + protein_energies[j][i];
+      water_energies[i][j] = water_energies[i][j] + water_energies[j][i];
+      contact_norm[i][j] = contact_norm[i][j] + contact_norm[j][i];
+    }
+  }
+
+  for (i=0;i<20;++i) {
+    direct_energies[i][i] /= 2.0;
+    protein_energies[i][i] /= 2.0;
+    water_energies[i][i] /= 2.0;
+    contact_norm[i][i] /= 2.0;
+  }
+
+
+  // write output calculated energies
+  for (i=0;i<20;++i) {
+    for (j=i;j<20;++j) {
+      fprintf(average_sequence_optimization_file,"%f %f %f \n", direct_energies[i][j], protein_energies[i][j], water_energies[i][j]);
+      fprintf(average_sequence_optimization_norm_file,"%f \n", contact_norm[i][j]);
+    }
+  }
+}
+
 void FixBackbone::shuffler()
 {
   // sequence shuffler
@@ -6381,6 +6525,10 @@ void FixBackbone::compute_backbone()
   // if it is time to output energies for DebyeHuckel potential optimization DO IT
   if (debyehuckel_optimization_flag && ntimestep % debyehuckel_optimization_output_freq == 0) {
     compute_debyehuckel_optimization();
+  }
+  // if it is time to output energies for average sequence optimization DO IT
+  if (average_sequence_optimization_flag && ntimestep % average_sequence_optimization_output_freq == 0) {
+    compute_average_sequence_optimization();
   }
   // if collecting energies for optimization, shuffle the sequence.  (native sequence used on step 0)
   if ((optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag) && (shuffler_flag)){

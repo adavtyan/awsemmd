@@ -7,7 +7,10 @@
 ###########################################################
 # To use this script, use:                                # 
 # vmd -e animatecolor.tcl -args movie                     # 
-# where "movie" is the prefix to your .pdb and .psf files.# 
+# where "movie" is the prefix to your .pdb and .psf files.#
+# You can also run it inside VMD by comment out the last  #
+# line of the code and run "animatecolor movie" in TK     #
+# console.                                                #
 ###########################################################
 
 # A function that sets the user color equal to the value in the B-factor field
@@ -52,7 +55,7 @@ proc animatecolor { fname } {
 
     color scale min 0.0
     color scale max 1.0
-    color midpoint 0.5
+    color scale midpoint 0.5
     mol scaleminmax top 0 0.33 0.66
 }
 
@@ -63,9 +66,9 @@ color scale method RWG
 # set the min, max and midpoint so that 0-.33 is red, .33-.66 is white and .66 to 1 is green
 color scale min 0.33
 color scale max 1.0
-color midpoint 0.5
+color scale midpoint 0.5
 # call the function above with the first argument, 
 # e.g. "movie" if you have movie.pdb and movie.psf in your current directory
-# animatecolor $argv
+animatecolor $argv
 
 

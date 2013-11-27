@@ -312,12 +312,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_screening;
       in >> screening_length;
       in >> dielectric_constant >> ion_concentration;
-
+      
+      double ion_strength = ion_concentration
       double boltzman_factor = 0.0019872041; 
-      double room_temperature = 293.0;
-      double ionic_strength = 0.5*ion_concentration;
+      double room_temperature = 298.0;
       double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
-      double screening_length_from_concentration = pow((boltzman_factor*room_temperature/(dielectric_constant_factor*4.0*3.14*2.0*ionic_strength)),0.5);
+      double screening_length_from_concentration = pow((boltzman_factor*room_temperature*dielctric_constant_factor/(2.0*ionic_strength)),0.5);
       screening_length =  screening_length_from_concentration;
       fprintf(screen, "Debye-Huckel Screening Length (1/Ang) = %8.6f", screening_length);
       

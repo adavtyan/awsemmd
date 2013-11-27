@@ -5,6 +5,8 @@
    http://papoian.chem.umd.edu/
 
    Solvent Separated Barrier Potential was contributed by Nick Schafer
+  
+   Debye Huckel was contributed by Bala
 
    Last Update: 03/23/2011
    ------------------------------------------------------------------------- */
@@ -309,17 +311,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       huckel_flag = 1;
       if (comm->me==0) print_log("DebyeHuckel on\n");
       in >> k_PlusPlus >> k_MinusMinus >> k_PlusMinus;
-      in >> k_screening;
-      in >> screening_length;
-      in >> dielectric_constant >> ion_concentration;
+      in >> dielectric_constant;
+      in >> screening_length >> screening_switch;
       
-      double ion_strength = ion_concentration
-      double boltzman_factor = 0.0019872041; 
-      double room_temperature = 298.0;
-      double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
-      double screening_length_from_concentration = pow((boltzman_factor*room_temperature*dielctric_constant_factor/(2.0*ionic_strength)),0.5);
-      screening_length =  screening_length_from_concentration;
-      fprintf(screen, "Debye-Huckel Screening Length (1/Ang) = %8.6f", screening_length);
+      fprintf(screen, "Debye-Huckel Screening Length (Ang) = %8.6f", screening_length);
       
       }
     varsection[0]='\0'; // Clear buffer
@@ -3325,8 +3320,8 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
 
 void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
 {
-  //if (i==j) return;
-  if (abs(i-j)<9) return;
+  if (i==j) return;
+  //if (abs(i-j)<9) return;
 
   double dx[3];
   double *xi, *xj, r;
@@ -3341,7 +3336,7 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   charge_i = charge_on_residue[i]; 
   charge_j = charge_on_residue[j]; 
 
-  if (charge_i == 0 && charge_j == 0) return;
+  if (charge_i == 0 || charge_j == 0) return;
 
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
@@ -3375,12 +3370,13 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
 
   if(r < rcut) return;
    
-  double dielectric_constant_factor = 332.24*dielectric_constant/80.0;
-  double term_exp_decay = exp(-k_screening*screening_length*r);
+  double dielectric_constant_factor = 332.24/dielectric_constant;
+  double inv_screening_length = 1.0/screening_length;
+  double term_exp_decay = exp(-screening_switch*inv_screening_length*r);
   double term_energy = epsilon*dielectric_constant_factor*term_qq_by_r*term_exp_decay; 
   energy[ET_DH] += term_energy;
 
-  force_term = (term_energy/r)*(1.0/r + screening_length);
+  force_term = (term_energy/r)*(1.0/r + screening_switch*inv_screening_length);
 
   f[iatom][0] += force_term*dx[0];
   f[iatom][1] += force_term*dx[1];

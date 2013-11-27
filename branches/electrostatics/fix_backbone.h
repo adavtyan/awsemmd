@@ -130,9 +130,8 @@ public:
 
   // Electrostatic Interaction from Huckel Method 
   double k_PlusPlus, k_MinusMinus, k_PlusMinus;
-  double k_screening;
-  double screening_length;
-  double dielectric_constant, ion_concentration;
+  double dielectric_constant;
+  double screening_length, screening_switch;
 
 
   // Standart lammaps interface

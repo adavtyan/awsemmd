@@ -117,6 +117,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   an = 0.4831806; bn = 0.7032820; cn = -0.1864262;
   ap = 0.4436538; bp = 0.2352006; cp = 0.3211455;
   ah = 0.8409657; bh = 0.8929599; ch = -0.7338894;
+
+  n_wells = 0;
+  n_helix_wells = 0;
 	
   igroup2 = group->find(arg[3]);
   if (igroup2 == -1) 
@@ -683,7 +686,7 @@ void FixBackbone::allocate()
   res_info = new int[n];
   chain_no = new int[n];
   se = new char[n+2];
-	
+
   xca = new double*[n];
   xcb = new double*[n];
   xo = new double*[n];
@@ -3901,7 +3904,6 @@ void FixBackbone::compute_backbone()
     fprintf(dout, "\n\n");
 
 #else
-  
   for (i=0;i<nn;i++) {
     i_resno = res_no[i]-1;
     i_chno = chain_no[i]-1;
@@ -3922,11 +3924,11 @@ void FixBackbone::compute_backbone()
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
       		
-      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
+      if (dssp_hdrgn_flag && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
 				
       // Need to change
-      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && res_info[j]==LOCAL)
+      if (p_ap_flag && i<n-i_med_min && j>=i+i_med_min && res_info[i]==LOCAL && res_info[j]==LOCAL)
 	compute_P_AP_potential(i, j);
 
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)

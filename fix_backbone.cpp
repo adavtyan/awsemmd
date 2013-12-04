@@ -315,23 +315,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   }
   in.close();
   if (comm->me==0) print_log("\n");
-
-  // Read sequance file
-  ifstream ins(arg[6]);
-  if (!ins) error->all(FLERR,"Sequence file was not found");
-  char buf[1000];
-  se[0]='\0';
-  nch = 0;
-  while (!ins.eof()) {
-    ins >> buf;
-    if (buf[0]=='#' || isEmptyString(buf)) continue;
-    ch_pos[nch] = strlen(se)+1;
-    strcat(se, buf);
-    ch_len[nch] = strlen(buf);
-    nch++;
-    buf[0]='\0';
-  }
-  ins.close();
 	
   force_flag = 0;
   n = (int)(group->count(igroup)+1e-12);
@@ -349,6 +332,24 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   allocated = false;
 
   allocate();
+
+  // Read sequance file
+  ifstream ins(arg[6]);
+  if (!ins) error->all(FLERR,"Sequence file was not found");
+  char *buf = new char[n+2];
+  se[0]='\0';
+  nch = 0;
+  while (!ins.eof()) {
+    ins >> buf;
+    if (buf[0]=='#' || isEmptyString(buf)) continue;
+    ch_pos[nch] = strlen(se)+1;
+    strcat(se, buf);
+    ch_len[nch] = strlen(buf);
+    nch++;
+    buf[0]='\0';
+  }
+  ins.close();
+  delete [] buf;
 
   if (dssp_hdrgn_flag) {
     ifstream in_anti_HB("anti_HB");
@@ -623,6 +624,7 @@ FixBackbone::~FixBackbone()
     delete [] xn;
     delete [] xcp;
     delete [] xh;
+    delete [] se;
 
     delete p_ap;
     delete R;
@@ -680,6 +682,7 @@ void FixBackbone::allocate()
   res_no = new int[n];
   res_info = new int[n];
   chain_no = new int[n];
+  se = new char[n+2];
 	
   xca = new double*[n];
   xcb = new double*[n];

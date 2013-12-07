@@ -394,6 +394,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       if (comm->me==0) print_log("Selection_Temperature flag on \n");
       in >> selection_temperature_file_name;
       in >> selection_temperature_output_frequency;
+      in >> selection_temperature_sequences_file_name;
+      in >> selection_temperature_residues_file_name;
+      in >> selection_temperature_sequence_energies_output_file_name;
     } else if (strcmp(varsection, "[Optimization]")==0) {
       optimization_flag = 1;
       if (comm->me==0) print_log("Optimization flag on\n");
@@ -768,7 +771,33 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   // Selection temperature file
   if (selection_temperature_flag) {
     selection_temperature_file = fopen(selection_temperature_file_name, "w");
+    selection_temperature_sequence_energies_output_file = fopen(selection_temperature_sequence_energies_output_file_name, "w");
     fprintf(selection_temperature_file, "# i j a_i a_j rij rho_i rho_j water burial_i burial_j\n");
+    // read in sequences in selection temperature sequences file
+    char temp_sequence[1000];
+    ifstream selection_temperature_sequences_file(selection_temperature_sequences_file_name);
+    selection_temperature_sequences_file >> num_selection_temperature_sequences;
+    selection_temperature_sequences = new char*[num_selection_temperature_sequences];
+    for (int i=0;i<num_selection_temperature_sequences;i++) {
+      selection_temperature_sequences[i] = new char[n];
+    }
+    for(int i_sequence = 0; i_sequence < num_selection_temperature_sequences; i_sequence++) {
+      selection_temperature_sequences_file >> temp_sequence;
+      strcpy(selection_temperature_sequences[i_sequence],temp_sequence);
+    }
+    
+    selection_temperature_sequences_file.close();
+
+    // read in residues in selection temperature residues file
+    int temp_res_index;
+    ifstream selection_temperature_residues_file(selection_temperature_residues_file_name);
+    selection_temperature_residues_file >> num_selection_temperature_residues;
+    selection_temperature_residues = new int[num_selection_temperature_residues];
+    for(int i=0; i<num_selection_temperature_residues;i++) {
+      selection_temperature_residues_file >> temp_res_index;
+      selection_temperature_residues[i] = temp_res_index;
+    }
+    selection_temperature_residues_file.close();
   }
   
   // if optimization_flag is on, perform appropriate initializations
@@ -997,6 +1026,7 @@ FixBackbone::~FixBackbone()
   // if the selection temperature was being output, close the file
   if (selection_temperature_flag) {
     fclose(selection_temperature_file);
+    fclose(selection_temperature_sequence_energies_output_file);
   }
 
   // if the optimization block was on, close the files
@@ -3941,7 +3971,8 @@ void FixBackbone::output_selection_temperature_data()
   int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
   double rij, rho_i, rho_j;
   double water_energy, burial_energy_i, burial_energy_j;
-
+  
+  // Loop over original sequence and output detailed information
   // Double loop over all residue pairs
   for (i=0;i<n;++i) {
     // get information about residue i
@@ -3968,7 +3999,51 @@ void FixBackbone::output_selection_temperature_data()
 
       fprintf(selection_temperature_file,"%d %d %c %c %f %f %f %f %f %f\n", i+1, j+1, se[i], se[j], rij, rho_i, rho_j, water_energy, burial_energy_i, burial_energy_j);
     }
-  }  
+  }
+
+  // Loop over sequences in selection temperature sequences file and output energy
+  // Sum the energies only from those residues in the selection temperature residues file
+  int i_sel_temp = 0;
+  int j_sel_temp = 0;
+  double temp_sequence_energy = 0.0;
+  for (int i_sequence = 0; i_sequence<num_selection_temperature_sequences; i_sequence++) {
+    //printf("%d\n", i_sequence);
+    temp_sequence_energy = 0.0;
+    i_sel_temp = 0;
+    for (i=0;i<n;++i) {
+      j_sel_temp = i_sel_temp+1;
+      // get information about residue i
+      i_resno = res_no[i]-1;
+      if (!(i_resno == selection_temperature_residues[i_sel_temp]-1) || selection_temperature_sequences[i_sequence][i] == '*') {
+	continue;
+      }
+      i_sel_temp++;
+      ires_type = se_map[selection_temperature_sequences[i_sequence][i]-'A'];
+      i_chno = chain_no[i]-1;
+      rho_i = get_residue_density(i_resno);
+      temp_sequence_energy += compute_burial_energy(i_resno, ires_type, rho_i);
+      for (j=i+1;j<n;++j) {
+	// get information about residue j
+	j_resno = res_no[j]-1;
+	if (!(j_resno == selection_temperature_residues[j_sel_temp]-1) || selection_temperature_sequences[i_sequence][j] == '*') {
+	  continue;
+	}
+	j_sel_temp++;
+	jres_type = se_map[selection_temperature_sequences[i_sequence][j]-'A'];
+	j_chno = chain_no[j]-1;
+	// get the distance between i and j
+	rij = get_residue_distance(i_resno, j_resno);
+	rho_j = get_residue_density(j_resno);
+	// compute the energies for the (i,j) pair
+	water_energy = 0.0;
+	if ((abs(i-j)>=contact_cutoff || i_chno != j_chno)) {
+	  water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+	}
+	temp_sequence_energy += water_energy;
+      }
+    }
+    fprintf(selection_temperature_sequence_energies_output_file, "%f\n", temp_sequence_energy);
+  }
 }
 
 void FixBackbone::compute_tert_frust()

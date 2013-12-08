@@ -305,7 +305,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       memb_flag = 1;
       print_log("Membrane flag on\n");
       in >> k_overall_memb;
-	  in >> memb_dens_offset;
+      in >> memb_dens_offset;
       in >> k_bin;
       in >> memb_xo[0] >> memb_xo[1] >> memb_xo[2];
       in >> memb_pore_type;
@@ -4104,7 +4104,7 @@ void FixBackbone::compute_mcso()
       // printf("\n random probability %f\n", random_probability);
       // printf("\n exponential factor %f\n", exp(-energy_difference/mcso_temp));
       // printf("\n temperature %f\n", mcso_temp);
-      if (random_probability > exp(-energy_difference/mcso_temp)) {
+      if (random_probability > exp(-energy_difference/(k_b*mcso_temp))) {
 	// printf("\n rejected!\n");
 	  // if reject, put the old sequence back
 	  for (i=0;i<n;i++) {

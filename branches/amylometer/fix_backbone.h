@@ -201,6 +201,20 @@ public:
   // Selection Temperature
   char selection_temperature_file_name[100];
   int selection_temperature_output_frequency;
+  char selection_temperature_sequences_file_name[100];
+  char selection_temperature_residues_file_name[100];
+  char selection_temperature_sequence_energies_output_file_name[100];
+  char **selection_temperature_sequences;
+  int num_selection_temperature_sequences;
+  int num_selection_temperature_residues;
+  int *selection_temperature_residues;
+
+  // Monte Carlo Sequence Optimization
+  double mcso_start_temp, mcso_end_temp;
+  int mcso_num_steps;
+  char mcso_se[1000];
+  char mcso_seq_output_file_name[100];
+  char mcso_energy_output_file_name[100];
 
   // Optimization block parameters
   int optimization_output_freq;
@@ -253,6 +267,7 @@ public:
   bool debyehuckel_optimization_flag;
   bool average_sequence_optimization_flag;
   bool shuffler_flag;
+  bool monte_carlo_seq_opt_flag;
 
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -332,6 +347,11 @@ public:
   // Selection Temperature functions
   void output_selection_temperature_data();
 
+  // Monte Carlo Sequence Optimization functions
+  void compute_mcso();
+  double compute_total_burial_energy();
+  double compute_total_contact_energy();
+
   // Optimziation functions
   void compute_optimization();
   void shuffler();
@@ -409,6 +429,11 @@ public:
 
   // Selection temperature file
   FILE *selection_temperature_file;
+  FILE *selection_temperature_sequence_energies_output_file;
+  
+  // Monte Carlo Sequence Optimization files
+  FILE *mcso_seq_output_file;
+  FILE *mcso_energy_output_file;
 
   // Optimization file
   FILE *optimization_file;

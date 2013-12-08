@@ -110,6 +110,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   huckel_flag = debyehuckel_optimization_flag = 0;
   average_sequence_optimization_flag = 0;
   shuffler_flag = 0;
+  monte_carlo_seq_opt_flag = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -397,6 +398,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> selection_temperature_sequences_file_name;
       in >> selection_temperature_residues_file_name;
       in >> selection_temperature_sequence_energies_output_file_name;
+    } else if (strcmp(varsection, "[Monte_Carlo_Seq_Opt]")==0) {
+      monte_carlo_seq_opt_flag = 1;
+      if (comm->me==0) print_log("Monte_Carlo_Seq_Opt flag on \n");
+      in >> mcso_start_temp >> mcso_end_temp >> mcso_num_steps;
+      in >> mcso_seq_output_file_name;
+      in >> mcso_energy_output_file_name;
     } else if (strcmp(varsection, "[Optimization]")==0) {
       optimization_flag = 1;
       if (comm->me==0) print_log("Optimization flag on\n");
@@ -799,6 +806,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     }
     selection_temperature_residues_file.close();
   }
+
+  if (monte_carlo_seq_opt_flag) {
+    mcso_seq_output_file = fopen(mcso_seq_output_file_name, "w");
+    mcso_energy_output_file = fopen(mcso_energy_output_file_name, "w");
+  }
   
   // if optimization_flag is on, perform appropriate initializations
   if(optimization_flag) {
@@ -1027,6 +1039,12 @@ FixBackbone::~FixBackbone()
   if (selection_temperature_flag) {
     fclose(selection_temperature_file);
     fclose(selection_temperature_sequence_energies_output_file);
+  }
+  
+  // if the mcso sequences and energies were being output, close the files
+  if (monte_carlo_seq_opt_flag) {
+    fclose(mcso_seq_output_file);
+    fclose(mcso_energy_output_file);
   }
 
   // if the optimization block was on, close the files
@@ -4046,6 +4064,119 @@ void FixBackbone::output_selection_temperature_data()
   }
 }
 
+void FixBackbone::compute_mcso()
+{
+  int i;
+  int rand_res_1, rand_res_2;
+  char temp_res;
+
+  double total_energy = 0.0;
+  double new_total_energy = 0.0;
+  double energy_difference = 0.0;
+  double mcso_temp = mcso_start_temp;
+  int mcso_temp_step;
+  double random_probability = 0.0;
+  double mcso_increment = ((mcso_end_temp-mcso_start_temp)/(double)mcso_num_steps);
+
+  for (mcso_temp_step=0; mcso_temp_step<mcso_num_steps;mcso_temp_step++) {
+    // compute total energy
+    total_energy = compute_total_burial_energy() + compute_total_contact_energy();
+    // printf("\n inital total energy %f\n", total_energy);
+    // save old sequence
+    for (i=0;i<n;i++) {
+      mcso_se[i] = se[i];
+    }
+    // permute two residues
+    rand_res_1 = rand() % n;
+    rand_res_2 = rand() % n;
+    temp_res = se[rand_res_1];
+    se[rand_res_1] = se[rand_res_2];
+    se[rand_res_2] = temp_res;
+    // compute new total energy
+    new_total_energy = compute_total_burial_energy() + compute_total_contact_energy();
+    // printf("\n new total energy %f\n", new_total_energy);
+    // accept or reject based on temperature
+    energy_difference = new_total_energy - total_energy;
+    // printf("\n energy difference %f\n", energy_difference);
+    mcso_temp += mcso_increment;
+    if (energy_difference > 0) {
+      random_probability = (double)rand()/RAND_MAX;
+      // printf("\n random probability %f\n", random_probability);
+      // printf("\n exponential factor %f\n", exp(-energy_difference/mcso_temp));
+      // printf("\n temperature %f\n", mcso_temp);
+      if (random_probability > exp(-energy_difference/mcso_temp)) {
+	// printf("\n rejected!\n");
+	  // if reject, put the old sequence back
+	  for (i=0;i<n;i++) {
+	    se[i] = mcso_se[i];
+	  }	
+	}
+      else {
+	// printf("\n accepted!\n");
+	total_energy = new_total_energy;
+      }
+    }
+    // output the sequence and energy
+    for (i=0;i<n;i++) {
+      fprintf(mcso_seq_output_file,"%c", se[i]);
+    }	
+    fprintf(mcso_seq_output_file,"\n");
+    fprintf(mcso_energy_output_file,"%f\n",total_energy);
+  }
+}
+
+double FixBackbone::compute_total_burial_energy()
+{
+  int i;
+  int ires_type, i_resno, i_chno;
+  double rho_i;
+
+  double total_burial_energy = 0.0;
+
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = get_residue_type(i_resno);
+    i_chno = chain_no[i]-1;
+    rho_i = get_residue_density(i_resno);
+    total_burial_energy += compute_burial_energy(i_resno, ires_type, rho_i);
+  }
+
+  return total_burial_energy;
+}
+
+double FixBackbone::compute_total_contact_energy()
+{
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij, rho_i, rho_j;
+  double total_water_energy = 0.0;
+  
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = get_residue_type(i_resno);
+    i_chno = chain_no[i]-1;
+    for (j=i+1;j<n;++j) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      jres_type = get_residue_type(j_resno);
+      j_chno = chain_no[j]-1;
+      // get the distance between i and j
+      rij = get_residue_distance(i_resno, j_resno);
+      rho_i = get_residue_density(i_resno);
+      rho_j = get_residue_density(j_resno);
+      // compute the energies for the (i,j) pair
+      if ((abs(i-j)>=contact_cutoff || i_chno != j_chno)) {
+	total_water_energy += compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
+      }
+    }
+  }
+
+  return total_water_energy;
+}
+
 void FixBackbone::compute_tert_frust()
 {
   double *xi, *xj, dx[3];
@@ -6587,6 +6718,11 @@ void FixBackbone::compute_backbone()
   if (selection_temperature_flag && ntimestep % selection_temperature_output_frequency == 0) {
     fprintf(selection_temperature_file,"# timestep: %d\n", ntimestep);
     output_selection_temperature_data();
+  }
+
+  // if it is time to do the mcso, do it
+  if (monte_carlo_seq_opt_flag) {
+    compute_mcso();
   }
 
   // if it is time to output energies for contact potential optimization DO IT

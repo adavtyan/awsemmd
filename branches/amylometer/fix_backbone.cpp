@@ -432,6 +432,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> debyehuckel_optimization_output_freq;
     } else if (strcmp(varsection, "[Shuffler]")==0) {
       in >> shuffler_flag;
+      in >> shuffler_mode;
       if ( shuffler_flag == 1 ) {
 	if (comm->me==0) print_log("Shuffler flag on\n");
       }
@@ -5418,7 +5419,6 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   double charge_j = 0.0;
   double term_qq_by_r = 0.0;
   double force_term = 0.0;
-  double rcut=1.0;
     
   charge_i = charge_on_residue[i]; 
   charge_j = charge_on_residue[j]; 
@@ -5451,8 +5451,6 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   else if( (charge_i < 0.0 && charge_j > 0.0) || (charge_i > 0.0 && charge_j < 0.0)) {
     term_qq_by_r = k_PlusMinus*charge_i*charge_j/r;
   }
-  
-  if(r < rcut) return;
   
   double term_energy = epsilon*term_qq_by_r*exp(-k_screening*r/screening_length);
   energy[ET_DH] += term_energy;
@@ -5991,11 +5989,36 @@ void FixBackbone::compute_average_sequence_optimization()
 
 void FixBackbone::shuffler()
 {
-  // sequence shuffler
-  for (int i=0; i<n; i++) {
-	int r = i + (rand() % (n-i)); // Random remaining position.
-	int temp = se[i]; se[i] = se[r]; se[r] = temp;
-  }  
+  double residue_density_i;
+  double residue_density_j;
+
+  // If doing a normal, full shuffling
+  if (strcmp(shuffler_mode, "normal")==0) {
+    // sequence shuffler
+    for (int i=0; i<n; i++) {
+      int r = i + (rand() % (n-i)); // Random remaining position.
+      int temp = se[i]; se[i] = se[r]; se[r] = temp;
+    }  
+  }
+  else if (strcmp(shuffler_mode, "burial")==0) {
+    // burial-constrained sequence shuffler
+    for (int shuffle_iteration=0; shuffle_iteration<1000; shuffle_iteration++) {
+      for (int i=0; i<n; i++) {
+	residue_density_i = get_residue_density(i);
+	int j = i + (rand() % (n-i)); // Random remaining position.
+	residue_density_j = get_residue_density(j);
+	if ((residue_density_i > burial_ro_min[0] && residue_density_i < burial_ro_max[0] && residue_density_j > burial_ro_min[0] && residue_density_j < burial_ro_max[0]) ||
+	    (residue_density_i > burial_ro_min[1] && residue_density_i < burial_ro_max[1] && residue_density_j > burial_ro_min[1] && residue_density_j < burial_ro_max[1]) ||
+	    (residue_density_i > burial_ro_min[2] && residue_density_i < burial_ro_max[2] && residue_density_j > burial_ro_min[2] && residue_density_j < burial_ro_max[2])) {
+	  // if criterion is met, swap residues
+	  int temp = se[i]; se[i] = se[j]; se[j] = temp;
+	}  
+      }
+    }
+  }
+  else {
+    printf("Unrecognized shuffler mode %s\n", shuffler_mode);
+  }
 }
 
 double FixBackbone::compute_direct_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j)

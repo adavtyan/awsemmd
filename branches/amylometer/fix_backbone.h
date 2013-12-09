@@ -225,6 +225,7 @@ public:
 
   // DebyeHuckel Optimization block parameters
   int debyehuckel_optimization_output_freq;
+  char shuffler_mode[100];
 
   // Average Sequence Optimization parameters
   double **average_sequence;

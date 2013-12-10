@@ -5455,7 +5455,7 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   double term_energy = epsilon*term_qq_by_r*exp(-k_screening*r/screening_length);
   energy[ET_DH] += term_energy;
   
-  force_term = (term_energy/r)*(1.0/r + screening_length);
+  force_term = (term_energy/r)*(1.0/r + k_screening/screening_length);
   
   f[iatom][0] += force_term*dx[0];
   f[iatom][1] += force_term*dx[1];

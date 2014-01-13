@@ -201,3 +201,23 @@ mutational (configurational or mutational or singleresidue)
 1000
 1
 mutational
+
+#[Nmer_Frustratometer]
+6 (nmer_frust_size)
+9.5 (nmer_frust_cutoff)
+10 (nmer_contacts_cutoff)
+1000 (nmer_frust_ndecoys)
+1 (nmer_frust_output_freq)
+1.7 -1 0 (nmer_frust_min_frust_threshold nmer_frust_high_frust_threshold nmer_output_neutral_flag)
+0 0 1 0.6 (nmer_frust_trap_flag nmer_frust_draw_trap_flag nmer_frust_trap_num_sigma nmer_frust_ss_frac)
+singlenmer (mode: pairwise or singlenmer)
+
+[Nmer_Frustratometer]-
+6 
+9.5 
+10 
+1000 
+1 
+1.7 -1 0 
+0 0 1 0.6 
+singlenmer

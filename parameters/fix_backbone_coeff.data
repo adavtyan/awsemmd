@@ -239,3 +239,25 @@ SEQUENCEFILE
 SEQUENCEFILE
 6
 2 test.gro 6.0
+
+#[Membrane]
+scaling factor
+kappa
+center of the membrane-pore (x, y, z)
+pore type (only 0)
+lenght of the membrane
+pore size
+distortion of the pore (from 0 to 100)
+gamma values
+
+[Membrane]
+2
+0.5
+0 0 0
+0
+30
+5
+0
+1 1 1 1
+1 1 1 1
+1 1 1 1

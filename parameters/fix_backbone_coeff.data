@@ -123,7 +123,7 @@ rmin rmax dr
 [Fragment_Memory_Table]-
 1.0
 1r69.mem
-1r69.gamma
+uniform.gamma
 0 50 0.1
 
 #[Solvent_Barrier]

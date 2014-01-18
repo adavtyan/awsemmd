@@ -136,6 +136,7 @@ public:
   char tert_frust_mode[100];
   double *tert_frust_decoy_energies;
   double *decoy_ixn_stats;
+  bool already_computed_configurational_decoys;
 
   // nmer frustratometer parameters
   int nmer_frust_size, nmer_frust_ndecoys, nmer_frust_output_freq;

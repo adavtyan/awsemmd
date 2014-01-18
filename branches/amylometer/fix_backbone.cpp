@@ -348,6 +348,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> tert_frust_ndecoys;
       in >> tert_frust_output_freq;
       in >> tert_frust_mode;
+      // Set the value of this flag to 0 so that the configurational decoy statistics will be computed at least once
+      already_computed_configurational_decoys = 0;
       if (strcmp(tert_frust_mode, "configurational")!=0 && strcmp(tert_frust_mode, "mutational")!=0 && strcmp(tert_frust_mode, "singleresidue")!=0) {
 	// throw an error if the "mode" is anything but "configurational" or "mutational"
 	error->all(FLERR,"Only \"configurational\", \"mutational\", \"singleresidue\" are acceptable modes for the Tertiary_Frustratometer.");
@@ -4211,7 +4213,13 @@ void FixBackbone::compute_tert_frust()
 	rho_i = get_residue_density(i_resno);
 	rho_j = get_residue_density(j_resno);
 	native_energy = compute_native_ixn(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
-	compute_decoy_ixns(i_resno, j_resno, rij, rho_i, rho_j);
+	// if the mode is not configurational or if the mode is configurational and we have
+	// not already computed the decoy energies, compute the decoy energies
+	// the configurational decoy statistics only need to be computed once because they are
+	// the same for every contact
+	if (!strcmp(tert_frust_mode, "configurational")==0 || (strcmp(tert_frust_mode, "configurational")==0 && !already_computed_configurational_decoys)) {
+	  compute_decoy_ixns(i_resno, j_resno, rij, rho_i, rho_j);
+	}
 	frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
 	// write information out to output file
  	fprintf(tert_frust_output_file,"%d %d %f %f %f %c %c %f %f %f %f\n", i_resno+1, j_resno+1, rij, rho_i, rho_j, se[i_resno], se[j_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
@@ -4420,6 +4428,12 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
   decoy_ixn_stats[0] = compute_array_mean(tert_frust_decoy_energies, tert_frust_ndecoys);
   decoy_ixn_stats[1] = compute_array_std(tert_frust_decoy_energies, tert_frust_ndecoys);
 
+  // if we get here and the mode is configurational, we have already computed the statistics
+  // for the decoys and we don't need to repeat the calculation again
+  // this is to save time when using the configurational mode of the frustratometer
+  if (strcmp(tert_frust_mode, "configurational")==0) {
+    already_computed_configurational_decoys = 1;
+  }
 }
 
 double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff, bool nmercalc)

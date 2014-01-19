@@ -448,7 +448,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   // Read sequance file
   ifstream ins(arg[6]);
   if (!ins) error->all(FLERR,"Sequence file was not found");
-  char buf[1000];
+  char buf[10000];
   se[0]='\0';
   nch = 0;
   while (!ins.eof()) {

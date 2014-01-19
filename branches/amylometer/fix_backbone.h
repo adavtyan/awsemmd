@@ -276,7 +276,7 @@ public:
   enum Angles{PHI = 0, PSI, nAngles};
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
   
-  char se[1000]; // Protein sequance
+  char se[10000]; // Protein sequance
   int nch, ch_len[100], ch_pos[100];
   
   double energy[17], energy_all[17];

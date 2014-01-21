@@ -261,3 +261,16 @@ gamma values
 1 1 1 1
 1 1 1 1
 1 1 1 1
+
+[Selection_Temperature]-
+1000
+0
+seltemp_ixns_out
+0
+seltemp_sequences
+seltemp_residues
+seltemp_energies
+1
+9.5
+1
+seltemp_contactlist

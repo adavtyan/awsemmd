@@ -205,10 +205,16 @@ public:
   char selection_temperature_sequences_file_name[100];
   char selection_temperature_residues_file_name[100];
   char selection_temperature_sequence_energies_output_file_name[100];
+  char selection_temperature_output_contact_list_file_name[100];
   char **selection_temperature_sequences;
   int num_selection_temperature_sequences;
   int num_selection_temperature_residues;
   int *selection_temperature_residues;
+  bool selection_temperature_output_interaction_energies_flag;
+  bool selection_temperature_output_contact_list_flag;
+  bool selection_temperature_evaluate_sequence_energies_flag;
+  double selection_temperature_rij_cutoff;
+  int selection_temperature_min_seq_sep;
 
   // Monte Carlo Sequence Optimization
   double mcso_start_temp, mcso_end_temp;
@@ -433,6 +439,7 @@ public:
   // Selection temperature file
   FILE *selection_temperature_file;
   FILE *selection_temperature_sequence_energies_output_file;
+  FILE *selection_temperature_contact_list_file;
   
   // Monte Carlo Sequence Optimization files
   FILE *mcso_seq_output_file;

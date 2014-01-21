@@ -953,7 +953,9 @@ FixBackbone::~FixBackbone()
     delete [] xcp;
     delete [] xh;
 
-    delete p_ap;
+    if (p_ap_flag) {
+      delete p_ap;
+    }
     delete R;
 		
     if (amh_go_flag) {
@@ -1074,7 +1076,9 @@ FixBackbone::~FixBackbone()
     fclose(average_sequence_optimization_norm_file);
   }
 
-  delete[] charge_on_residue;
+  if (huckel_flag) {
+    delete[] charge_on_residue;
+  }
   
   fclose(efile);
 }
@@ -1097,15 +1101,25 @@ void FixBackbone::allocate()
   xcp = new double*[n];
   xh = new double*[n];
 
-  charge_on_residue = new double[n];
-	
-  water_par = WPV(water_kappa, water_kappa_sigma, treshold, n_wells, well_flag, well_r_min, well_r_max);
-  helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold, n_helix_wells, helix_well_flag, helix_well_r_min, helix_well_r_max);
+  if (huckel_flag) {
+    charge_on_residue = new double[n];
+  }
 
-  p_ap = new cP_AP<double, FixBackbone>(n, n, &ntimestep, this);
+  if (water_flag) {
+    water_par = WPV(water_kappa, water_kappa_sigma, treshold, n_wells, well_flag, well_r_min, well_r_max);
+    well = new cWell<double, FixBackbone>(n, n, n_wells, water_par, &ntimestep, this);
+  }
+
+  if (helix_flag) {
+    helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold, n_helix_wells, helix_well_flag, helix_well_r_min, helix_well_r_max);
+    helix_well = new cWell<double, FixBackbone>(n, n, n_helix_wells, helix_par, &ntimestep, this);
+  }
+
+  if (p_ap_flag) {
+    p_ap = new cP_AP<double, FixBackbone>(n, n, &ntimestep, this);
+  }
+
   R = new cR<double, FixBackbone>(n, n, &ntimestep, this);
-  well = new cWell<double, FixBackbone>(n, n, n_wells, water_par, &ntimestep, this);
-  helix_well = new cWell<double, FixBackbone>(n, n, n_helix_wells, helix_par, &ntimestep, this);
 
   for (i = 0; i < n; ++i) {
     // Ca, Cb and O coordinates
@@ -1118,7 +1132,9 @@ void FixBackbone::allocate()
     xcp[i] = new double [3];
     xh[i] = new double [3];
     
-    charge_on_residue[i] = 0.0;
+    if (huckel_flag) {
+      charge_on_residue[i] = 0.0;
+    }
   }
 
   for (i = 0; i < 12; ++i) {

@@ -1,8 +1,11 @@
 #summary This page introduces the use of AMH-Go, a non-additve structure based model included in the AWSEM simulation package, and the use of umbrella sampling over a collective coordinate for the purposes of performing free energy profile and expectation value calculations.
 
 = Introduction =
+AMH-Go is a non-additive structure based model, which is described in detail in:
+{{{
+Eastwood, Michael P., and Peter G. Wolynes. "Role of explicitly cooperative interactions in protein folding funnels: a simulation study." The Journal of Chemical Physics 114 (2001): 4702.
+}}}
 
-Add your content here.
 
 
 = Details =

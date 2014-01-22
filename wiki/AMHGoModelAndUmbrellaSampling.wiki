@@ -1,15 +1,67 @@
-#summary This page introduces the use of AMH-Go, a non-additve structure based model included in the AWSEM simulation package, and the use of umbrella sampling over a collective coordinate for the purposes of performing free energy profile and expectation value calculations.
+#summary This page introduces the use of AMH-Go and umbrella sampling.
 
 = Introduction =
+This page introduces the use of AMH-Go, a non-additve structure based model included in the AWSEM simulation package, and the use of umbrella sampling over a collective coordinate for the purposes of performing free energy profile and expectation value calculations.
 AMH-Go is a non-additive structure based model, which is described in detail in:
 Eastwood, Michael P., and Peter G. Wolynes. "Role of explicitly cooperative interactions in protein folding funnels: a simulation study." The Journal of Chemical Physics 114 (2001): 4702.
 
+= Example: running an AMH-Go simulation = 
 
+  == Obtain a structure of your protein of interest from the PDB (www.pdb.org) or elsewhere. ==
+  The structure should have coordinates for at least the backbone atoms and C-beta for all residues that you are interested in simulating. For the purposes of illustration, we will use Ubiquitin (pdb id: [http://www.pdb.org/pdb/explore/explore.do?structureId=1ubq 1UBQ]).
+  == Generate the input files and copy the necessary parameter files to the current working directory.==
+  == Edit the fix_backbone_coeff.data file to include an active [AMH-Go] block.==
+  == Set the parameters within the [AMH-Go] block.==
+  == Run a simulation.==
 
+= Example: applying a collective coordinate bias = 
 
-= Details =
+  == Add a fix qbias command to your input file.==
+  == Compute collective coordinates on the fly using compute functions==
+  == Setup multiple directories==
+  == Run all simulations==
+  == Collect the data==
+
+= Example: analyzing umbrella sampled data, calculating free energy profiles =
+
+  == Choose the dimension of the plot==
+  == Choose the quantity to plot==
+  == Choose the plotting variables==
+  == Perform the calculation==
+  == Plot the results==
+  == Interpret the results==
+
+= Syntax =
+
+http://code.google.com/p/support/wiki/WikiSyntax
 
 Add your content here.  Format your content with:
   * Text in *bold* or _italic_
   * Headings, paragraphs, and lists
   * Automatic links to other wiki pages
+
+
+=Heading1=
+==Heading2==
+===Heading3===
+
+*bold*     _italic_
+`inline code`
+escape: `*`
+
+Indent lists 2 spaces:
+  * bullet item
+  # numbered list
+
+{{{
+verbatim code block
+}}}
+
+Horizontal rule
+----
+
+WikiWordLink
+[http://domain/page label]
+http://domain/page
+
+|| table || cells ||

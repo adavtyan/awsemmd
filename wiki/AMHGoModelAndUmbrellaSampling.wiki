@@ -2,9 +2,8 @@
 
 = Introduction =
 AMH-Go is a non-additive structure based model, which is described in detail in:
-{{{
 Eastwood, Michael P., and Peter G. Wolynes. "Role of explicitly cooperative interactions in protein folding funnels: a simulation study." The Journal of Chemical Physics 114 (2001): 4702.
-}}}
+
 
 
 

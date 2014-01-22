@@ -239,6 +239,12 @@ public:
   int average_sequence_optimization_output_freq;
   char average_sequence_input_file_name[100];
 
+  // Mutate Sequence parameters
+  char mutate_sequence_sequences_file_name[100];
+  int mutate_sequence_number_of_sequences;
+  char **mutate_sequence_sequences;
+  int mutate_sequence_sequence_index;
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -276,6 +282,7 @@ public:
   bool debyehuckel_optimization_flag;
   bool average_sequence_optimization_flag;
   bool shuffler_flag;
+  bool mutate_sequence_flag;
   bool monte_carlo_seq_opt_flag;
 
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
@@ -367,6 +374,9 @@ public:
   double compute_direct_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
   double compute_proteinmed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
   double compute_watermed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+
+  // Mutate_Sequence functions
+  void mutate_sequence();
 
   // Average Sequence Optimization functions and variables
   void compute_average_sequence_optimization();
@@ -465,6 +475,9 @@ public:
   // Average Sequence Optimization files
   FILE *average_sequence_optimization_file;
   FILE *average_sequence_optimization_norm_file;
+
+  // Mutate Sequences files
+  FILE *mutate_sequences_file;
 
   };
 }

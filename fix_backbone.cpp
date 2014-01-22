@@ -110,6 +110,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   huckel_flag = debyehuckel_optimization_flag = 0;
   average_sequence_optimization_flag = 0;
   shuffler_flag = 0;
+  mutate_sequence_flag = 0;
   monte_carlo_seq_opt_flag = 0;
 
   epsilon = 1.0; // general energy scale
@@ -446,6 +447,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> shuffler_mode;
       if ( shuffler_flag == 1 ) {
 	if (comm->me==0) print_log("Shuffler flag on\n");
+      }
+    } else if (strcmp(varsection, "[Mutate_Sequence]")==0) {
+      in >> mutate_sequence_flag;
+      in >> mutate_sequence_sequences_file_name;
+      if ( mutate_sequence_flag == 1 ) {
+	if (comm->me==0) print_log("Mutate_Sequence flag on\n");
       }
     }
       
@@ -865,6 +872,26 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     }
     in_average_sequence.close();
   }
+
+  // if Mutate_Sequence flag is on, perform the appropriate initializations
+  if (mutate_sequence_flag) {
+    // read in sequences in selection temperature sequences file
+    char temp_sequence[1000];
+    ifstream mutate_sequence_sequences_file(mutate_sequence_sequences_file_name);
+    mutate_sequence_sequences_file >> mutate_sequence_number_of_sequences;
+    mutate_sequence_sequences = new char*[mutate_sequence_number_of_sequences];
+    for (int i=0;i<mutate_sequence_number_of_sequences;i++) {
+      mutate_sequence_sequences[i] = new char[n];
+    }
+    for(int i_sequence = 0; i_sequence < mutate_sequence_number_of_sequences; i_sequence++) {
+      mutate_sequence_sequences_file >> temp_sequence;
+      strcpy(mutate_sequence_sequences[i_sequence],temp_sequence);
+    }
+    mutate_sequence_sequences_file.close();
+    
+    mutate_sequence_sequence_index = 0;
+  }
+
   
   // Allocate the table
   if (frag_mem_tb_flag) {
@@ -6238,6 +6265,15 @@ void FixBackbone::compute_burial_optimization()
   }
 }
 
+// Mutate the sequence
+void FixBackbone::mutate_sequence()
+{
+  // Copy the new sequence into the se array
+  strcpy(se,mutate_sequence_sequences[mutate_sequence_sequence_index]);
+  // Increment the sequence index
+  mutate_sequence_sequence_index++;
+}
+
 void FixBackbone::print_forces(int coord)
 {
   int index;
@@ -6849,6 +6885,10 @@ void FixBackbone::compute_backbone()
   // if collecting energies for optimization, shuffle the sequence.  (native sequence used on step 0)
   if ((optimization_flag || burial_optimization_flag || debyehuckel_optimization_flag) && (shuffler_flag)){
     shuffler();
+  }
+  // if mutating sequence to evaluate energy of mutants, call function to mutate the sequence
+  if (mutate_sequence_flag && ntimestep != update->laststep) {
+    mutate_sequence();
   }
   if (amh_go_flag)
     compute_amh_go_model();

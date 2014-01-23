@@ -760,7 +760,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       fprintf(tert_frust_output_file,"# i j i_chain j_chain xi yi zi xj yj zj r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
     }
     else if (strcmp(tert_frust_mode, "singleresidue")==0) {
-      fprintf(tert_frust_output_file,"# i rho_i a_i native_energy <decoy_energies> std(decoy_energies) f_i\n");
+      fprintf(tert_frust_output_file,"# i i_chain xi yi zi rho_i a_i native_energy <decoy_energies> std(decoy_energies) f_i\n");
     }
   }
 
@@ -4360,6 +4360,7 @@ void FixBackbone::compute_tert_frust_singleresidue()
   double native_energy;
   double frustration_index;
   int atomselect;
+  double *xi;
 
   atomselect = 0; // for the vmd script output
 
@@ -4370,6 +4371,8 @@ void FixBackbone::compute_tert_frust_singleresidue()
     ires_type = get_residue_type(i_resno);
     rho_i = get_residue_density(i_resno);
     i_chno = chain_no[i]-1;
+    if (se[i_resno]=='G') { xi = xca[i]; }
+    else { xi = xcb[i]; }
 
     // compute native energy
     native_energy = compute_singleresidue_native_ixn(i_resno, ires_type, rho_i, i_chno, tert_frust_cutoff, 0);
@@ -4381,7 +4384,7 @@ void FixBackbone::compute_tert_frust_singleresidue()
     frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
 
     // write information out to output file
-    fprintf(tert_frust_output_file,"%d %f %c %f %f %f %f\n", i_resno+1, rho_i, se[i_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
+    fprintf(tert_frust_output_file,"%5d %5d %8.3f %8.3f %8.3f %8.3f %c %8.3f %8.3f %8.3f %8.3f\n", i_resno+1, i_chno+1, xi[0], xi[1], xi[2], rho_i, se[i_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
     if(frustration_index > 0.78 || frustration_index < -1) {
       // write information out to vmd script
       atomselect += 1;

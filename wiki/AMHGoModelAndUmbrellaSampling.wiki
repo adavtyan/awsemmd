@@ -176,10 +176,37 @@ In this case KQBIAS should be replaced by a floating point number that dictates 
 
 == Compute collective coordinates on the fly using compute functions==
 
-== Setup multiple directories==
-== Run all simulations==
-== Collect the data==
+AWSEM and LAMMPS can be used to compute some collective coordinates on-the-fly during the simulation using LAMMPS' [http://lammps.sandia.gov/doc/compute.html compute] functionality. An example block of input code that computes several collective coordinates including a Q value, radius of gyration, contact Q, the number of total contacts, and the total potential energy, is given below:
+{{{
+# output wham.dat, a file with collective variables that can be used to compute pmfs
+compute     qw alpha_carbons qwolynes rnative.dat 2 0.15
+variable    qw equal c_qw
+compute     rg alpha_carbons gyration
+variable    rg equal c_rg
+compute     qo alpha_carbons qonuchic cutoff 12.0 nativecoords.dat 1.2
+variable    qo equal c_qo
+compute     tc beta_atoms totalcontacts 6.5 2
+variable    tc equal c_tc
+variable    step equal step
+variable    E_P equal pe
 
+fix         wham all print SAMPLETIME "${step}        ${qw} ${rg} ${qo} ${tc} ${E_P}" file wham.dat screen no title "# timestep qw           rg          qo            tc            energy"
+}}} 
+In order to use these compute functions, it is necessary to prepare the rnative.dat and nativecoords.dat files. This can be done using:
+{{{
+python /path/to/awsemmd/create_project_tools/GetCACADistancesFile.py 1ubqA rnative.dat
+python /path/to/awsemmd/create_project_tools/GetCACoordinatesFromPDB.py 1ubqA nativecoords.dat
+}}}
+The result of running a simulation with code like that above in the input file should be a file called wham.dat in the directory where the simulation was run.
+
+== Setup multiple directories, Run all simulations, Collect the data ==
+
+Once these extra items have been added to the input file, you are ready to run umbrella sampling by specifying an array of Q0 values over a set of directories. All of these simulations can be run in parallel, and once the simulations have finished you will want to collect the wham.dat files, and perhaps other files such as energy.log, in order to compute 1D and 2D free energy profiles and expectation value plots. Performing these calculations is beyond the scope of this tutorial, but you may find the following tools to be useful:
+[http://smog-server.org/SB_analysis.html WHAM.jar]
+[https://github.com/choderalab/pymbar pyMBAR]
+[http://membrane.urmc.rochester.edu/content/wham Grossfield WHAM]
+
+<wiki:comment>
 = Example: analyzing umbrella sampled data, calculating free energy profiles =
 
 == Choose the dimension of the plot==
@@ -189,7 +216,6 @@ In this case KQBIAS should be replaced by a floating point number that dictates 
 == Plot the results==
 == Interpret the results==
 
-<wiki:comment>
 = Syntax =
 
 http://code.google.com/p/support/wiki/WikiSyntax

@@ -757,7 +757,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     tert_frust_output_file = fopen("tertiary_frustration.dat","w");
     tert_frust_vmd_script = fopen("tertiary_frustration.tcl","w");
     if (strcmp(tert_frust_mode, "configurational")==0 || strcmp(tert_frust_mode, "mutational")==0) {
-      fprintf(tert_frust_output_file,"# i j r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+      fprintf(tert_frust_output_file,"# i j i_chain j_chain xi yi zi xj yj zj r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
     }
     else if (strcmp(tert_frust_mode, "singleresidue")==0) {
       fprintf(tert_frust_output_file,"# i rho_i a_i native_energy <decoy_energies> std(decoy_energies) f_i\n");
@@ -4303,6 +4303,11 @@ void FixBackbone::compute_tert_frust()
 
       // if the atoms are within the threshold, compute the frustration
       if (rij < tert_frust_cutoff && (abs(i-j)>=contact_cutoff || i_chno != j_chno)) {
+	// Get coordinates of relevant atoms
+	if (se[i_resno]=='G') { xi = xca[i]; }
+	else { xi = xcb[i]; }
+	if (se[j_resno]=='G') { xj = xca[j]; }
+	else { xj = xcb[j]; }
 	rho_i = get_residue_density(i_resno);
 	rho_j = get_residue_density(j_resno);
 	native_energy = compute_native_ixn(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
@@ -4315,7 +4320,7 @@ void FixBackbone::compute_tert_frust()
 	}
 	frustration_index = compute_frustration_index(native_energy, decoy_ixn_stats);
 	// write information out to output file
- 	fprintf(tert_frust_output_file,"%d %d %f %f %f %c %c %f %f %f %f\n", i_resno+1, j_resno+1, rij, rho_i, rho_j, se[i_resno], se[j_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
+ 	fprintf(tert_frust_output_file,"%5d %5d %3d %3d %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %c %c %8.3f %8.3f %8.3f %8.3f\n", i_resno+1, j_resno+1, i_chno+1, j_chno+1, xi[0], xi[1], xi[2], xj[0], xj[1], xj[2], rij, rho_i, rho_j, se[i_resno], se[j_resno], native_energy, decoy_ixn_stats[0], decoy_ixn_stats[1], frustration_index);
 	if(frustration_index > 0.78 || frustration_index < -1) {
 	  // write information out to vmd script
 	  fprintf(tert_frust_vmd_script,"set sel%d [atomselect top \"resid %d and name CA\"]\n", i_resno, i_resno+1);

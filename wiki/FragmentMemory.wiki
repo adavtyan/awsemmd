@@ -38,7 +38,7 @@ To obtain your own database of structures with desirable resolution and maximum 
   * *Skip non-X-ray entries?* - must answer Yes
   * *Skip CA-only entries?* - must answer Yes
   * *How do you want to cull PDB?* - must answer By chains
-
+You can also download their pre-compiled lists and fasta files from the website.
 
 == Running scripts ==
 Now when you have everything necessary you can run either _prepFragsLAMW_index.py_ or _!MultCha_prepFrags_index.py_ scripts to generate Fragment Library. The later one should be used for multi-chain simulations. In single-chain case it is more optimal to use the first script. They both take the same arguments and should be called in the following way.

@@ -47,8 +47,6 @@ python prepFragsLAMW_index.py database-prefix target_sequence.fasta n_mem homolo
 }}}
 where n_mem sets the desirable number of memories per position (typically 20). If homologs_excluded flag is 1, all sequence homologs will be excluded from the search.
 
-#IMPORTANT: Always make sure that the fasta file contains only the sequence that #have coordinates in the PDB file. Or in other words, the sequence in the fasta #file must match the one in _.seq_ file.
-
 == Running simulations ==
 The scripts mentioned above will generate a _fragsLAMW.mem_ file which contains `[Memories]` section with one line description of memories found. 
 {{{

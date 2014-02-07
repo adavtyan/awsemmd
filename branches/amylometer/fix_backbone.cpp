@@ -1450,10 +1450,10 @@ inline void FixBackbone::Construct_Computational_Arrays()
 int FixBackbone::setmask()
 {
   int mask = 0;
-  mask |= POST_FORCE;
+  mask |= PRE_FORCE;
   mask |= THERMO_ENERGY;
-  mask |= POST_FORCE_RESPA;
-  mask |= MIN_POST_FORCE;
+  mask |= PRE_FORCE_RESPA;
+  mask |= MIN_PRE_FORCE;
   return mask;
 }
 
@@ -1485,10 +1485,10 @@ void FixBackbone::init_list(int id, NeighList *ptr)
 void FixBackbone::setup(int vflag)
 {
   if (strstr(update->integrate_style,"verlet"))
-    post_force(vflag);
+    pre_force(vflag);
   else {
     ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
-    post_force_respa(vflag,nlevels_respa-1,0);
+    pre_force_respa(vflag,nlevels_respa-1,0);
     ((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
   }
 }
@@ -1497,7 +1497,7 @@ void FixBackbone::setup(int vflag)
 
 void FixBackbone::min_setup(int vflag)
 {
-  post_force(vflag);
+  pre_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -6528,7 +6528,7 @@ void FixBackbone::compute_backbone()
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
-      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
+      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
 	//			if (!isLast(i) && !isFirst(j) && abs(j_resno-i_resno)>2 && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
     }
@@ -6544,7 +6544,7 @@ void FixBackbone::compute_backbone()
 
   for (i=0;i<nn;i++) {
     for (j=0;j<nn;j++) {
-      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && res_info[j]==LOCAL)
+      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j] == GHOST))
 	compute_P_AP_potential(i, j);
     }
   }
@@ -6565,7 +6565,7 @@ void FixBackbone::compute_backbone()
       j_chno = chain_no[j]-1;
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
       //if (water_flag && j_resno-i_resno>=contact_cutoff && res_info[i]==LOCAL)
-      if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL)
+      if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_water_potential(i, j);
     }
   }
@@ -6603,7 +6603,7 @@ void FixBackbone::compute_backbone()
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
-      if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL)
+      if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	//			if (ssb_flag && j_resno-i_resno>=ssb_ij_sep && res_info[i]==LOCAL)
 	compute_solvent_barrier(i, j);
     }
@@ -6757,24 +6757,24 @@ void FixBackbone::compute_backbone()
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
       		
-      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
+      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
 				
       // Need to change
-      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && res_info[j]==LOCAL)
+      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
 
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
-      if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL)
+      if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_water_potential(i, j);
 			  
       if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) )
 	table_fragment_memory(i, j);
 
-      if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL)
+      if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_solvent_barrier(i, j);
 
-      if (huckel_flag && (j > i || i_chno!=j_chno) && res_info[i]==LOCAL)
+      if (huckel_flag && (j > i || i_chno!=j_chno) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
         compute_DebyeHuckel_Interaction(i, j);
     }
 		
@@ -6928,7 +6928,7 @@ void FixBackbone::compute_backbone()
 
 /* ---------------------------------------------------------------------- */
 
-void FixBackbone::post_force(int vflag)
+void FixBackbone::pre_force(int vflag)
 {
   if (amylometer_flag) {
     compute_amylometer();
@@ -6940,16 +6940,16 @@ void FixBackbone::post_force(int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-void FixBackbone::post_force_respa(int vflag, int ilevel, int iloop)
+void FixBackbone::pre_force_respa(int vflag, int ilevel, int iloop)
 {
-  if (ilevel == nlevels_respa-1) post_force(vflag);
+  if (ilevel == nlevels_respa-1) pre_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixBackbone::min_post_force(int vflag)
+void FixBackbone::min_pre_force(int vflag)
 {
-  post_force(vflag);
+  pre_force(vflag);
 }
 
 /* ----------------------------------------------------------------------

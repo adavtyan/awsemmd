@@ -43,7 +43,7 @@ You can also download their pre-compiled lists and fasta files from the website.
 == Running scripts ==
 Now when you have everything necessary you can run either _prepFragsLAMW_index.py_ or _!MultCha_prepFrags_index.py_ scripts to generate Fragment Library. The later one should be used for multi-chain simulations. In single-chain case it is more optimal to use the first script. They both take the same arguments and should be called in the following way.
 {{{
-python prepFragsLAMW_index.py database-prefix file.fasta n_mem homologs_excluded (1/0)
+python prepFragsLAMW_index.py database-prefix file.fasta n_mem homologs_excluded_flag (using '1' or '0')
 }}}
 where N_mem sets the desirable number of memories per position (typically 20). If homologs_excluded flag is 1, all sequence homologs will be excluded from the search.
 

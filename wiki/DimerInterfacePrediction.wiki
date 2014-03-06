@@ -1,4 +1,4 @@
-#labels Predictbindinginterfaceusesimulatedannealing
+#labels Featured
 #Predict binding interface use simulated annealing
 
 = Introduction =

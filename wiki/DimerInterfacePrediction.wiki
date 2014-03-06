@@ -2,7 +2,7 @@
 #labels Featured
 
 = Introduction =
-Starting with two monomers separated, gradually lower the temperature to search for the optimal binding configuration. The monomer structure is usually biased to (not very rigid) the native monomer structure in the dimer using short range fragment potential with the native structure of the monomer (so-called single memory), a weak center-of-mass bias is added for the monomers to come close to each other.
+Starting with two monomers separated, gradually lower the temperature to search for the optimal binding configuration. The monomer structure is usually biased to (not very rigid) the native monomer structure in the dimer using short range fragment potential with the native structure of the monomer (so-called single memory), a weak center-of-mass bias is added for the monomers to come close to each other. All files mentioned below can be found in trunk/examples/1CTA_Dimer_Binding.
 
 = Details =
 1. Prepare input files for binding simulations.

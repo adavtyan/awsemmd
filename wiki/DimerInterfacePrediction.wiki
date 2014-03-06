@@ -33,11 +33,11 @@ list of files: 1cta.pdb, 1cta.in, 1cta.seq, data.1cta, fragsLAMW.mem.single
     fix 3 chainA_CA spring couple chainB_CA 0.02 0 0 0 10  ## k=0.02, d0=80
     Recommended annealing schedule: 450K-350K over 4000000 steps.
     
-Troubleshooting: 
-1. While create input file (e.g., 1cta.in) and data file (e.g., data.1cta) from the PDB file, a common problem is that seq file doesn't have the same number of residues as that in the PDB file or contain irregular residues (e.g. '?' or 'X'). The following is an example error message of a typical problem: some residues have missing 'O' atom.
+= Troubleshooting =
+  1. While create input file (e.g., 1cta.in) and data file (e.g., data.1cta) from the PDB file, a common problem is that seq file doesn't have the same number of residues as that in the PDB file or contain irregular residues (e.g. '?' or 'X'). The following is an example error message of a typical problem: some residues have missing 'O' atom.
 Error message:
 Traceback (most recent call last):
-  File "/home/wz12/opt/script/PDBToCoordinates.py", line 193, in <module>
+  File "/home/wz12/opt/script/PDBToCoordinates.py", line 193, in module
     xyz_O = res['O'].get_coord()
   File "/apps/python/lib64/python2.6/site-packages/Bio/PDB/Entity.py", line 38, in __getitem__
     return self.child_dict[id]
@@ -46,4 +46,4 @@ KeyError: 'O'
 Solution: a) Try a different chain; or b)Use other software (e.g. Modeller) to fix the missing atom.
 Note: similar error message will be given when CA or CB atoms are missing.
 
-2. About missing residues: Warning: if an entire residue(s) is missing from the PDB file, the program may not give an error message. This is why it is crucial to double check whether the PDB file is consistent with the generated .seq file in terms of number of residues.
+  2. About missing residues: Warning: if an entire residue(s) is missing from the PDB file, the program may not give an error message. This is why it is crucial to double check whether the PDB file is consistent with the generated .seq file in terms of number of residues.

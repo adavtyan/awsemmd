@@ -245,6 +245,15 @@ public:
   char **mutate_sequence_sequences;
   int mutate_sequence_sequence_index;
 
+  // Output_Per_Residue_Contacts parameters
+  int output_per_residue_contacts_frequency;
+  char output_per_residue_contacts_mode[100];
+  char output_per_residue_contacts_native_structure_file_name[100];
+  int output_per_residue_contacts_min_seq_sep;
+  double output_per_residue_contacts_rij_threshold;
+  char output_per_residue_contacts_file_name[100];
+  Fragment_Memory *output_per_residue_contacts_structure;
+
   // Standart lammaps interface
   int igroup2, group2bit;
   int igroup3, group3bit;
@@ -284,6 +293,7 @@ public:
   bool shuffler_flag;
   bool mutate_sequence_flag;
   bool monte_carlo_seq_opt_flag;
+  bool output_per_residue_contacts_flag;
 
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -387,6 +397,9 @@ public:
   // DebyeHuckel Optimization functions
   void compute_debyehuckel_optimization();
 
+  // Output_Per_Residue_Contacts functions
+  void output_per_residue_contacts();
+
   void allocate();
   inline void Construct_Computational_Arrays();
   int Tag(int index);
@@ -478,6 +491,9 @@ public:
 
   // Mutate Sequences files
   FILE *mutate_sequences_file;
+
+  // Output_Per_Residue_Contacts files
+  FILE *output_per_residue_contacts_file;
 
   };
 }

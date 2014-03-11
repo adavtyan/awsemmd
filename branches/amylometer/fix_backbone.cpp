@@ -112,6 +112,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   shuffler_flag = 0;
   mutate_sequence_flag = 0;
   monte_carlo_seq_opt_flag = 0;
+  output_per_residue_contacts_flag = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -454,7 +455,20 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       if ( mutate_sequence_flag == 1 ) {
 	if (comm->me==0) print_log("Mutate_Sequence flag on\n");
       }
-    }
+    } else if (strcmp(varsection, "[Output_Per_Residue_Contacts]")==0) {
+      output_per_residue_contacts_flag = 1;
+      if (comm->me==0) print_log("Output_Per_Residue_Contacts flag on\n");
+      in >> output_per_residue_contacts_frequency;
+      in >> output_per_residue_contacts_mode;
+      if (strcmp(output_per_residue_contacts_mode, "native")!=0 && strcmp(output_per_residue_contacts_mode, "all")!=0) {
+	error->all(FLERR,"Only \"native\" or \"all\" are acceptable modes for Output_Per_Residue_Contacts.");
+      }
+      if (strcmp(output_per_residue_contacts_mode, "native")==0) {
+	in >> output_per_residue_contacts_native_structure_file_name;
+      }
+      in >> output_per_residue_contacts_min_seq_sep >> output_per_residue_contacts_rij_threshold;
+      in >> output_per_residue_contacts_file_name;
+    } 
       
     varsection[0]='\0'; // Clear buffer
   }
@@ -936,6 +950,16 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     input_charge.close();
     fprintf(screen, "Total Charge on the System = %8.4f\n", total_charge ); 
   }
+
+  if (output_per_residue_contacts_flag) {
+    output_per_residue_contacts_file = fopen(output_per_residue_contacts_file_name, "w");
+    if (strcmp(output_per_residue_contacts_mode, "native")==0) {
+      output_per_residue_contacts_structure = new Fragment_Memory(0, 0, n, 1.0, output_per_residue_contacts_native_structure_file_name);
+      if (output_per_residue_contacts_structure->error==output_per_residue_contacts_structure->ERR_FILE) error->all(FLERR,"Cannot read file for Output_Per_Residue_Contacts block");
+      if (output_per_residue_contacts_structure->error==output_per_residue_contacts_structure->ERR_ATOM_COUNT) error->all(FLERR,"Output_Per_Residue_Contacts: Wrong atom count in Output_Per_Residue_Contacts block structure file");
+      if (output_per_residue_contacts_structure->error==output_per_residue_contacts_structure->ERR_RES) error->all(FLERR,"Output_Per_Residue_Contacts: Unknown residue in Output_Per_Residue_Contacts block structure file");
+    }
+  }
   
   sStep=0, eStep=0;
   ifstream in_rs("record_steps");
@@ -1127,6 +1151,10 @@ FixBackbone::~FixBackbone()
 
   if (huckel_flag) {
     delete[] charge_on_residue;
+  }
+
+  if (output_per_residue_contacts_flag) {
+    fclose(output_per_residue_contacts_file);
   }
   
   fclose(efile);
@@ -6282,6 +6310,49 @@ void FixBackbone::mutate_sequence()
   mutate_sequence_sequence_index++;
 }
 
+// Output the number of contacts that each residue in the protein is currently making
+void FixBackbone::output_per_residue_contacts()
+{
+  int i, j;
+  int ires_type, jres_type, i_resno, j_resno, i_chno, j_chno;
+  double rij;
+  int num_i_contacts;
+  
+  // output the timestep in the first column
+  fprintf(output_per_residue_contacts_file, "%8d ", ntimestep);
+  // Double loop over all residue pairs
+  for (i=0;i<n;++i) {
+    // Zero out the number of contacts
+    num_i_contacts = 0;
+    // get information about residue i
+    i_resno = res_no[i]-1;
+    ires_type = get_residue_type(i_resno);
+    i_chno = chain_no[i]-1;
+    
+    // We do want to double count contacts in this case, so start at j=0
+    for (j=0;j<n;++j) {
+      // get information about residue j
+      j_resno = res_no[j]-1;
+      jres_type = get_residue_type(j_resno);
+      j_chno = chain_no[j]-1;
+      
+      // get the distance between i and j
+      rij = get_residue_distance(i_resno, j_resno);
+
+      // if the atoms are within the threshold, add one to the number of contacts for residue i
+      if (rij < output_per_residue_contacts_rij_threshold && (abs(i-j)>=output_per_residue_contacts_min_seq_sep || i_chno != j_chno)) {
+	num_i_contacts++;
+      }
+    }
+    // output the number of contacts for residue i
+    fprintf(output_per_residue_contacts_file, "%3d ", num_i_contacts);
+  }
+  // print out a new line after looping over all the residues
+  fprintf(output_per_residue_contacts_file, "\n", num_i_contacts);
+  
+}
+
+
 void FixBackbone::print_forces(int coord)
 {
   int index;
@@ -6909,6 +6980,10 @@ void FixBackbone::compute_backbone()
 
   if (r6_excluded_flag)
     compute_r6_excluded_volume();
+
+  if (output_per_residue_contacts_flag && ntimestep % output_per_residue_contacts_frequency == 0) {
+    output_per_residue_contacts();
+  }
 
 #endif
 	

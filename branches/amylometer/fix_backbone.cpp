@@ -40,9 +40,6 @@ using std::ifstream;
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-//double fm_f[100][2][3], tfm_f[100][2][3];
-//double err=0.0, err_max=0.0, err_max2=0.0;
-
 /* ---------------------------------------------------------------------- */
 
 // {"ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"};
@@ -2462,7 +2459,6 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
-	
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
 	
@@ -2490,13 +2486,13 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
   }
 
   if ( i_chno==j_chno && abs(j_resno - i_resno) < 45 ) {
-    if (abs(j_resno - i_resno) < 4) {
+    if (abs(j_resno - i_resno) < 4) { // |j-i|<4, class 1
       lambda[0] = -hbscl[0][0];
       lambda[1] = -hbscl[0][1];
       lambda[2] = 0.0;
       lambda[3] = 0.0;
       hb_class = 1;
-    } else if (abs(j_resno - i_resno) < 18) {
+    } else if (abs(j_resno - i_resno) < 18) { // 4 =< |j-i| < 18, class 2
       if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
 	lambda[0] = -hbscl[1][0];
 	lambda[1] = -hbscl[1][1];
@@ -2505,14 +2501,14 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 	  -hbscl[1][4]*theta_seq_anti_NHB[0]
 	  -hbscl[1][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
 	lambda[3] = -hbscl[1][6];
-      } else {
+      } else { // 4 =< |j-i| < 18 and ssweight predicts not beta, class 2
 	lambda[0] = 0.0;
 	lambda[1] = -hbscl[1][1];
 	lambda[2] = 0.0;
 	lambda[3] = 0.0;
       }
       hb_class = 2;
-    } else if (abs(j_resno - i_resno) < 45) {
+    } else if (abs(j_resno - i_resno) < 45) { // 18 =< |j-i| < 45, class 3
       lambda[0] = -hbscl[2][0];
       lambda[1] = -hbscl[2][1];
       lambda[2] = -hbscl[2][2]
@@ -2524,7 +2520,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 	-hbscl[2][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
       hb_class = 3;
     }
-  } else {
+  } else { // (|j-i| >= 45) OR (j,i are on different chain), class 4
     lambda[0] = -hbscl[3][0];
     lambda[1] = -hbscl[3][1];
     lambda[2] = -hbscl[3][2]
@@ -2636,10 +2632,10 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     + lambda[2]*theta[0]*theta[2] 
     + lambda[3]*theta[0]*theta[3];
 
-  V[0] = k_dssp*epsilon*lambda[0]*theta[0]*nu[0]*nu[1];
-  V[1] = k_dssp*epsilon*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];
-  V[2] = k_dssp*epsilon*lambda[2]*theta[0]*theta[2]*nu[0]*nu[1];
-  V[3] = k_dssp*epsilon*lambda[3]*theta[0]*theta[3]*nu[0]*nu[1];
+  V[0] = k_dssp*epsilon*lambda[0]*theta[0]*nu[0]*nu[1];            //pairwise hydrogen bond
+  V[1] = k_dssp*epsilon*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];   //repulsive hb
+  V[2] = k_dssp*epsilon*lambda[2]*theta[0]*theta[2]*nu[0]*nu[1];   //anti-parallel hb
+  V[3] = k_dssp*epsilon*lambda[3]*theta[0]*theta[3]*nu[0]*nu[1];   //parallel hb
 
   VTotal = V[0] + V[1] + V[2] + V[3];
 
@@ -2743,18 +2739,29 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 void FixBackbone::compute_P_AP_potential(int i, int j)
 {
   double K, force[2], dx[2][3];
-  //	double nu_P_AP[100][100], prd_nu_P_AP[100][100];
-  bool i_AP_med, i_AP_long, i_P;
 
+  dx[0][0] = xca[i][0] - xca[j][0];
+  dx[0][1] = xca[i][1] - xca[j][1];
+  dx[0][2] = xca[i][2] - xca[j][2];
+  double  r_ca = sqrt (dx[0][0]*dx[0][0] + dx[0][1]*dx[0][1] + dx[0][2]*dx[0][2]);
+  if ( r_ca > P_AP_cut ) return;
+
+  bool i_AP_med, i_AP_long, i_P;
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
+  int i_chno = chain_no[i]-1;
+  int j_chno = chain_no[j]-1;
 
-  // Need to change
-  i_AP_med = i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
-  i_AP_long = i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n;
-  i_P = i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
+  int ip4_chno = chain_no[i+4]-1;
+  int jp4_chno = chain_no[j+4]-1;
+  int jm4_chno = chain_no[j-4]-1;
 
-  //	if (ntimestep==0) fprintf(dout, "(%d %d) (%d %d) %d %d %d\n", i, j, i_resno, j_resno, i_AP_med, i_AP_long, i_P);
+  //anti-parallel hairpin 
+  i_AP_med = i_chno==j_chno && i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
+  //anti-parallel beta strands
+  i_AP_long = (i_chno==j_chno && i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && ip4_chno==i_chno && jm4_chno==j_chno);
+  //parallel beta strands
+  i_P = (i_chno==j_chno && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (i_chno!=j_chno && ip4_chno==i_chno && jp4_chno==j_chno);
 
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
@@ -2764,10 +2771,6 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
     }
 
     energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
-
-    dx[0][0] = xca[i][0] - xca[j][0];
-    dx[0][1] = xca[i][1] - xca[j][1];
-    dx[0][2] = xca[i][2] - xca[j][2];
 
     dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j-i_diff_P_AP][0];
     dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j-i_diff_P_AP][1];
@@ -2801,10 +2804,6 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
     }
 
     energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
-
-    dx[0][0] = xca[i][0] - xca[j][0];
-    dx[0][1] = xca[i][1] - xca[j][1];
-    dx[0][2] = xca[i][2] - xca[j][2];
 
     dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j+i_diff_P_AP][0];
     dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j+i_diff_P_AP][1];
@@ -6831,7 +6830,6 @@ void FixBackbone::compute_backbone()
       if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
 				
-      // Need to change
       if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
 

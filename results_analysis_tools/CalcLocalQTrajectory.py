@@ -12,22 +12,22 @@ import numpy
 from VectorAlgebra import *
 from Bio.PDB.PDBParser import PDBParser
 
-if len(sys.argv) != 3 and len(sys.argv) != 4:
-	print "\n" + str(sys.argv[0]) + " PDB_ID output_file [snapshot]\n"
+if len(sys.argv) != 4 and len(sys.argv) != 5:
+	print "\n" + str(sys.argv[0]) + " PDB_ID dump_file output_file [snapshot]\n"
 	sys.exit()
 
 struct_id = sys.argv[1]
 filename = struct_id + ".pdb"
-output = sys.argv[2]
+lammps_file = sys.argv[2] #'dump.lammpstrj'
+output = sys.argv[3]
 snapshot = -1
-if len(sys.argv) > 3:
-	snapshot = int(sys.argv[3])
+if len(sys.argv) > 4:
+	snapshot = int(sys.argv[4])
 
 p = PDBParser(PERMISSIVE=1)
 s = p.get_structure(struct_id, filename)
 chains = s[0].get_list()
 atom_desc = {'1' : 'C-Alpha', '2' : 'N', '3' : 'O', '4' : 'C-Beta', '5' : 'H-Beta', '6' : 'C-Prime'}
-lammps_file = 'dump.lammpstrj'
 cb_atoms = []
 native_coords = []
 native_distances = []

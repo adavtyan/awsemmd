@@ -994,6 +994,7 @@ FixBackbone::~FixBackbone()
   if (allocated) {
     for (int i=0;i<n;i++) {
       delete [] xca[i];
+      delete [] xca_g[i];
       delete [] xcb[i];
       delete [] xo[i];
       delete [] xn[i];
@@ -1004,12 +1005,16 @@ FixBackbone::~FixBackbone()
     for (int i=0;i<12;i++) delete [] aps[i];
 
     delete [] alpha_carbons;
+    delete [] alpha_carbons_g;
     delete [] beta_atoms;
     delete [] oxygens;
     delete [] res_no;
+    delete [] res_no_l;
     delete [] res_info;
     delete [] chain_no;
+    delete [] chain_no_g;
     delete [] xca;
+    delete [] xca_g;
     delete [] xcb;
     delete [] xo;
     delete [] xn;
@@ -1161,14 +1166,29 @@ void FixBackbone::allocate()
 {
   int i, j, k;
 
-  alpha_carbons = new int[n];
+  alpha_carbons   = new int[n];
+  alpha_carbons_g = new int[n];
+  for (i=0; i<n; ++i){
+	alpha_carbons_g[i] = -1;
+  }
+ 
   beta_atoms = new int[n];
-  oxygens = new int[n];
-  res_no = new int[n];
+  oxygens  = new int[n];
+  res_no   = new int[n];
+  res_no_l = new int[n];
+  for (i=0; i<n; ++i){
+	res_no_l[i] = -1;
+  }
+
   res_info = new int[n];
   chain_no = new int[n];
+  chain_no_g = new int[n];
+  for (i=0; i<n; ++i){
+	chain_no_g[i] = -1;
+  }
 	
-  xca = new double*[n];
+  xca   = new double*[n];
+  xca_g = new double*[n];
   xcb = new double*[n];
   xo = new double*[n];
   xn = new double*[n];
@@ -1197,7 +1217,8 @@ void FixBackbone::allocate()
 
   for (i = 0; i < n; ++i) {
     // Ca, Cb and O coordinates
-    xca[i] = new double [3];
+    xca[i]   = new double [3];
+    xca_g[i] = new double [3];
     xcb[i] = new double [3];
     xo[i] = new double [3];
 		
@@ -1330,6 +1351,10 @@ inline void FixBackbone::Construct_Computational_Arrays()
     beta_atoms[nn] = jm[1];
     oxygens[nn] = jm[2];
     res_no[nn] = amin;
+
+    alpha_carbons_g[res_no[nn]-1]= jm[0];
+    res_no_l[res_no[nn]-1] = nn;
+
     last = amin;
     nn++;
   }
@@ -1346,6 +1371,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
 	error->all(FLERR,"Atoms in a residue have different chain tag");
       }			
       chain_no[i] = mol_tag[alpha_carbons[i]];
+      chain_no_g[res_no[i]-1] = mol_tag[alpha_carbons[i]];
 			
       if (chain_no[i]<=0 || chain_no[i]>nch)
 	error->all(FLERR,"Chain tag is out of range");
@@ -2736,9 +2762,11 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
   }
 }
 
-void FixBackbone::compute_P_AP_potential(int i, int j)
-{
+void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno) 
+{ 
   double K, force[2], dx[2][3];
+  int i = res_no_l[i_resno];
+  int j = res_no_l[j_resno];
 
   dx[0][0] = xca[i][0] - xca[j][0];
   dx[0][1] = xca[i][1] - xca[j][1];
@@ -2747,21 +2775,26 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   if ( r_ca > P_AP_cut ) return;
 
   bool i_AP_med, i_AP_long, i_P;
-  int i_resno = res_no[i]-1;
-  int j_resno = res_no[j]-1;
+  //int i_resno = res_no[i]-1;
+  //int j_resno = res_no[j]-1;
+
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
 
-  int ip4_chno = chain_no[i+4]-1;
-  int jp4_chno = chain_no[j+4]-1;
-  int jm4_chno = chain_no[j-4]-1;
+  int ip4_chno = chain_no_g[i_resno+4]-1;
+  int jp4_chno = chain_no_g[j_resno+4]-1;
+  int jm4_chno = chain_no_g[j_resno-4]-1;
 
   //anti-parallel hairpin 
   i_AP_med = i_chno==j_chno && i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
   //anti-parallel beta strands
   i_AP_long = (i_chno==j_chno && i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && ip4_chno==i_chno && jm4_chno==j_chno);
   //parallel beta strands
-  i_P = (i_chno==j_chno && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (i_chno!=j_chno && ip4_chno==i_chno && jp4_chno==j_chno);
+  i_P = (i_chno==jp4_chno && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (ip4_chno!=j_chno && ip4_chno==i_chno && jp4_chno==j_chno);
+
+  int ip4 = res_no_l[i_resno+4];
+  int jm4 = res_no_l[j_resno-4];
+  int jp4 = res_no_l[j_resno+4];
 
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
@@ -2770,14 +2803,14 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1] : 0.0);
     }
 
-    energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
+    energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(ip4, jm4);
 
-    dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j-i_diff_P_AP][0];
-    dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j-i_diff_P_AP][1];
-    dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j-i_diff_P_AP][2];
+    dx[1][0] = xca_g[i_resno+i_diff_P_AP][0] - xca_g[j_resno-i_diff_P_AP][0];
+    dx[1][1] = xca_g[i_resno+i_diff_P_AP][1] - xca_g[j_resno-i_diff_P_AP][1];
+    dx[1][2] = xca_g[i_resno+i_diff_P_AP][2] - xca_g[j_resno-i_diff_P_AP][2];
 
-    force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j-i_diff_P_AP);
-    force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j-i_diff_P_AP);
+    force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(ip4, jm4);
+    force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(ip4, jm4);
 	
     f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
     f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
@@ -2787,13 +2820,13 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
     f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
     f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
 
-    f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
-    f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
-    f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+    f[alpha_carbons_g[i_resno+i_diff_P_AP]][0] -= force[1]*dx[1][0];
+    f[alpha_carbons_g[i_resno+i_diff_P_AP]][1] -= force[1]*dx[1][1];
+    f[alpha_carbons_g[i_resno+i_diff_P_AP]][2] -= force[1]*dx[1][2];
 
-    f[alpha_carbons[j-i_diff_P_AP]][0] -= -force[1]*dx[1][0];
-    f[alpha_carbons[j-i_diff_P_AP]][1] -= -force[1]*dx[1][1];
-    f[alpha_carbons[j-i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+    f[alpha_carbons_g[j_resno-i_diff_P_AP]][0] -= -force[1]*dx[1][0];
+    f[alpha_carbons_g[j_resno-i_diff_P_AP]][1] -= -force[1]*dx[1][1];
+    f[alpha_carbons_g[j_resno-i_diff_P_AP]][2] -= -force[1]*dx[1][2];
   }
     
   if (i_P) {
@@ -2803,14 +2836,14 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
       K = k_P_AP[2];
     }
 
-    energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
+    energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(ip4, jp4);
 
-    dx[1][0] = xca[i+i_diff_P_AP][0] - xca[j+i_diff_P_AP][0];
-    dx[1][1] = xca[i+i_diff_P_AP][1] - xca[j+i_diff_P_AP][1];
-    dx[1][2] = xca[i+i_diff_P_AP][2] - xca[j+i_diff_P_AP][2];
+    dx[1][0] = xca_g[i_resno+i_diff_P_AP][0] - xca_g[j_resno+i_diff_P_AP][0];
+    dx[1][1] = xca_g[i_resno+i_diff_P_AP][1] - xca_g[j_resno+i_diff_P_AP][1];
+    dx[1][2] = xca_g[i_resno+i_diff_P_AP][2] - xca_g[j_resno+i_diff_P_AP][2];
 
-    force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(i+i_diff_P_AP, j+i_diff_P_AP);
-    force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(i+i_diff_P_AP, j+i_diff_P_AP);
+    force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(ip4, jp4);
+    force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(ip4, jp4);
 
     f[alpha_carbons[i]][0] -= force[0]*dx[0][0];
     f[alpha_carbons[i]][1] -= force[0]*dx[0][1];
@@ -2820,13 +2853,13 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
     f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
     f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
 
-    f[alpha_carbons[i+i_diff_P_AP]][0] -= force[1]*dx[1][0];
-    f[alpha_carbons[i+i_diff_P_AP]][1] -= force[1]*dx[1][1];
-    f[alpha_carbons[i+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+    f[alpha_carbons_g[i_resno+i_diff_P_AP]][0] -= force[1]*dx[1][0];
+    f[alpha_carbons_g[i_resno+i_diff_P_AP]][1] -= force[1]*dx[1][1];
+    f[alpha_carbons_g[i_resno+i_diff_P_AP]][2] -= force[1]*dx[1][2];
 
-    f[alpha_carbons[j+i_diff_P_AP]][0] -= -force[1]*dx[1][0];
-    f[alpha_carbons[j+i_diff_P_AP]][1] -= -force[1]*dx[1][1];
-    f[alpha_carbons[j+i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+    f[alpha_carbons_g[j_resno+i_diff_P_AP]][0] -= -force[1]*dx[1][0];
+    f[alpha_carbons_g[j_resno+i_diff_P_AP]][1] -= -force[1]*dx[1][1];
+    f[alpha_carbons_g[j_resno+i_diff_P_AP]][2] -= -force[1]*dx[1][2];
   }
 }
 
@@ -6465,15 +6498,27 @@ void FixBackbone::compute_backbone()
       if (domain->xperiodic) {
 	xbox = (image[alpha_carbons[i]] & 1023) - 512;
 	xca[i][0] = x[alpha_carbons[i]][0] + xbox*prd[0];
-      } else xca[i][0] = x[alpha_carbons[i]][0];
+	xca_g[res_no[i]-1][0] = x[alpha_carbons[i]][0] + xbox*prd[0];
+      } else {
+	xca[i][0] = x[alpha_carbons[i]][0];
+	xca_g[res_no[i]-1][0] = x[alpha_carbons[i]][0];
+      }
       if (domain->yperiodic) {
 	ybox = (image[alpha_carbons[i]] >> 10 & 1023) - 512;
 	xca[i][1] = x[alpha_carbons[i]][1] + ybox*prd[1];
-      } else xca[i][1] = x[alpha_carbons[i]][1];
+	xca_g[res_no[i]-1][1] = x[alpha_carbons[i]][1] + ybox*prd[1];
+      } else {
+	xca[i][1] = x[alpha_carbons[i]][1];
+	xca_g[res_no[i]-1][1] = x[alpha_carbons[i]][1];
+      }
       if (domain->zperiodic) {
 	zbox = (image[alpha_carbons[i]] >> 20) - 512;
 	xca[i][2] = x[alpha_carbons[i]][2] + zbox*prd[2];
-      } else xca[i][2] = x[alpha_carbons[i]][2];
+	xca_g[res_no[i]-1][2] = x[alpha_carbons[i]][2] + zbox*prd[2];
+      } else {
+	xca[i][2] = x[alpha_carbons[i]][2];
+	xca_g[res_no[i]-1][2] = x[alpha_carbons[i]][2];
+      }
 					
       if (beta_atoms[i]!=-1) {
 	if (domain->xperiodic) {
@@ -6805,33 +6850,33 @@ void FixBackbone::compute_backbone()
 #else
   
   for (i=0;i<nn;i++) {
-    i_resno = res_no[i]-1;
-    i_chno = chain_no[i]-1;
+    i_resno =   res_no[i] -1;
+    i_chno  = chain_no[i] -1;
     
     if (chain_flag && res_info[i]==LOCAL)
-      compute_chain_potential(i);
+      compute_chain_potential(i_resno);
 
     if (!isFirst(i) && !isLast(i) && chi_flag && res_info[i]==LOCAL && se[i_resno]!='G')
-      compute_chi_potential(i);
+      compute_chi_potential(i_resno);
 
     if (shake_flag && res_info[i]==LOCAL)
       compute_shake(i);
 
     if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i_resno]!='G')
-      compute_rama_potential(i);
+      compute_rama_potential(i_resno);
 
     if (memb_flag && res_info[i]==LOCAL)
       compute_membrane_potential(i);
 
     for (j=0;j<nn;j++) {
-      j_resno = res_no[j]-1;
-      j_chno = chain_no[j]-1;
+      j_resno =   res_no[j] -1;
+      j_chno  = chain_no[j] -1;
       		
       if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
-	compute_dssp_hdrgn(i, j);
+	compute_dssp_hdrgn(i_resno, j_resno);
 				
-      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
-	compute_P_AP_potential(i, j);
+      if (i_resno<n-i_med_min && j_resno>=i_resno+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+	compute_P_AP_potential(i_resno, j_resno);
 
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
       if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))

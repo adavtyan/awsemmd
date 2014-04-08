@@ -266,10 +266,13 @@ public:
   int n, nn; // n is the total number of residues, nn is the local number of residues
   double an, bn, cn, ap, bp, cp, ah, bh, ch;
   int *alpha_carbons;
+  int *alpha_carbons_g;
   int *beta_atoms;
   int *oxygens;
-  int *res_no, *res_info, *chain_no;
+  int *res_no,   *res_info, *chain_no;
+  int *res_no_l, *chain_no_g;
   double **xca, **xcb, **xo, **xn, **xcp, **xh;
+  double **xca_g;
   double **x, **f;
   int *image;
   double prd[3], half_prd[3];

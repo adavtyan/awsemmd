@@ -994,7 +994,6 @@ FixBackbone::~FixBackbone()
   if (allocated) {
     for (int i=0;i<n;i++) {
       delete [] xca[i];
-      delete [] xca_g[i];
       delete [] xcb[i];
       delete [] xo[i];
       delete [] xn[i];
@@ -1005,17 +1004,13 @@ FixBackbone::~FixBackbone()
     for (int i=0;i<12;i++) delete [] aps[i];
 
     delete [] alpha_carbons;
-    delete [] alpha_carbons_g;
-    delete [] oxygens_g;
     delete [] beta_atoms;
     delete [] oxygens;
     delete [] res_no;
     delete [] res_no_l;
     delete [] res_info;
     delete [] chain_no;
-    delete [] chain_no_g;
     delete [] xca;
-    delete [] xca_g;
     delete [] xcb;
     delete [] xo;
     delete [] xn;
@@ -1181,18 +1176,10 @@ void FixBackbone::allocate()
   xcp = new double*[n];
   xh = new double*[n];
 
-  alpha_carbons_g = new int[n];
-  oxygens_g = new int[n];
   res_no_l = new int[n];
-  chain_no_g = new int[n];
   for (i=0; i<n; ++i){
-	alpha_carbons_g[i] = -1;
-	oxygens_g[i] = -1;
 	res_no_l[i] = -1;
-	chain_no_g[i] = -1;
   }
- 
-  xca_g = new double*[n];
 
   if (huckel_flag) {
     charge_on_residue = new double[n];
@@ -1217,7 +1204,6 @@ void FixBackbone::allocate()
   for (i = 0; i < n; ++i) {
     // Ca, Cb and O coordinates
     xca[i]   = new double [3];
-    xca_g[i] = new double [3];
     xcb[i] = new double [3];
     xo[i] = new double [3];
 		
@@ -1351,8 +1337,6 @@ inline void FixBackbone::Construct_Computational_Arrays()
 		oxygens[nn] = jm[2];
 		res_no[nn] = amin;
 
-		alpha_carbons_g[res_no[nn]-1]= jm[0];
-		oxygens_g[res_no[nn]-1]= jm[2];
 		res_no_l[res_no[nn]-1] = nn;
 
 		last = amin;
@@ -1370,7 +1354,6 @@ inline void FixBackbone::Construct_Computational_Arrays()
 				error->all(FLERR,"Atoms in a residue have different chain tag");
 			}			
 			chain_no[i] = mol_tag[alpha_carbons[i]];
-			chain_no_g[res_no[i]-1] = mol_tag[alpha_carbons[i]];
 
 			if (chain_no[i]<=0 || chain_no[i]>nch)
 				error->all(FLERR,"Chain tag is out of range");
@@ -1380,23 +1363,23 @@ inline void FixBackbone::Construct_Computational_Arrays()
 				error->all(FLERR,"Residue tag is out of range");
 
 			if (alpha_carbons[i]<nlocal) {
-				//if (beta_atoms[i]==-1 || oxygens[i]==-1) {
-					//error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 001)");
-				//}
-				//if ( !isFirst(i) && (i==0 || res_info[i-1]==OFF) ) {
-					//error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 002)");
-				//}
+				if (beta_atoms[i]==-1 || oxygens[i]==-1) {
+					error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 001)");
+				}
+				if ( !isFirst(i) && (i==0 || res_info[i-1]==OFF) ) {
+					error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 002)");
+				}
 				res_info[i] = LOCAL;
 			} else {
-				//if ( i>0 && !isFirst(i) && res_info[i-1]==LOCAL ) res_info[i] = GHOST;
-				//else if (i<nn-1 && !isLast(i) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
-				//	if (oxygens[i]==-1) {
-				//		error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 003)");
-				//	}
+				if ( i>0 && !isFirst(i) && res_info[i-1]==LOCAL ) res_info[i] = GHOST;
+				else if (i<nn-1 && !isLast(i) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
+					if (oxygens[i]==-1) {
+						error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 003)");
+					}
 				res_info[i] = GHOST;
-				//} else if (oxygens[i]==-1 || beta_atoms[i]==-1) {
-				//	res_info[i] = OFF;
-				//} else res_info[i] = GHOST;
+				} else if (oxygens[i]==-1 || beta_atoms[i]==-1) {
+					res_info[i] = OFF;
+				} else res_info[i] = GHOST;
 			}
 
 		} else res_info[i] = OFF;
@@ -1719,11 +1702,13 @@ void FixBackbone::timerEnd(int which)
 void FixBackbone::compute_chain_potential(int i_resno)
 {	
   double dx[3], r, dr, force;
-  int i = res_no_l[i_resno] ;
+  int i   = res_no_l[i_resno] ;
+  int ip1 = res_no_l[i_resno+1] ;
+  int im1 = res_no_l[i_resno-1] ;
   //int i_resno = res_no[i]-1;
 	
   // N(i) - Cb(i)
-  if (!isFirst(i) && se[i_resno]!='G') {
+  if (!isFirst(i) && se[i_resno]!='G' && res_info[im1]!=OFF ) {
     dx[0] = xn[i][0] - xcb[i][0];
     dx[1] = xn[i][1] - xcb[i][1];
     dx[2] = xn[i][2] - xcb[i][2];
@@ -1733,13 +1718,13 @@ void FixBackbone::compute_chain_potential(int i_resno)
 	
     energy[ET_CHAIN] += epsilon*k_chain[0]*dr*dr;
 	
-    f[alpha_carbons_g[i_resno-1]][0] -= an*dx[0]*force;
-    f[alpha_carbons_g[i_resno-1]][1] -= an*dx[1]*force;
-    f[alpha_carbons_g[i_resno-1]][2] -= an*dx[2]*force;
+    f[alpha_carbons[im1]][0] -= an*dx[0]*force;
+    f[alpha_carbons[im1]][1] -= an*dx[1]*force;
+    f[alpha_carbons[im1]][2] -= an*dx[2]*force;
 		
-    f[oxygens_g[i_resno-1]][0] -= cn*dx[0]*force;
-    f[oxygens_g[i_resno-1]][1] -= cn*dx[1]*force;
-    f[oxygens_g[i_resno-1]][2] -= cn*dx[2]*force;
+    f[oxygens[im1]][0] -= cn*dx[0]*force;
+    f[oxygens[im1]][1] -= cn*dx[1]*force;
+    f[oxygens[im1]][2] -= cn*dx[2]*force;
 	
     f[alpha_carbons[i]][0] -= bn*dx[0]*force;
     f[alpha_carbons[i]][1] -= bn*dx[1]*force;
@@ -1752,7 +1737,7 @@ void FixBackbone::compute_chain_potential(int i_resno)
 	
 	
   // Cp(i) - Cb(i)
-  if (!isLast(i) && se[i_resno]!='G') {
+  if (!isLast(i) && se[i_resno]!='G' && res_info[ip1]!=OFF ) {
     dx[0] = xcp[i][0] - xcb[i][0];
     dx[1] = xcp[i][1] - xcb[i][1];
     dx[2] = xcp[i][2] - xcb[i][2];
@@ -1762,9 +1747,9 @@ void FixBackbone::compute_chain_potential(int i_resno)
 	
     energy[ET_CHAIN] += epsilon*k_chain[1]*dr*dr;
 	
-    f[alpha_carbons_g[i_resno+1]][0] -= bp*dx[0]*force;
-    f[alpha_carbons_g[i_resno+1]][1] -= bp*dx[1]*force;
-    f[alpha_carbons_g[i_resno+1]][2] -= bp*dx[2]*force;
+    f[alpha_carbons[ip1]][0] -= bp*dx[0]*force;
+    f[alpha_carbons[ip1]][1] -= bp*dx[1]*force;
+    f[alpha_carbons[ip1]][2] -= bp*dx[2]*force;
 	
     f[alpha_carbons[i]][0] -= ap*dx[0]*force;
     f[alpha_carbons[i]][1] -= ap*dx[1]*force;
@@ -1781,7 +1766,7 @@ void FixBackbone::compute_chain_potential(int i_resno)
 
 
   // N(i) - Cp(i)
-  if (!isFirst(i) && !isLast(i)) {
+  if (!isFirst(i) && !isLast(i) && res_info[im1]!=OFF && res_info[ip1]!=OFF) {
     dx[0] = xn[i][0] - xcp[i][0];
     dx[1] = xn[i][1] - xcp[i][1];
     dx[2] = xn[i][2] - xcp[i][2];
@@ -1791,17 +1776,17 @@ void FixBackbone::compute_chain_potential(int i_resno)
 	
     energy[ET_CHAIN] += epsilon*k_chain[2]*dr*dr;
 	
-    f[alpha_carbons_g[i_resno-1]][0] -= an*dx[0]*force;
-    f[alpha_carbons_g[i_resno-1]][1] -= an*dx[1]*force;
-    f[alpha_carbons_g[i_resno-1]][2] -= an*dx[2]*force;
+    f[alpha_carbons[im1]][0] -= an*dx[0]*force;
+    f[alpha_carbons[im1]][1] -= an*dx[1]*force;
+    f[alpha_carbons[im1]][2] -= an*dx[2]*force;
 			
-    f[oxygens_g[i_resno-1]][0] -= cn*dx[0]*force;
-    f[oxygens_g[i_resno-1]][1] -= cn*dx[1]*force;
-    f[oxygens_g[i_resno-1]][2] -= cn*dx[2]*force;
+    f[oxygens[im1]][0] -= cn*dx[0]*force;
+    f[oxygens[im1]][1] -= cn*dx[1]*force;
+    f[oxygens[im1]][2] -= cn*dx[2]*force;
 		
-    f[alpha_carbons_g[i_resno+1]][0] -= -bp*dx[0]*force;
-    f[alpha_carbons_g[i_resno+1]][1] -= -bp*dx[1]*force;
-    f[alpha_carbons_g[i_resno+1]][2] -= -bp*dx[2]*force;
+    f[alpha_carbons[ip1]][0] -= -bp*dx[0]*force;
+    f[alpha_carbons[ip1]][1] -= -bp*dx[1]*force;
+    f[alpha_carbons[ip1]][2] -= -bp*dx[2]*force;
 	
     f[alpha_carbons[i]][0] -= (bn-ap)*dx[0]*force;
     f[alpha_carbons[i]][1] -= (bn-ap)*dx[1]*force;
@@ -1886,7 +1871,9 @@ void FixBackbone::compute_chi_potential(int i_resno)
   double a[3], b[3], c[3], arvsq, brvsq, crvsq;
   double axb[3], cxa[3], bxc[3], aprl[3], bprl[3], cprl[3];
   double norm, chi, dchi;
-  int i = res_no_l[i_resno] ;
+  int i   = res_no_l[i_resno] ;
+  int im1 = res_no_l[i_resno-1] ;
+  int ip1 = res_no_l[i_resno+1] ;
   
   a[0] = xcp[i][0] - xca[i][0];
   a[1] = xcp[i][1] - xca[i][1];
@@ -1937,23 +1924,23 @@ void FixBackbone::compute_chi_potential(int i_resno)
   force = 2*epsilon*k_chi*dchi;
 	
   energy[ET_CHI] += epsilon*k_chi*dchi*dchi;
-	
-  if (!isFirst(i)) {
-    f[alpha_carbons_g[i_resno-1]][0] -= -an*bprl[0]*force;
-    f[alpha_carbons_g[i_resno-1]][1] -= -an*bprl[1]*force;
-    f[alpha_carbons_g[i_resno-1]][2] -= -an*bprl[2]*force;
+  if (res_info[im1]!=OFF){
+    if (!isFirst(i)) {
+     f[alpha_carbons[im1]][0] -= -an*bprl[0]*force;
+     f[alpha_carbons[im1]][1] -= -an*bprl[1]*force;
+     f[alpha_carbons[im1]][2] -= -an*bprl[2]*force;
 		
-    f[oxygens_g[i_resno-1]][0] -= -cn*bprl[0]*force;
-    f[oxygens_g[i_resno-1]][1] -= -cn*bprl[1]*force;
-    f[oxygens_g[i_resno-1]][2] -= -cn*bprl[2]*force;
-  }
+     f[oxygens[im1]][0] -= -cn*bprl[0]*force;
+     f[oxygens[im1]][1] -= -cn*bprl[1]*force;
+     f[oxygens[im1]][2] -= -cn*bprl[2]*force;
+    }
 	
-  if (!isLast(i)) {
-    f[alpha_carbons_g[i_resno+1]][0] -= bp*aprl[0]*force;
-    f[alpha_carbons_g[i_resno+1]][1] -= bp*aprl[1]*force;
-    f[alpha_carbons_g[i_resno+1]][2] -= bp*aprl[2]*force;
+    if (!isLast(i)) {
+     f[alpha_carbons[im1]][0] -= bp*aprl[0]*force;
+     f[alpha_carbons[im1]][1] -= bp*aprl[1]*force;
+     f[alpha_carbons[im1]][2] -= bp*aprl[2]*force;
+    }
   }
-
   f[alpha_carbons[i]][0] -= (cprl[0] + (1-bn)*bprl[0] + (ap-1)*aprl[0])*force;
   f[alpha_carbons[i]][1] -= (cprl[1] + (1-bn)*bprl[1] + (ap-1)*aprl[1])*force;
   f[alpha_carbons[i]][2] -= (cprl[2] + (1-bn)*bprl[2] + (ap-1)*aprl[2])*force;
@@ -2068,8 +2055,6 @@ void FixBackbone::calcDihedralAndSlopes(int i, double& angle, int iAng)
 
 void FixBackbone::compute_rama_potential(int i)
 {
-  if (isFirst(i) || isLast(i)) return;
-
   double V, phi, psi;
   double force, force1[nAngles];
   int jStart, nEnd;
@@ -2102,8 +2087,8 @@ void FixBackbone::compute_rama_potential(int i)
     force1[PSI] = force*psiw[j]*(cos(psi + psi0[j]) - 1)*sin(psi + psi0[j]);
 			
     energy[ET_RAMA] += -V;
-		
-    for (ia=0; ia<nAngles; ia++) {
+    if ( res_info[im1]!=OFF && res_info[ip1]!=OFF){	
+     for (ia=0; ia<nAngles; ia++) {
       for (l=0; l<3; l++) {				
 	f[alpha_carbons[im1]][l] += force1[ia]*(y_slope[ia][CA0][l] + x_slope[ia][CA0][l]);
 	f[alpha_carbons[i]][l] += force1[ia]*(y_slope[ia][CA1][l] + x_slope[ia][CA1][l]);
@@ -2112,6 +2097,7 @@ void FixBackbone::compute_rama_potential(int i)
 	f[oxygens[im1]][l] += force1[ia]*(y_slope[ia][O0][l] + x_slope[ia][O0][l]);
 	f[oxygens[i]][l] += force1[ia]*(y_slope[ia][O1][l] + x_slope[ia][O1][l]);
       }
+     }
     }
   }
 } 
@@ -2489,15 +2475,15 @@ void FixBackbone::compute_dssp_hdrgn(int i_resno, int j_resno)
   int j_chno = chain_no[j]-1;
   
   //get local residue indices for neighboring residues of i_resno, j_resno
-  int im1 = res_no_l[i_resno-1];
-  int im2 = res_no_l[i_resno-2];
-  int ip1 = res_no_l[i_resno+1];
-  int ip2 = res_no_l[i_resno+2];
+  int im1 = res_no_l[i_resno-1]; 
+  int im2 = res_no_l[i_resno-2]; if (res_info[im2] == OFF) return;
+  int ip1 = res_no_l[i_resno+1]; 
+  int ip2 = res_no_l[i_resno+2]; if (res_info[ip2] == OFF) return;
   if (chain_no[im2] != chain_no[ip2]) return;
-  int jm1 = res_no_l[j_resno-1];
-  int jm2 = res_no_l[j_resno-2];
-  int jp1 = res_no_l[j_resno+1];
-  int jp2 = res_no_l[j_resno+2];
+  int jm1 = res_no_l[j_resno-1]; if (res_info[jm1] == OFF) return;
+  int jm2 = res_no_l[j_resno-2]; if (res_info[jm2] == OFF) return;
+  int jp1 = res_no_l[j_resno+1]; if (res_info[jp1] == OFF) return;
+  int jp2 = res_no_l[j_resno+2]; if (res_info[jp2] == OFF) return;
   if (chain_no[jm2] != chain_no[jp2]) return;
 	
   if ( isLast(j) || se[j_resno+1]=='P' ) i_repulsive = false;
@@ -2787,28 +2773,32 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
   if ( r_ca > P_AP_cut ) return;
 
   bool i_AP_med, i_AP_long, i_P;
-  //int i_resno = res_no[i]-1;
-  //int j_resno = res_no[j]-1;
-
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
 
-  int ip4_chno = chain_no_g[i_resno+4]-1;
-  int jp4_chno = chain_no_g[j_resno+4]-1;
-  int jm4_chno = chain_no_g[j_resno-4]-1;
-
   //anti-parallel hairpin 
-  i_AP_med = i_chno==j_chno && i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
-  //anti-parallel beta strands
-  i_AP_long = (i_chno==j_chno && i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && ip4_chno==i_chno && jm4_chno==j_chno);
-  //parallel beta strands
-  i_P = (i_chno==jp4_chno && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (ip4_chno!=j_chno && ip4_chno==i_chno && jp4_chno==j_chno);
+  i_AP_med = i_chno==j_chno && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
 
-  int ip4 = res_no_l[i_resno+4];
-  int jm4 = res_no_l[j_resno-4];
-  int jp4 = res_no_l[j_resno+4];
+  int ip4 = res_no_l[i_resno+i_diff_P_AP];
+  int jm4 = res_no_l[j_resno-i_diff_P_AP];
+  int ip4_chno = chain_no[ip4]-1;
+  int jm4_chno = chain_no[jm4]-1;
+  //anti-parallel beta strands
+  i_AP_long = (i_chno==j_chno && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && ip4_chno==i_chno && jm4_chno==j_chno);
+
+  int jp4;
+  if ( j_resno+i_diff_P_AP >= n ){
+	i_P = false;
+  } 
+  else {
+	  jp4 = res_no_l[j_resno+i_diff_P_AP];
+	  int jp4_chno = chain_no[jp4]-1;
+	  //parallel beta strands
+	  i_P = (i_chno==jp4_chno && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (ip4_chno!=j_chno && ip4_chno==i_chno && jp4_chno==j_chno);
+  }
 
   if (i_AP_med || i_AP_long) {
+    if (res_info[ip4]==OFF || res_info[jm4]==OFF) return;
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1]*k_betapred_P_AP : 0.0);
     } else {
@@ -2817,9 +2807,9 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
 
     energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(ip4, jm4);
 
-    dx[1][0] = xca_g[i_resno+i_diff_P_AP][0] - xca_g[j_resno-i_diff_P_AP][0];
-    dx[1][1] = xca_g[i_resno+i_diff_P_AP][1] - xca_g[j_resno-i_diff_P_AP][1];
-    dx[1][2] = xca_g[i_resno+i_diff_P_AP][2] - xca_g[j_resno-i_diff_P_AP][2];
+    dx[1][0] = xca[ip4][0] - xca[jm4][0];
+    dx[1][1] = xca[ip4][1] - xca[jm4][1];
+    dx[1][2] = xca[ip4][2] - xca[jm4][2];
 
     force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(ip4, jm4);
     force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(ip4, jm4);
@@ -2832,16 +2822,17 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
     f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
     f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
 
-    f[alpha_carbons_g[i_resno+i_diff_P_AP]][0] -= force[1]*dx[1][0];
-    f[alpha_carbons_g[i_resno+i_diff_P_AP]][1] -= force[1]*dx[1][1];
-    f[alpha_carbons_g[i_resno+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+    f[alpha_carbons[ip4]][0] -= force[1]*dx[1][0];
+    f[alpha_carbons[ip4]][1] -= force[1]*dx[1][1];
+    f[alpha_carbons[ip4]][2] -= force[1]*dx[1][2];
 
-    f[alpha_carbons_g[j_resno-i_diff_P_AP]][0] -= -force[1]*dx[1][0];
-    f[alpha_carbons_g[j_resno-i_diff_P_AP]][1] -= -force[1]*dx[1][1];
-    f[alpha_carbons_g[j_resno-i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+    f[alpha_carbons[jm4]][0] -= -force[1]*dx[1][0];
+    f[alpha_carbons[jm4]][1] -= -force[1]*dx[1][1];
+    f[alpha_carbons[jm4]][2] -= -force[1]*dx[1][2];
   }
     
   if (i_P) {
+    if (res_info[ip4]==OFF || res_info[jp4]==OFF) return;
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = k_P_AP[2]*k_betapred_P_AP;
     } else {
@@ -2850,9 +2841,9 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
 
     energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(ip4, jp4);
 
-    dx[1][0] = xca_g[i_resno+i_diff_P_AP][0] - xca_g[j_resno+i_diff_P_AP][0];
-    dx[1][1] = xca_g[i_resno+i_diff_P_AP][1] - xca_g[j_resno+i_diff_P_AP][1];
-    dx[1][2] = xca_g[i_resno+i_diff_P_AP][2] - xca_g[j_resno+i_diff_P_AP][2];
+    dx[1][0] = xca[ip4][0] - xca[jp4][0];
+    dx[1][1] = xca[ip4][1] - xca[jp4][1];
+    dx[1][2] = xca[ip4][2] - xca[jp4][2];
 
     force[0] = k_global_P_AP*epsilon*K*p_ap->prd_nu(i, j)*p_ap->nu(ip4, jp4);
     force[1] = k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->prd_nu(ip4, jp4);
@@ -2865,13 +2856,13 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
     f[alpha_carbons[j]][1] -= -force[0]*dx[0][1];
     f[alpha_carbons[j]][2] -= -force[0]*dx[0][2];
 
-    f[alpha_carbons_g[i_resno+i_diff_P_AP]][0] -= force[1]*dx[1][0];
-    f[alpha_carbons_g[i_resno+i_diff_P_AP]][1] -= force[1]*dx[1][1];
-    f[alpha_carbons_g[i_resno+i_diff_P_AP]][2] -= force[1]*dx[1][2];
+    f[alpha_carbons[ip4]][0] -= force[1]*dx[1][0];
+    f[alpha_carbons[ip4]][1] -= force[1]*dx[1][1];
+    f[alpha_carbons[ip4]][2] -= force[1]*dx[1][2];
 
-    f[alpha_carbons_g[j_resno+i_diff_P_AP]][0] -= -force[1]*dx[1][0];
-    f[alpha_carbons_g[j_resno+i_diff_P_AP]][1] -= -force[1]*dx[1][1];
-    f[alpha_carbons_g[j_resno+i_diff_P_AP]][2] -= -force[1]*dx[1][2];
+    f[alpha_carbons[jp4]][0] -= -force[1]*dx[1][0];
+    f[alpha_carbons[jp4]][1] -= -force[1]*dx[1][1];
+    f[alpha_carbons[jp4]][2] -= -force[1]*dx[1][2];
   }
 }
 
@@ -3094,7 +3085,10 @@ void FixBackbone::compute_helix_potential(int i_resno)
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
-  else { xj = xcb[j]; jatom  = beta_atoms[j]; }
+  else { xj = xcb[j]; 
+	jatom  = beta_atoms[j]; 
+	if (jatom==-1) return;
+  }
 	
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
@@ -6520,26 +6514,20 @@ void FixBackbone::compute_backbone()
       if (domain->xperiodic) {
 	xbox = (image[alpha_carbons[i]] & 1023) - 512;
 	xca[i][0] = x[alpha_carbons[i]][0] + xbox*prd[0];
-	xca_g[res_no[i]-1][0] = x[alpha_carbons[i]][0] + xbox*prd[0];
       } else {
 	xca[i][0] = x[alpha_carbons[i]][0];
-	xca_g[res_no[i]-1][0] = x[alpha_carbons[i]][0];
       }
       if (domain->yperiodic) {
 	ybox = (image[alpha_carbons[i]] >> 10 & 1023) - 512;
 	xca[i][1] = x[alpha_carbons[i]][1] + ybox*prd[1];
-	xca_g[res_no[i]-1][1] = x[alpha_carbons[i]][1] + ybox*prd[1];
       } else {
 	xca[i][1] = x[alpha_carbons[i]][1];
-	xca_g[res_no[i]-1][1] = x[alpha_carbons[i]][1];
       }
       if (domain->zperiodic) {
 	zbox = (image[alpha_carbons[i]] >> 20) - 512;
 	xca[i][2] = x[alpha_carbons[i]][2] + zbox*prd[2];
-	xca_g[res_no[i]-1][2] = x[alpha_carbons[i]][2] + zbox*prd[2];
       } else {
 	xca[i][2] = x[alpha_carbons[i]][2];
-	xca_g[res_no[i]-1][2] = x[alpha_carbons[i]][2];
       }
 					
       if (beta_atoms[i]!=-1) {
@@ -6885,7 +6873,7 @@ void FixBackbone::compute_backbone()
       compute_shake(i);
 
     if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i_resno]!='G')
-      compute_rama_potential(i_resno);
+      compute_rama_potential(i);
 
     if (memb_flag && res_info[i]==LOCAL)
       compute_membrane_potential(i);
@@ -6897,7 +6885,7 @@ void FixBackbone::compute_backbone()
       if (i_resno-2>=0 && i_resno+2<n && j_resno-2>=0 && j_resno+2<n && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i_resno, j_resno);
 				
-      if (i_resno<n-i_med_min && j_resno>=i_resno+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+      if (j_resno>=i_resno+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i_resno, j_resno);
 
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
@@ -6918,7 +6906,7 @@ void FixBackbone::compute_backbone()
       compute_burial_potential(i);
     	
     //    if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
-    if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && res_no_l[i_resno+helix_i_diff]<nn && 
+    if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && res_no_l[i_resno+helix_i_diff]<nn-1 && 
 	i_chno==chain_no[res_no_l[i_resno+helix_i_diff]]-1 && res_info[i]==LOCAL)
       compute_helix_potential(i_resno);
 			

@@ -268,10 +268,7 @@ public:
   int *alpha_carbons, *beta_atoms, *oxygens;
   int *res_no,   *res_info, *chain_no;
   double **xca, **xcb, **xo, **xn, **xcp, **xh;
-  
-  int *alpha_carbons_g, *oxygens_g;
-  int *res_no_l, *chain_no_g;
-  double **xca_g;
+  int *res_no_l;
 
   double **x, **f;
   int *image;

@@ -40,6 +40,9 @@ using std::ifstream;
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
+//double fm_f[100][2][3], tfm_f[100][2][3];
+//double err=0.0, err_max=0.0, err_max2=0.0;
+
 /* ---------------------------------------------------------------------- */
 
 // {"ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"};
@@ -1162,24 +1165,23 @@ void FixBackbone::allocate()
 {
   int i, j, k;
 
-  alpha_carbons   = new int[n];
+  alpha_carbons = new int[n];
   beta_atoms = new int[n];
-  oxygens  = new int[n];
-  res_no   = new int[n];
+  oxygens = new int[n];
+  res_no = new int[n];
+  res_no_l = new int[n];
+  for (i=0; i<n; ++i){
+	res_no_l[i]=-1;
+  }
   res_info = new int[n];
   chain_no = new int[n];
-
-  xca   = new double*[n];
+	
+  xca = new double*[n];
   xcb = new double*[n];
   xo = new double*[n];
   xn = new double*[n];
   xcp = new double*[n];
   xh = new double*[n];
-
-  res_no_l = new int[n];
-  for (i=0; i<n; ++i){
-	res_no_l[i] = -1;
-  }
 
   if (huckel_flag) {
     charge_on_residue = new double[n];
@@ -1203,7 +1205,7 @@ void FixBackbone::allocate()
 
   for (i = 0; i < n; ++i) {
     // Ca, Cb and O coordinates
-    xca[i]   = new double [3];
+    xca[i] = new double [3];
     xcb[i] = new double [3];
     xo[i] = new double [3];
 		
@@ -1287,108 +1289,108 @@ int FixBackbone::Tag(int index) {
 
 inline void FixBackbone::Construct_Computational_Arrays()
 {
-	int *mask = atom->mask;
-	int nlocal = atom->nlocal;
-	int nall = atom->nlocal + atom->nghost;
-	int *mol_tag = atom->molecule;
-	int *res_tag = atom->residue;
+  int *mask = atom->mask;
+  int nlocal = atom->nlocal;
+  int nall = atom->nlocal + atom->nghost;
+  int *mol_tag = atom->molecule;
+  int *res_tag = atom->residue;
+	
 
+  int i;
 
-	int i;
-
-	// Creating index arrays for Alpha_Carbons, Beta_Atoms and Oxygens
-	nn = 0;
-	int last = 0;
-	for (i = 0; i < n; ++i) {
-		int min[3] = {-1, -1, -1}, jm[3] = {-1, -1, -1}, amin = -1;
-		for (int j = 0; j < nall; ++j) {
-			if (i==0 && res_tag[j]<=0 && (mask[j] & groupbit || mask[j] & group2bit || mask[j] & group3bit) )
-				error->all(FLERR,"Molecular tag must be positive in fix backbone");
-
-			if ( (mask[j] & groupbit) && res_tag[j]>last ) {
-				if (res_tag[j]<min[0] || min[0]==-1) {
-					min[0] = res_tag[j];
-					jm[0] = j;
-				}
-			}
-			if ( (mask[j] & group2bit) && res_tag[j]>last ) {
-				if (res_tag[j]<min[1] || min[1]==-1) {
-					min[1] = res_tag[j];
-					jm[1] = j;
-				}
-			}
-			if ( (mask[j] & group3bit) && res_tag[j]>last ) {
-				if (res_tag[j]<min[2] || min[2]==-1) {
-					min[2] = res_tag[j];
-					jm[2] = j;
-				}
-			}
-		}
-
-		amin = MIN(min[0], MIN(min[1], min[2]));
-		if (amin==-1) break;
-
-		if (min[0]!=amin) jm[0] = -1;
-		if (min[1]!=amin) jm[1] = -1;
-		if (min[2]!=amin) jm[2] = -1;
-
-		alpha_carbons[nn] = jm[0];
-		beta_atoms[nn] = jm[1];
-		oxygens[nn] = jm[2];
-		res_no[nn] = amin;
-
-		res_no_l[res_no[nn]-1] = nn;
-
-		last = amin;
-		nn++;
+  // Creating index arrays for Alpha_Carbons, Beta_Atoms and Oxygens
+  nn = 0;
+  int last = 0;
+  for (i = 0; i < n; ++i) {
+    int min[3] = {-1, -1, -1}, jm[3] = {-1, -1, -1}, amin = -1;
+    for (int j = 0; j < nall; ++j) {
+      if (i==0 && res_tag[j]<=0 && (mask[j] & groupbit || mask[j] & group2bit || mask[j] & group3bit) )
+	error->all(FLERR,"Molecular tag must be positive in fix backbone");
+			
+      if ( (mask[j] & groupbit) && res_tag[j]>last ) {
+	if (res_tag[j]<min[0] || min[0]==-1) {
+	  min[0] = res_tag[j];
+	  jm[0] = j;
 	}
-
-	for (i = 0; i < nn; ++i) {
-		chain_no[i] = -1;
-
-		// Checking sequance and marking residues
-		if (alpha_carbons[i]!=-1) { //res_info[i]==LOCAL || res_info[i]==GHOST 
-			// Making sure chain tags match for same residue atoms
-			if ( (beta_atoms[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[beta_atoms[i]]) ||
-					(oxygens[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[oxygens[i]]) ) {
-				error->all(FLERR,"Atoms in a residue have different chain tag");
-			}			
-			chain_no[i] = mol_tag[alpha_carbons[i]];
-
-			if (chain_no[i]<=0 || chain_no[i]>nch)
-				error->all(FLERR,"Chain tag is out of range");
-
-			// Checking for correct residue numbering
-			if ( res_no[i]<ch_pos[chain_no[i]-1] || res_no[i]>ch_pos[chain_no[i]-1]+ch_len[chain_no[i]-1]-1 )
-				error->all(FLERR,"Residue tag is out of range");
-
-			if (alpha_carbons[i]<nlocal) {
-				if (beta_atoms[i]==-1 || oxygens[i]==-1) {
-					error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 001)");
-				}
-				if ( !isFirst(i) && (i==0 || res_info[i-1]==OFF) ) {
-					error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 002)");
-				}
-				res_info[i] = LOCAL;
-			} else {
-				if ( i>0 && !isFirst(i) && res_info[i-1]==LOCAL ) res_info[i] = GHOST;
-				else if (i<nn-1 && !isLast(i) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
-					if (oxygens[i]==-1) {
-						error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 003)");
-					}
-				res_info[i] = GHOST;
-				} else if (oxygens[i]==-1 || beta_atoms[i]==-1) {
-					res_info[i] = OFF;
-				} else res_info[i] = GHOST;
-			}
-
-		} else res_info[i] = OFF;
-
-		//if (i>0 && res_info[i-1]==LOCAL && res_info[i]==OFF) {
-			//error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 004)");
-		//}
+      }
+      if ( (mask[j] & group2bit) && res_tag[j]>last ) {
+	if (res_tag[j]<min[1] || min[1]==-1) {
+	  min[1] = res_tag[j];
+	  jm[1] = j;
 	}
-	/*	if (ntimestep==0) {
+      }
+      if ( (mask[j] & group3bit) && res_tag[j]>last ) {
+	if (res_tag[j]<min[2] || min[2]==-1) {
+	  min[2] = res_tag[j];
+	  jm[2] = j;
+	}
+      }
+    }
+		
+    amin = MIN(min[0], MIN(min[1], min[2]));
+    if (amin==-1) break;
+
+    if (min[0]!=amin) jm[0] = -1;
+    if (min[1]!=amin) jm[1] = -1;
+    if (min[2]!=amin) jm[2] = -1;
+
+    alpha_carbons[nn] = jm[0];
+    beta_atoms[nn] = jm[1];
+    oxygens[nn] = jm[2];
+    res_no[nn] = amin; //amin range [1,n]
+    res_no_l[res_no[nn]-1]=nn; //local i=res_no_l[i_resno];
+    last = amin;
+    nn++;
+  }
+
+  for (i = 0; i < nn; ++i) {
+    chain_no[i] = -1;
+	
+    // Checking sequance and marking residues
+    if (alpha_carbons[i]!=-1) {
+			
+      // Making sure chain tags match for same residue atoms
+      if ( (beta_atoms[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[beta_atoms[i]]) ||
+	   (oxygens[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[oxygens[i]]) ) {
+	error->all(FLERR,"Atoms in a residue have different chain tag");
+      }			
+      chain_no[i] = mol_tag[alpha_carbons[i]];
+			
+      if (chain_no[i]<=0 || chain_no[i]>nch)
+	error->all(FLERR,"Chain tag is out of range");
+			
+      // Checking for correct residue numbering
+      if ( res_no[i]<ch_pos[chain_no[i]-1] || res_no[i]>ch_pos[chain_no[i]-1]+ch_len[chain_no[i]-1]-1 )
+	error->all(FLERR,"Residue tag is out of range");
+
+      if (alpha_carbons[i]<nlocal) {
+	//if (beta_atoms[i]==-1 || oxygens[i]==-1) {
+	//  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 001)");
+	//}
+	//if ( !isFirst(i) && (i==0 || res_info[i-1]==OFF) ) {
+	//  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 002)");
+	//}
+	res_info[i] = LOCAL;
+      } else {
+	if ( i>0 && !isFirst(i) && res_info[i-1]==LOCAL ) res_info[i] = GHOST;
+	else if (i<nn-1 && !isLast(i) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
+	  //if (oxygens[i]==-1) {
+	  //  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 003)");
+	  //}
+	  res_info[i] = GHOST;
+	} else if (oxygens[i]==-1 || beta_atoms[i]==-1) {
+	  res_info[i] = OFF;
+	} else res_info[i] = GHOST;
+      }
+			
+    } else res_info[i] = OFF;
+		
+    //if (i>0 && res_info[i-1]==LOCAL && res_info[i]==OFF) {
+    //  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 004)");
+    //}
+  }
+	
+  /*	if (ntimestep==0) {
 	for (i = 0; i < nn; ++i) {
 	fprintf(dout, "%d %d %d %d %d %d\n", i, res_no[i], res_info[i], alpha_carbons[i], beta_atoms[i], oxygens[i]);
 	}
@@ -1699,102 +1701,108 @@ void FixBackbone::timerEnd(int which)
 
 /* ---------------------------------------------------------------------- */
 
-void FixBackbone::compute_chain_potential(int i_resno)
+void FixBackbone::compute_chain_potential(int i)
 {	
   double dx[3], r, dr, force;
-  int i   = res_no_l[i_resno] ;
-  int ip1 = res_no_l[i_resno+1] ;
-  int im1 = res_no_l[i_resno-1] ;
-  //int i_resno = res_no[i]-1;
-	
+  int i_resno = res_no[i]-1;
+  int ip1, im1; 
   // N(i) - Cb(i)
-  if (!isFirst(i) && se[i_resno]!='G' && res_info[im1]!=OFF ) {
-    dx[0] = xn[i][0] - xcb[i][0];
-    dx[1] = xn[i][1] - xcb[i][1];
-    dx[2] = xn[i][2] - xcb[i][2];
-    r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
-    dr = r - r_ncb0;
-    force = 2*epsilon*k_chain[0]*dr/r;
-	
-    energy[ET_CHAIN] += epsilon*k_chain[0]*dr*dr;
-	
-    f[alpha_carbons[im1]][0] -= an*dx[0]*force;
-    f[alpha_carbons[im1]][1] -= an*dx[1]*force;
-    f[alpha_carbons[im1]][2] -= an*dx[2]*force;
+  if (!isFirst(i) && se[i_resno]!='G') {
+    im1 = res_no_l[i_resno-1];
+    if (im1!=-1 && (res_info[im1]==LOCAL || res_info[im1]==GHOST)){
+		dx[0] = xn[i][0] - xcb[i][0];
+		dx[1] = xn[i][1] - xcb[i][1];
+		dx[2] = xn[i][2] - xcb[i][2];
+		r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+		dr = r - r_ncb0;
+		force = 2*epsilon*k_chain[0]*dr/r;
 		
-    f[oxygens[im1]][0] -= cn*dx[0]*force;
-    f[oxygens[im1]][1] -= cn*dx[1]*force;
-    f[oxygens[im1]][2] -= cn*dx[2]*force;
+		energy[ET_CHAIN] += epsilon*k_chain[0]*dr*dr;
 	
-    f[alpha_carbons[i]][0] -= bn*dx[0]*force;
-    f[alpha_carbons[i]][1] -= bn*dx[1]*force;
-    f[alpha_carbons[i]][2] -= bn*dx[2]*force;
-	
-    f[beta_atoms[i]][0] -= -dx[0]*force;
-    f[beta_atoms[i]][1] -= -dx[1]*force;
-    f[beta_atoms[i]][2] -= -dx[2]*force;
+		f[alpha_carbons[im1]][0] -= an*dx[0]*force;
+		f[alpha_carbons[im1]][1] -= an*dx[1]*force;
+		f[alpha_carbons[im1]][2] -= an*dx[2]*force;
+				
+		f[oxygens[im1]][0] -= cn*dx[0]*force;
+		f[oxygens[im1]][1] -= cn*dx[1]*force;
+		f[oxygens[im1]][2] -= cn*dx[2]*force;
+		
+		f[alpha_carbons[i]][0] -= bn*dx[0]*force;
+		f[alpha_carbons[i]][1] -= bn*dx[1]*force;
+		f[alpha_carbons[i]][2] -= bn*dx[2]*force;	
+		
+		f[beta_atoms[i]][0] -= -dx[0]*force;
+		f[beta_atoms[i]][1] -= -dx[1]*force;
+		f[beta_atoms[i]][2] -= -dx[2]*force;
+    }
   }
 	
-	
   // Cp(i) - Cb(i)
-  if (!isLast(i) && se[i_resno]!='G' && res_info[ip1]!=OFF ) {
-    dx[0] = xcp[i][0] - xcb[i][0];
-    dx[1] = xcp[i][1] - xcb[i][1];
-    dx[2] = xcp[i][2] - xcb[i][2];
-    r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
-    dr = r - r_cpcb0;
-    force = 2*epsilon*k_chain[1]*dr/r;
-	
-    energy[ET_CHAIN] += epsilon*k_chain[1]*dr*dr;
-	
-    f[alpha_carbons[ip1]][0] -= bp*dx[0]*force;
-    f[alpha_carbons[ip1]][1] -= bp*dx[1]*force;
-    f[alpha_carbons[ip1]][2] -= bp*dx[2]*force;
-	
-    f[alpha_carbons[i]][0] -= ap*dx[0]*force;
-    f[alpha_carbons[i]][1] -= ap*dx[1]*force;
-    f[alpha_carbons[i]][2] -= ap*dx[2]*force;
-	
-    f[oxygens[i]][0] -= cp*dx[0]*force;
-    f[oxygens[i]][1] -= cp*dx[1]*force;
-    f[oxygens[i]][2] -= cp*dx[2]*force;
-	
-    f[beta_atoms[i]][0] -= -dx[0]*force;
-    f[beta_atoms[i]][1] -= -dx[1]*force;
-    f[beta_atoms[i]][2] -= -dx[2]*force;
+  if (!isLast(i) && se[i_resno]!='G') {
+	ip1 = res_no_l[i_resno+1];
+	if (ip1!=-1 && (res_info[ip1]==LOCAL || res_info[ip1]==GHOST)){
+		dx[0] = xcp[i][0] - xcb[i][0];
+		dx[1] = xcp[i][1] - xcb[i][1];
+		dx[2] = xcp[i][2] - xcb[i][2];
+		r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+		dr = r - r_cpcb0;
+		force = 2*epsilon*k_chain[1]*dr/r;
+		
+		energy[ET_CHAIN] += epsilon*k_chain[1]*dr*dr;  
+		
+		f[alpha_carbons[ip1]][0] -= bp*dx[0]*force;
+		f[alpha_carbons[ip1]][1] -= bp*dx[1]*force;
+		f[alpha_carbons[ip1]][2] -= bp*dx[2]*force;
+		
+		f[alpha_carbons[i]][0] -= ap*dx[0]*force;
+		f[alpha_carbons[i]][1] -= ap*dx[1]*force;
+		f[alpha_carbons[i]][2] -= ap*dx[2]*force;
+		
+		f[oxygens[i]][0] -= cp*dx[0]*force;
+		f[oxygens[i]][1] -= cp*dx[1]*force;
+		f[oxygens[i]][2] -= cp*dx[2]*force;
+		
+		f[beta_atoms[i]][0] -= -dx[0]*force;
+		f[beta_atoms[i]][1] -= -dx[1]*force;
+		f[beta_atoms[i]][2] -= -dx[2]*force;
+	}
   }
 
 
   // N(i) - Cp(i)
-  if (!isFirst(i) && !isLast(i) && res_info[im1]!=OFF && res_info[ip1]!=OFF) {
-    dx[0] = xn[i][0] - xcp[i][0];
-    dx[1] = xn[i][1] - xcp[i][1];
-    dx[2] = xn[i][2] - xcp[i][2];
-    r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
-    dr = r - r_ncp0;
-    force = 2*epsilon*k_chain[2]*dr/r;
-	
-    energy[ET_CHAIN] += epsilon*k_chain[2]*dr*dr;
-	
-    f[alpha_carbons[im1]][0] -= an*dx[0]*force;
-    f[alpha_carbons[im1]][1] -= an*dx[1]*force;
-    f[alpha_carbons[im1]][2] -= an*dx[2]*force;
-			
-    f[oxygens[im1]][0] -= cn*dx[0]*force;
-    f[oxygens[im1]][1] -= cn*dx[1]*force;
-    f[oxygens[im1]][2] -= cn*dx[2]*force;
+  if (!isFirst(i) && !isLast(i)) {
+	im1 = res_no_l[i_resno-1];
+	ip1 = res_no_l[i_resno+1];
+	if( im1!=-1 && ip1!=-1 && (res_info[im1]==LOCAL || res_info[im1]==GHOST) && (res_info[ip1]==LOCAL || res_info[ip1]==GHOST)){
+		dx[0] = xn[i][0] - xcp[i][0];
+		dx[1] = xn[i][1] - xcp[i][1];
+		dx[2] = xn[i][2] - xcp[i][2];
+		r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+		dr = r - r_ncp0;
+		force = 2*epsilon*k_chain[2]*dr/r;
 		
-    f[alpha_carbons[ip1]][0] -= -bp*dx[0]*force;
-    f[alpha_carbons[ip1]][1] -= -bp*dx[1]*force;
-    f[alpha_carbons[ip1]][2] -= -bp*dx[2]*force;
-	
-    f[alpha_carbons[i]][0] -= (bn-ap)*dx[0]*force;
-    f[alpha_carbons[i]][1] -= (bn-ap)*dx[1]*force;
-    f[alpha_carbons[i]][2] -= (bn-ap)*dx[2]*force;
-	
-    f[oxygens[i]][0] -= -cp*dx[0]*force;
-    f[oxygens[i]][1] -= -cp*dx[1]*force;
-    f[oxygens[i]][2] -= -cp*dx[2]*force;
+		energy[ET_CHAIN] += epsilon*k_chain[2]*dr*dr;
+		
+		f[alpha_carbons[im1]][0] -= an*dx[0]*force;
+		f[alpha_carbons[im1]][1] -= an*dx[1]*force;
+		f[alpha_carbons[im1]][2] -= an*dx[2]*force;
+				
+		f[oxygens[im1]][0] -= cn*dx[0]*force;
+		f[oxygens[im1]][1] -= cn*dx[1]*force;
+		f[oxygens[im1]][2] -= cn*dx[2]*force;
+			
+		f[alpha_carbons[ip1]][0] -= -bp*dx[0]*force;
+		f[alpha_carbons[ip1]][1] -= -bp*dx[1]*force;
+		f[alpha_carbons[ip1]][2] -= -bp*dx[2]*force;
+		
+		f[alpha_carbons[i]][0] -= (bn-ap)*dx[0]*force;
+		f[alpha_carbons[i]][1] -= (bn-ap)*dx[1]*force;
+		f[alpha_carbons[i]][2] -= (bn-ap)*dx[2]*force;
+		
+		f[oxygens[i]][0] -= -cp*dx[0]*force;
+		f[oxygens[i]][1] -= -cp*dx[1]*force;
+		f[oxygens[i]][2] -= -cp*dx[2]*force;
+	}
   }
 }
 
@@ -1865,16 +1873,15 @@ void FixBackbone::compute_shake(int i)
   }
 }
 
-void FixBackbone::compute_chi_potential(int i_resno)
+void FixBackbone::compute_chi_potential(int i)
 {
   double dx[3], r, dr, force;
   double a[3], b[3], c[3], arvsq, brvsq, crvsq;
   double axb[3], cxa[3], bxc[3], aprl[3], bprl[3], cprl[3];
   double norm, chi, dchi;
-  int i   = res_no_l[i_resno] ;
-  int im1 = res_no_l[i_resno-1] ;
-  int ip1 = res_no_l[i_resno+1] ;
-  
+  int i_resno = res_no[i]-1;
+  int im1, ip1;
+	
   a[0] = xcp[i][0] - xca[i][0];
   a[1] = xcp[i][1] - xca[i][1];
   a[2] = xcp[i][2] - xca[i][2];
@@ -1924,23 +1931,29 @@ void FixBackbone::compute_chi_potential(int i_resno)
   force = 2*epsilon*k_chi*dchi;
 	
   energy[ET_CHI] += epsilon*k_chi*dchi*dchi;
-  if (res_info[im1]!=OFF){
-    if (!isFirst(i)) {
-     f[alpha_carbons[im1]][0] -= -an*bprl[0]*force;
-     f[alpha_carbons[im1]][1] -= -an*bprl[1]*force;
-     f[alpha_carbons[im1]][2] -= -an*bprl[2]*force;
-		
-     f[oxygens[im1]][0] -= -cn*bprl[0]*force;
-     f[oxygens[im1]][1] -= -cn*bprl[1]*force;
-     f[oxygens[im1]][2] -= -cn*bprl[2]*force;
-    }
 	
-    if (!isLast(i)) {
-     f[alpha_carbons[im1]][0] -= bp*aprl[0]*force;
-     f[alpha_carbons[im1]][1] -= bp*aprl[1]*force;
-     f[alpha_carbons[im1]][2] -= bp*aprl[2]*force;
+  if (!isFirst(i)) {
+    im1 = res_no_l[i_resno-1];
+    if (im1!=-1 && (res_info[im1]==LOCAL || res_info[im1]==GHOST)){ 
+		f[alpha_carbons[im1]][0] -= -an*bprl[0]*force;
+		f[alpha_carbons[im1]][1] -= -an*bprl[1]*force;
+		f[alpha_carbons[im1]][2] -= -an*bprl[2]*force;
+			
+		f[oxygens[im1]][0] -= -cn*bprl[0]*force;
+		f[oxygens[im1]][1] -= -cn*bprl[1]*force;
+		f[oxygens[im1]][2] -= -cn*bprl[2]*force;
     }
   }
+	
+  if (!isLast(i)) {
+    ip1 = res_no_l[i_resno+1];
+    if (ip1!=-1 && (res_info[ip1]==LOCAL || res_info[ip1]==GHOST)){
+		f[alpha_carbons[ip1]][0] -= bp*aprl[0]*force;
+		f[alpha_carbons[ip1]][1] -= bp*aprl[1]*force;
+		f[alpha_carbons[ip1]][2] -= bp*aprl[2]*force;
+    }
+  }
+
   f[alpha_carbons[i]][0] -= (cprl[0] + (1-bn)*bprl[0] + (ap-1)*aprl[0])*force;
   f[alpha_carbons[i]][1] -= (cprl[1] + (1-bn)*bprl[1] + (ap-1)*aprl[1])*force;
   f[alpha_carbons[i]][2] -= (cprl[2] + (1-bn)*bprl[2] + (ap-1)*aprl[2])*force;
@@ -2059,11 +2072,12 @@ void FixBackbone::compute_rama_potential(int i)
   double force, force1[nAngles];
   int jStart, nEnd;
   int j, ia, l;
-	
-  int i_resno = res_no[i]-1;
+
+  int i_resno   = res_no[i]-1;
   int im1 = res_no_l[i_resno-1];
-  int ip1 = res_no_l[i_resno+1];
-  
+  int ip1 = res_no_l[i_resno+1];		
+	
+	
   calcDihedralAndSlopes(i, phi, PHI);
   calcDihedralAndSlopes(i, psi, PSI);
 	
@@ -2087,17 +2101,17 @@ void FixBackbone::compute_rama_potential(int i)
     force1[PSI] = force*psiw[j]*(cos(psi + psi0[j]) - 1)*sin(psi + psi0[j]);
 			
     energy[ET_RAMA] += -V;
-    if ( res_info[im1]!=OFF && res_info[ip1]!=OFF){	
-     for (ia=0; ia<nAngles; ia++) {
-      for (l=0; l<3; l++) {				
-	f[alpha_carbons[im1]][l] += force1[ia]*(y_slope[ia][CA0][l] + x_slope[ia][CA0][l]);
-	f[alpha_carbons[i]][l] += force1[ia]*(y_slope[ia][CA1][l] + x_slope[ia][CA1][l]);
-	f[alpha_carbons[ip1]][l] += force1[ia]*(y_slope[ia][CA2][l] + x_slope[ia][CA2][l]);
-				
-	f[oxygens[im1]][l] += force1[ia]*(y_slope[ia][O0][l] + x_slope[ia][O0][l]);
-	f[oxygens[i]][l] += force1[ia]*(y_slope[ia][O1][l] + x_slope[ia][O1][l]);
-      }
-     }
+    if (im1!=-1 && ip1!=-1 && (res_info[im1]==LOCAL || res_info[im1]==GHOST) && (res_info[ip1]==LOCAL || res_info[ip1]==GHOST)){
+		for (ia=0; ia<nAngles; ia++) {
+		  for (l=0; l<3; l++) {				
+			f[alpha_carbons[im1]][l] += force1[ia]*(y_slope[ia][CA0][l] + x_slope[ia][CA0][l]);
+			f[alpha_carbons[i]][l] += force1[ia]*(y_slope[ia][CA1][l] + x_slope[ia][CA1][l]);
+			f[alpha_carbons[ip1]][l] += force1[ia]*(y_slope[ia][CA2][l] + x_slope[ia][CA2][l]);
+						
+			f[oxygens[im1]][l] += force1[ia]*(y_slope[ia][O0][l] + x_slope[ia][O0][l]);
+			f[oxygens[i]][l] += force1[ia]*(y_slope[ia][O1][l] + x_slope[ia][O1][l]);
+		  }
+		}
     }
   }
 } 
@@ -2457,12 +2471,10 @@ inline double FixBackbone::get_burial_gamma(int i_resno, int ires_type, int loca
   }
 }
 
-void FixBackbone::compute_dssp_hdrgn(int i_resno, int j_resno)
+void FixBackbone::compute_dssp_hdrgn(int i, int j)
 {
-  int i = res_no_l[i_resno] ;
-  int j = res_no_l[j_resno] ;
   if (R->rNO(i,j)>dssp_hdrgn_cut) return;
-  
+
   bool i_repulsive = true, i_AP = true, i_P = true, i_theta[4] = {true, true, true, true};
   double lambda[4], R_NO[4], R_HO[4], theta[4], nu[2], th;
   double r_nu[2], prdnu[2], prd_theta[4][2], V[4], VTotal;
@@ -2471,90 +2483,105 @@ void FixBackbone::compute_dssp_hdrgn(int i_resno, int j_resno)
   double theta_seq_anti_HB[2], theta_seq_anti_NHB[2], theta_seq_para_HB[2];
   int hb_class;
   int k;
+
+  int i_resno = res_no[i]-1;
+  int j_resno = res_no[j]-1;
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
+
+  int im1 = res_no_l[i_resno-1];
+  int im2 = res_no_l[i_resno-2];
+  int ip1 = res_no_l[i_resno+1];
+  int ip2 = res_no_l[i_resno+2];
+
+  int jm1 = res_no_l[j_resno-1];
+  int jm2 = res_no_l[j_resno-2];
+  int jp1 = res_no_l[j_resno+1];
+  int jp2 = res_no_l[j_resno+2];
+
+  if (im1==-1 || im2==-1 || ip1==-1 || ip2==-1 || jm1==-1 || jm2==-1 || jp1==-1 || jp2==-1)return;
   
-  //get local residue indices for neighboring residues of i_resno, j_resno
-  int im1 = res_no_l[i_resno-1]; 
-  int im2 = res_no_l[i_resno-2]; if (res_info[im2] == OFF) return;
-  int ip1 = res_no_l[i_resno+1]; 
-  int ip2 = res_no_l[i_resno+2]; if (res_info[ip2] == OFF) return;
+  if (res_info[im1]!=LOCAL && res_info[im1]!=GHOST) return;
+  if (res_info[im2]!=LOCAL && res_info[im2]!=GHOST) return;
+  if (res_info[ip1]!=LOCAL && res_info[ip1]!=GHOST) return;
+  if (res_info[ip2]!=LOCAL && res_info[ip2]!=GHOST) return;
+  if (res_info[jm1]!=LOCAL && res_info[jm1]!=GHOST) return;
+  if (res_info[jm2]!=LOCAL && res_info[jm2]!=GHOST) return;
+  if (res_info[jp1]!=LOCAL && res_info[jp1]!=GHOST) return;
+  if (res_info[jp2]!=LOCAL && res_info[jp2]!=GHOST) return;
+  
   if (chain_no[im2] != chain_no[ip2]) return;
-  int jm1 = res_no_l[j_resno-1]; if (res_info[jm1] == OFF) return;
-  int jm2 = res_no_l[j_resno-2]; if (res_info[jm2] == OFF) return;
-  int jp1 = res_no_l[j_resno+1]; if (res_info[jp1] == OFF) return;
-  int jp2 = res_no_l[j_resno+2]; if (res_info[jp2] == OFF) return;
   if (chain_no[jm2] != chain_no[jp2]) return;
-	
+  
   if ( isLast(j) || se[j_resno+1]=='P' ) i_repulsive = false;
   if ( isFirst(i) || isLast(j) || se[i_resno]=='P' ) i_AP = false;
   if ( i_resno>=(ch_pos[i_chno]+ch_len[i_chno]-1)-2 || isLast(j) || se[i_resno+2]=='P' ) i_P = false;
 	
-  /*	if ( j_resno==n-1 || se[j_resno+1]=='P' ) i_repulsive = false;
+  /*if ( j_resno==n-1 || se[j_resno+1]=='P' ) i_repulsive = false;
 	if ( i_resno==0 || j_resno==n-1 || se[i_resno]=='P' ) i_AP = false;
 	if ( i_resno==n-2 || j_resno==n-1 || se[i_resno+2]=='P' ) i_P = false;*/
 
   for (k=0;k<2;++k) {
-    if (i_AP) {
-      theta_seq_anti_HB[k]=0.5*anti_HB(se[i_resno], se[j_resno], k);
-      theta_seq_anti_NHB[k]=0.25*( anti_NHB( se[i_resno+1], se[j_resno-1], k) + anti_NHB(se[i_resno-1], se[j_resno+1], k) );
-    } else {
-      theta_seq_anti_HB[k] = 0.0;
-      theta_seq_anti_NHB[k] = 0.0;
-    }
-    if (i_P) {
-      theta_seq_para_HB[k]=para_HB(se[i_resno+1], se[j_resno], k);
-    } else {
-      theta_seq_para_HB[k] = 0.0;
-    }
+	  if (i_AP) {
+		  theta_seq_anti_HB[k]=0.5*anti_HB(se[i_resno], se[j_resno], k);
+		  theta_seq_anti_NHB[k]=0.25*( anti_NHB( se[i_resno+1], se[j_resno-1], k) + anti_NHB(se[i_resno-1], se[j_resno+1], k) );
+	  } else {
+		  theta_seq_anti_HB[k] = 0.0;
+		  theta_seq_anti_NHB[k] = 0.0;
+	  }
+	  if (i_P) {
+		  theta_seq_para_HB[k]=para_HB(se[i_resno+1], se[j_resno], k);
+	  } else {
+		  theta_seq_para_HB[k] = 0.0;
+	  }
   }
 
   if ( i_chno==j_chno && abs(j_resno - i_resno) < 45 ) {
-    if (abs(j_resno - i_resno) < 4) { // |j-i|<4, class 1
-      lambda[0] = -hbscl[0][0];
-      lambda[1] = -hbscl[0][1];
-      lambda[2] = 0.0;
-      lambda[3] = 0.0;
-      hb_class = 1;
-    } else if (abs(j_resno - i_resno) < 18) { // 4 =< |j-i| < 18, class 2
-      if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
-	lambda[0] = -hbscl[1][0];
-	lambda[1] = -hbscl[1][1];
-	lambda[2] = -hbscl[1][2]
-	  -hbscl[1][3]*theta_seq_anti_HB[0]
-	  -hbscl[1][4]*theta_seq_anti_NHB[0]
-	  -hbscl[1][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
-	lambda[3] = -hbscl[1][6];
-      } else { // 4 =< |j-i| < 18 and ssweight predicts not beta, class 2
-	lambda[0] = 0.0;
-	lambda[1] = -hbscl[1][1];
-	lambda[2] = 0.0;
-	lambda[3] = 0.0;
-      }
-      hb_class = 2;
-    } else if (abs(j_resno - i_resno) < 45) { // 18 =< |j-i| < 45, class 3
-      lambda[0] = -hbscl[2][0];
-      lambda[1] = -hbscl[2][1];
-      lambda[2] = -hbscl[2][2]
-	-hbscl[2][3]*theta_seq_anti_HB[1]
-	-hbscl[2][4]*theta_seq_anti_NHB[1]
-	-hbscl[2][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
-      lambda[3] = -hbscl[2][6]
-	-hbscl[2][7]*theta_seq_para_HB[1]
-	-hbscl[2][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
-      hb_class = 3;
-    }
+	  if (abs(j_resno - i_resno) < 4) { // |j-i|<4, class 1
+		  lambda[0] = -hbscl[0][0];
+		  lambda[1] = -hbscl[0][1];
+		  lambda[2] = 0.0;
+		  lambda[3] = 0.0;
+		  hb_class = 1;
+	  } else if (abs(j_resno - i_resno) < 18) { // 4 =< |j-i| < 18, class 2
+		  if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
+			  lambda[0] = -hbscl[1][0];
+			  lambda[1] = -hbscl[1][1];
+			  lambda[2] = -hbscl[1][2]
+			                        -hbscl[1][3]*theta_seq_anti_HB[0]
+			                        -hbscl[1][4]*theta_seq_anti_NHB[0]
+			                        -hbscl[1][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
+			  lambda[3] = -hbscl[1][6];
+		  } else { // 4 =< |j-i| < 18 and ssweight predicts not beta, class 2
+			  lambda[0] = 0.0;
+			  lambda[1] = -hbscl[1][1];
+			  lambda[2] = 0.0;
+			  lambda[3] = 0.0;
+		  }
+		  hb_class = 2;
+	  } else if (abs(j_resno - i_resno) < 45) { // 18 =< |j-i| < 45, class 3
+		  lambda[0] = -hbscl[2][0];
+		  lambda[1] = -hbscl[2][1];
+		  lambda[2] = -hbscl[2][2]
+		                        -hbscl[2][3]*theta_seq_anti_HB[1]
+		                        -hbscl[2][4]*theta_seq_anti_NHB[1]
+		                        -hbscl[2][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
+		  lambda[3] = -hbscl[2][6]
+		                        -hbscl[2][7]*theta_seq_para_HB[1]
+		                        -hbscl[2][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
+		  hb_class = 3;
+	  }
   } else { // (|j-i| >= 45) OR (j,i are on different chain), class 4
-    lambda[0] = -hbscl[3][0];
-    lambda[1] = -hbscl[3][1];
-    lambda[2] = -hbscl[3][2]
-      -hbscl[3][3]*theta_seq_anti_HB[1]
-      -hbscl[3][4]*theta_seq_anti_NHB[1]
-      -hbscl[3][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
-    lambda[3] = -hbscl[3][6]
-      -hbscl[3][7]*theta_seq_para_HB[1]
-      -hbscl[3][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
-    hb_class = 4;
+	  lambda[0] = -hbscl[3][0];
+	  lambda[1] = -hbscl[3][1];
+	  lambda[2] = -hbscl[3][2]
+	                        -hbscl[3][3]*theta_seq_anti_HB[1]
+	                        -hbscl[3][4]*theta_seq_anti_NHB[1]
+	                        -hbscl[3][5]*(anti_one(se[i_resno])+anti_one(se[j_resno]));
+	  lambda[3] = -hbscl[3][6]
+	                        -hbscl[3][7]*theta_seq_para_HB[1]
+	                        -hbscl[3][8]*(para_one(se[i_resno+1])+para_one(se[j_resno]));
+	  hb_class = 4;
   }
 
   i_theta[1] = i_repulsive;
@@ -2571,120 +2598,120 @@ void FixBackbone::compute_dssp_hdrgn(int i_resno, int j_resno)
   xHO[0][0] = xo[i][0] - xh[j][0];
   xHO[0][1] = xo[i][1] - xh[j][1];
   xHO[0][2] = xo[i][2] - xh[j][2];
-  
+
   if (i_repulsive) {
-    R_NO[1]=R->rNO(i, jp1);
-    R_HO[1]=R->rHO(i, jp1);
-	
-    xNO[1][0] = xo[i][0] - xn[jp1][0];
-    xNO[1][1] = xo[i][1] - xn[jp1][1];
-    xNO[1][2] = xo[i][2] - xn[jp1][2];
-	
-    xHO[1][0] = xo[i][0] - xh[jp1][0];
-    xHO[1][1] = xo[i][1] - xh[jp1][1];
-    xHO[1][2] = xo[i][2] - xh[jp1][2];
+	  R_NO[1]=R->rNO(i, jp1);
+	  R_HO[1]=R->rHO(i, jp1);
+
+	  xNO[1][0] = xo[i][0] - xn[jp1][0];
+	  xNO[1][1] = xo[i][1] - xn[jp1][1];
+	  xNO[1][2] = xo[i][2] - xn[jp1][2];
+
+	  xHO[1][0] = xo[i][0] - xh[jp1][0];
+	  xHO[1][1] = xo[i][1] - xh[jp1][1];
+	  xHO[1][2] = xo[i][2] - xh[jp1][2];
   }
 
   if (i_AP) {
-    R_NO[2]=R->rNO(j, i);
-    R_HO[2]=R->rHO(j, i);
-	
-    xNO[2][0] = xo[j][0] - xn[i][0];
-    xNO[2][1] = xo[j][1] - xn[i][1];
-    xNO[2][2] = xo[j][2] - xn[i][2];
-	
-    xHO[2][0] = xo[j][0] - xh[i][0];
-    xHO[2][1] = xo[j][1] - xh[i][1];
-    xHO[2][2] = xo[j][2] - xh[i][2];
+	  R_NO[2]=R->rNO(j, i);
+	  R_HO[2]=R->rHO(j, i);
+
+	  xNO[2][0] = xo[j][0] - xn[i][0];
+	  xNO[2][1] = xo[j][1] - xn[i][1];
+	  xNO[2][2] = xo[j][2] - xn[i][2];
+
+	  xHO[2][0] = xo[j][0] - xh[i][0];
+	  xHO[2][1] = xo[j][1] - xh[i][1];
+	  xHO[2][2] = xo[j][2] - xh[i][2];
   }
 
   if (i_P) {
-    R_NO[3]=R->rNO(j, ip2);
-    R_HO[3]=R->rHO(j, ip2);
-	
-    xNO[3][0] = xo[j][0] - xn[ip2][0];
-    xNO[3][1] = xo[j][1] - xn[ip2][1];
-    xNO[3][2] = xo[j][2] - xn[ip2][2];
-	
-    xHO[3][0] = xo[j][0] - xh[ip2][0];
-    xHO[3][1] = xo[j][1] - xh[ip2][1];
-    xHO[3][2] = xo[j][2] - xh[ip2][2];
+	  R_NO[3]=R->rNO(j, ip2);
+	  R_HO[3]=R->rHO(j, ip2);
+
+	  xNO[3][0] = xo[j][0] - xn[ip2][0];
+	  xNO[3][1] = xo[j][1] - xn[ip2][1];
+	  xNO[3][2] = xo[j][2] - xn[ip2][2];
+
+	  xHO[3][0] = xo[j][0] - xh[ip2][0];
+	  xHO[3][1] = xo[j][1] - xh[ip2][1];
+	  xHO[3][2] = xo[j][2] - xh[ip2][2];
   }
 
 
   for (k=0;k<4;++k) {
-    if (i_theta[k]) {
-      theta[k] = exp( - pow(R_NO[k] - NO_zero, 2)/(2.0*pow(sigma_NO, 2)) - pow(R_HO[k] - HO_zero, 2)/(2.0*pow(sigma_HO, 2)) );
+	  if (i_theta[k]) {
+		  theta[k] = exp( - pow(R_NO[k] - NO_zero, 2)/(2.0*pow(sigma_NO, 2)) - pow(R_HO[k] - HO_zero, 2)/(2.0*pow(sigma_HO, 2)) );
 
-      prd_theta[k][0] = - (R_NO[k] - NO_zero)/(pow(sigma_NO, 2)*R_NO[k]);
-      prd_theta[k][1] = - (R_HO[k] - HO_zero)/(pow(sigma_HO, 2)*R_HO[k]);
-    } else {
-      theta[k] = 0.0;
-      prd_theta[k][0] = prd_theta[k][1] = 0.0;
-    }
+		  prd_theta[k][0] = - (R_NO[k] - NO_zero)/(pow(sigma_NO, 2)*R_NO[k]);
+		  prd_theta[k][1] = - (R_HO[k] - HO_zero)/(pow(sigma_HO, 2)*R_HO[k]);
+	  } else {
+		  theta[k] = 0.0;
+		  prd_theta[k][0] = prd_theta[k][1] = 0.0;
+	  }
   }
 
   if (im2 > 0 && !isFirst(im1) && !isFirst(im2) && ip2 < nn && !isLast(ip1) && hb_class!=2) {
-    dxnu[0][0] = xca[ip2][0]-xca[im2][0];
-    dxnu[0][1] = xca[ip2][1]-xca[im2][1];
-    dxnu[0][2] = xca[ip2][2]-xca[im2][2];
+	  dxnu[0][0] = xca[ip2][0]-xca[im2][0];
+	  dxnu[0][1] = xca[ip2][1]-xca[im2][1];
+	  dxnu[0][2] = xca[ip2][2]-xca[im2][2];
 
-    r_nu[0] = sqrt (pow(dxnu[0][0], 2) + pow(dxnu[0][1], 2) + pow(dxnu[0][2], 2) );
-		
-    th = tanh(pref[0]*(r_nu[0] - d_nu0));
-    nu[0] = 0.5*(1+th);
+	  r_nu[0] = sqrt (pow(dxnu[0][0], 2) + pow(dxnu[0][1], 2) + pow(dxnu[0][2], 2) );
 
-    prdnu[0] = 0.5*pref[0]*(1-pow(th,2))/r_nu[0];
+	  th = tanh(pref[0]*(r_nu[0] - d_nu0));
+	  nu[0] = 0.5*(1+th);
+
+	  prdnu[0] = 0.5*pref[0]*(1-pow(th,2))/r_nu[0];
   } else nu[0] = 1.0;
 
   if (jm2 > 0 && !isFirst(jm1) && !isFirst(jm2) && jp2 < nn && !isLast(jp1) && hb_class!=2) {
-    dxnu[1][0] = xca[jp2][0]-xca[jm2][0];
-    dxnu[1][1] = xca[jp2][1]-xca[jm2][1];
-    dxnu[1][2] = xca[jp2][2]-xca[jm2][2];
+	  dxnu[1][0] = xca[jp2][0]-xca[jm2][0];
+	  dxnu[1][1] = xca[jp2][1]-xca[jm2][1];
+	  dxnu[1][2] = xca[jp2][2]-xca[jm2][2];
 
-    r_nu[1] = sqrt (pow(dxnu[1][0], 2) + pow(dxnu[1][1], 2) + pow(dxnu[1][2], 2) );
-		
-    th = tanh(pref[1]*(r_nu[1] - d_nu0));
-    nu[1] = 0.5*(1+th);
+	  r_nu[1] = sqrt (pow(dxnu[1][0], 2) + pow(dxnu[1][1], 2) + pow(dxnu[1][2], 2) );
 
-    prdnu[1] = 0.5*pref[1]*(1-pow(th,2))/r_nu[1];
+	  th = tanh(pref[1]*(r_nu[1] - d_nu0));
+	  nu[1] = 0.5*(1+th);
+
+	  prdnu[1] = 0.5*pref[1]*(1-pow(th,2))/r_nu[1];
   } else nu[1] = 1.0;
 
-	
-  theta_sum = lambda[0]*theta[0] 
-    + lambda[1]*theta[0]*theta[1] 
-    + lambda[2]*theta[0]*theta[2] 
-    + lambda[3]*theta[0]*theta[3];
 
-  V[0] = k_dssp*epsilon*lambda[0]*theta[0]*nu[0]*nu[1];            //pairwise hydrogen bond
-  V[1] = k_dssp*epsilon*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];   //repulsive hb
-  V[2] = k_dssp*epsilon*lambda[2]*theta[0]*theta[2]*nu[0]*nu[1];   //anti-parallel hb
-  V[3] = k_dssp*epsilon*lambda[3]*theta[0]*theta[3]*nu[0]*nu[1];   //parallel hb
+  theta_sum = lambda[0]*theta[0] 
+                              + lambda[1]*theta[0]*theta[1] 
+                              + lambda[2]*theta[0]*theta[2] 
+                              + lambda[3]*theta[0]*theta[3];
+
+  V[0] = k_dssp*epsilon*lambda[0]*theta[0]*nu[0]*nu[1];
+  V[1] = k_dssp*epsilon*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];
+  V[2] = k_dssp*epsilon*lambda[2]*theta[0]*theta[2]*nu[0]*nu[1];
+  V[3] = k_dssp*epsilon*lambda[3]*theta[0]*theta[3]*nu[0]*nu[1];
 
   VTotal = V[0] + V[1] + V[2] + V[3];
 
   energy[ET_DSSP] +=  epsilon*VTotal;
 
   if (im2 > 0 && !isFirst(im1) && !isFirst(im2) && ip2 < nn && !isLast(ip1) && hb_class!=2) {
-    force = k_dssp*epsilon*theta_sum*prdnu[0]*nu[1];
-    f[alpha_carbons[im2]][0] -= -force*dxnu[0][0];
-    f[alpha_carbons[im2]][1] -= -force*dxnu[0][1];
-    f[alpha_carbons[im2]][2] -= -force*dxnu[0][2];
+	  force = k_dssp*epsilon*theta_sum*prdnu[0]*nu[1];
+	  f[alpha_carbons[im2]][0] -= -force*dxnu[0][0];
+	  f[alpha_carbons[im2]][1] -= -force*dxnu[0][1];
+	  f[alpha_carbons[im2]][2] -= -force*dxnu[0][2];
 
-    f[alpha_carbons[ip2]][0] -= force*dxnu[0][0];
-    f[alpha_carbons[ip2]][1] -= force*dxnu[0][1];
-    f[alpha_carbons[ip2]][2] -= force*dxnu[0][2];
+	  f[alpha_carbons[ip2]][0] -= force*dxnu[0][0];
+	  f[alpha_carbons[ip2]][1] -= force*dxnu[0][1];
+	  f[alpha_carbons[ip2]][2] -= force*dxnu[0][2];
   }
 
   if (jm2 > 0 && !isFirst(jm1) && !isFirst(jm2) && jp2 < nn && !isLast(jp1) && hb_class!=2) {
-    force = k_dssp*epsilon*theta_sum*nu[0]*prdnu[1];
-    f[alpha_carbons[jm2]][0] -= -force*dxnu[1][0];
-    f[alpha_carbons[jm2]][1] -= -force*dxnu[1][1];
-    f[alpha_carbons[jm2]][2] -= -force*dxnu[1][2];
+	  force = k_dssp*epsilon*theta_sum*nu[0]*prdnu[1];
+	  f[alpha_carbons[jm2]][0] -= -force*dxnu[1][0];
+	  f[alpha_carbons[jm2]][1] -= -force*dxnu[1][1];
+	  f[alpha_carbons[jm2]][2] -= -force*dxnu[1][2];
 
-    f[alpha_carbons[jp2]][0] -= force*dxnu[1][0];
-    f[alpha_carbons[jp2]][1] -= force*dxnu[1][1];
-    f[alpha_carbons[jp2]][2] -= force*dxnu[1][2];
+	  f[alpha_carbons[jp2]][0] -= force*dxnu[1][0];
+	  f[alpha_carbons[jp2]][1] -= force*dxnu[1][1];
+	  f[alpha_carbons[jp2]][2] -= force*dxnu[1][2];
   }
 
   f[alpha_carbons[jm1]][0] -= -VTotal*(an*prd_theta[0][0]*xNO[0][0] + ah*prd_theta[0][1]*xHO[0][0]);
@@ -2704,101 +2731,106 @@ void FixBackbone::compute_dssp_hdrgn(int i_resno, int j_resno)
   f[oxygens[i]][2] -= VTotal*(prd_theta[0][0]*xNO[0][2] + prd_theta[0][1]*xHO[0][2]);
 
   if (i_repulsive) {
-    f[alpha_carbons[j]][0] -= -V[1]*(an*prd_theta[1][0]*xNO[1][0] + ah*prd_theta[1][1]*xHO[1][0]);
-    f[alpha_carbons[j]][1] -= -V[1]*(an*prd_theta[1][0]*xNO[1][1] + ah*prd_theta[1][1]*xHO[1][1]);
-    f[alpha_carbons[j]][2] -= -V[1]*(an*prd_theta[1][0]*xNO[1][2] + ah*prd_theta[1][1]*xHO[1][2]);
-	
-    f[alpha_carbons[jp1]][0] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][0] + bh*prd_theta[1][1]*xHO[1][0]);
-    f[alpha_carbons[jp1]][1] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][1] + bh*prd_theta[1][1]*xHO[1][1]);
-    f[alpha_carbons[jp1]][2] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][2] + bh*prd_theta[1][1]*xHO[1][2]);
-	
-    f[oxygens[j]][0] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][0] + ch*prd_theta[1][1]*xHO[1][0]);
-    f[oxygens[j]][1] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][1] + ch*prd_theta[1][1]*xHO[1][1]);
-    f[oxygens[j]][2] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][2] + ch*prd_theta[1][1]*xHO[1][2]);
-	
-    f[oxygens[i]][0] -= V[1]*(prd_theta[1][0]*xNO[1][0] + prd_theta[1][1]*xHO[1][0]);
-    f[oxygens[i]][1] -= V[1]*(prd_theta[1][0]*xNO[1][1] + prd_theta[1][1]*xHO[1][1]);
-    f[oxygens[i]][2] -= V[1]*(prd_theta[1][0]*xNO[1][2] + prd_theta[1][1]*xHO[1][2]);
+	  f[alpha_carbons[j]][0] -= -V[1]*(an*prd_theta[1][0]*xNO[1][0] + ah*prd_theta[1][1]*xHO[1][0]);
+	  f[alpha_carbons[j]][1] -= -V[1]*(an*prd_theta[1][0]*xNO[1][1] + ah*prd_theta[1][1]*xHO[1][1]);
+	  f[alpha_carbons[j]][2] -= -V[1]*(an*prd_theta[1][0]*xNO[1][2] + ah*prd_theta[1][1]*xHO[1][2]);
+
+	  f[alpha_carbons[jp1]][0] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][0] + bh*prd_theta[1][1]*xHO[1][0]);
+	  f[alpha_carbons[jp1]][1] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][1] + bh*prd_theta[1][1]*xHO[1][1]);
+	  f[alpha_carbons[jp1]][2] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][2] + bh*prd_theta[1][1]*xHO[1][2]);
+
+	  f[oxygens[j]][0] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][0] + ch*prd_theta[1][1]*xHO[1][0]);
+	  f[oxygens[j]][1] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][1] + ch*prd_theta[1][1]*xHO[1][1]);
+	  f[oxygens[j]][2] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][2] + ch*prd_theta[1][1]*xHO[1][2]);
+
+	  f[oxygens[i]][0] -= V[1]*(prd_theta[1][0]*xNO[1][0] + prd_theta[1][1]*xHO[1][0]);
+	  f[oxygens[i]][1] -= V[1]*(prd_theta[1][0]*xNO[1][1] + prd_theta[1][1]*xHO[1][1]);
+	  f[oxygens[i]][2] -= V[1]*(prd_theta[1][0]*xNO[1][2] + prd_theta[1][1]*xHO[1][2]);
   }
 
 
   if (i_AP) {
-    f[alpha_carbons[im1]][0] -= -V[2]*(an*prd_theta[2][0]*xNO[2][0] + ah*prd_theta[2][1]*xHO[2][0]);
-    f[alpha_carbons[im1]][1] -= -V[2]*(an*prd_theta[2][0]*xNO[2][1] + ah*prd_theta[2][1]*xHO[2][1]);
-    f[alpha_carbons[im1]][2] -= -V[2]*(an*prd_theta[2][0]*xNO[2][2] + ah*prd_theta[2][1]*xHO[2][2]);
-	
-    f[alpha_carbons[i]][0] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][0] + bh*prd_theta[2][1]*xHO[2][0]);
-    f[alpha_carbons[i]][1] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][1] + bh*prd_theta[2][1]*xHO[2][1]);
-    f[alpha_carbons[i]][2] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][2] + bh*prd_theta[2][1]*xHO[2][2]);
-	
-    f[oxygens[im1]][0] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][0] + ch*prd_theta[2][1]*xHO[2][0]);
-    f[oxygens[im1]][1] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][1] + ch*prd_theta[2][1]*xHO[2][1]);
-    f[oxygens[im1]][2] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][2] + ch*prd_theta[2][1]*xHO[2][2]);
-	
-    f[oxygens[j]][0] -= V[2]*(prd_theta[2][0]*xNO[2][0] + prd_theta[2][1]*xHO[2][0]);
-    f[oxygens[j]][1] -= V[2]*(prd_theta[2][0]*xNO[2][1] + prd_theta[2][1]*xHO[2][1]);
-    f[oxygens[j]][2] -= V[2]*(prd_theta[2][0]*xNO[2][2] + prd_theta[2][1]*xHO[2][2]);
+	  f[alpha_carbons[im1]][0] -= -V[2]*(an*prd_theta[2][0]*xNO[2][0] + ah*prd_theta[2][1]*xHO[2][0]);
+	  f[alpha_carbons[im1]][1] -= -V[2]*(an*prd_theta[2][0]*xNO[2][1] + ah*prd_theta[2][1]*xHO[2][1]);
+	  f[alpha_carbons[im1]][2] -= -V[2]*(an*prd_theta[2][0]*xNO[2][2] + ah*prd_theta[2][1]*xHO[2][2]);
+
+	  f[alpha_carbons[i]][0] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][0] + bh*prd_theta[2][1]*xHO[2][0]);
+	  f[alpha_carbons[i]][1] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][1] + bh*prd_theta[2][1]*xHO[2][1]);
+	  f[alpha_carbons[i]][2] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][2] + bh*prd_theta[2][1]*xHO[2][2]);
+
+	  f[oxygens[im1]][0] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][0] + ch*prd_theta[2][1]*xHO[2][0]);
+	  f[oxygens[im1]][1] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][1] + ch*prd_theta[2][1]*xHO[2][1]);
+	  f[oxygens[im1]][2] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][2] + ch*prd_theta[2][1]*xHO[2][2]);
+
+	  f[oxygens[j]][0] -= V[2]*(prd_theta[2][0]*xNO[2][0] + prd_theta[2][1]*xHO[2][0]);
+	  f[oxygens[j]][1] -= V[2]*(prd_theta[2][0]*xNO[2][1] + prd_theta[2][1]*xHO[2][1]);
+	  f[oxygens[j]][2] -= V[2]*(prd_theta[2][0]*xNO[2][2] + prd_theta[2][1]*xHO[2][2]);
   }
 
 
   if (i_P) {
-    f[alpha_carbons[ip1]][0] -= -V[3]*(an*prd_theta[3][0]*xNO[3][0] + ah*prd_theta[3][1]*xHO[3][0]);
-    f[alpha_carbons[ip1]][1] -= -V[3]*(an*prd_theta[3][0]*xNO[3][1] + ah*prd_theta[3][1]*xHO[3][1]);
-    f[alpha_carbons[ip1]][2] -= -V[3]*(an*prd_theta[3][0]*xNO[3][2] + ah*prd_theta[3][1]*xHO[3][2]);
-	
-    f[alpha_carbons[ip2]][0] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][0] + bh*prd_theta[3][1]*xHO[3][0]);
-    f[alpha_carbons[ip2]][1] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][1] + bh*prd_theta[3][1]*xHO[3][1]);
-    f[alpha_carbons[ip2]][2] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][2] + bh*prd_theta[3][1]*xHO[3][2]);
-	
-    f[oxygens[ip1]][0] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][0] + ch*prd_theta[3][1]*xHO[3][0]);
-    f[oxygens[ip1]][1] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][1] + ch*prd_theta[3][1]*xHO[3][1]);
-    f[oxygens[ip1]][2] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][2] + ch*prd_theta[3][1]*xHO[3][2]);
-	
-    f[oxygens[j]][0] -= V[3]*(prd_theta[3][0]*xNO[3][0] + prd_theta[3][1]*xHO[3][0]);
-    f[oxygens[j]][1] -= V[3]*(prd_theta[3][0]*xNO[3][1] + prd_theta[3][1]*xHO[3][1]);
-    f[oxygens[j]][2] -= V[3]*(prd_theta[3][0]*xNO[3][2] + prd_theta[3][1]*xHO[3][2]);
+	  f[alpha_carbons[ip1]][0] -= -V[3]*(an*prd_theta[3][0]*xNO[3][0] + ah*prd_theta[3][1]*xHO[3][0]);
+	  f[alpha_carbons[ip1]][1] -= -V[3]*(an*prd_theta[3][0]*xNO[3][1] + ah*prd_theta[3][1]*xHO[3][1]);
+	  f[alpha_carbons[ip1]][2] -= -V[3]*(an*prd_theta[3][0]*xNO[3][2] + ah*prd_theta[3][1]*xHO[3][2]);
+
+	  f[alpha_carbons[ip2]][0] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][0] + bh*prd_theta[3][1]*xHO[3][0]);
+	  f[alpha_carbons[ip2]][1] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][1] + bh*prd_theta[3][1]*xHO[3][1]);
+	  f[alpha_carbons[ip2]][2] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][2] + bh*prd_theta[3][1]*xHO[3][2]);
+
+	  f[oxygens[ip1]][0] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][0] + ch*prd_theta[3][1]*xHO[3][0]);
+	  f[oxygens[ip1]][1] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][1] + ch*prd_theta[3][1]*xHO[3][1]);
+	  f[oxygens[ip1]][2] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][2] + ch*prd_theta[3][1]*xHO[3][2]);
+
+	  f[oxygens[j]][0] -= V[3]*(prd_theta[3][0]*xNO[3][0] + prd_theta[3][1]*xHO[3][0]);
+	  f[oxygens[j]][1] -= V[3]*(prd_theta[3][0]*xNO[3][1] + prd_theta[3][1]*xHO[3][1]);
+	  f[oxygens[j]][2] -= V[3]*(prd_theta[3][0]*xNO[3][2] + prd_theta[3][1]*xHO[3][2]);
   }
 }
 
-void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno) 
-{ 
+void FixBackbone::compute_P_AP_potential(int i, int j)
+{
   double K, force[2], dx[2][3];
-  int i = res_no_l[i_resno];
-  int j = res_no_l[j_resno];
-
-  dx[0][0] = xca[i][0] - xca[j][0];
-  dx[0][1] = xca[i][1] - xca[j][1];
-  dx[0][2] = xca[i][2] - xca[j][2];
-  double  r_ca = sqrt (dx[0][0]*dx[0][0] + dx[0][1]*dx[0][1] + dx[0][2]*dx[0][2]);
-  if ( r_ca > P_AP_cut ) return;
-
   bool i_AP_med, i_AP_long, i_P;
+
+  int i_resno = res_no[i]-1;
+  int j_resno = res_no[j]-1;
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
 
-  //anti-parallel hairpin 
-  i_AP_med = i_chno==j_chno && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
+  // anti-parallel hairpin
+  i_AP_med = i_chno==j_chno && i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
 
+  // anti-parallel beta strands
   int ip4 = res_no_l[i_resno+i_diff_P_AP];
   int jm4 = res_no_l[j_resno-i_diff_P_AP];
-  int ip4_chno = chain_no[ip4]-1;
-  int jm4_chno = chain_no[jm4]-1;
-  //anti-parallel beta strands
-  i_AP_long = (i_chno==j_chno && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && ip4_chno==i_chno && jm4_chno==j_chno);
-
-  int jp4;
-  if ( j_resno+i_diff_P_AP >= n ){
-	i_P = false;
-  } 
+  int ip4_chno, jm4_chno;
+  if (ip4==-1 || jm4==-1){ //can't access chain_no[] properly
+	i_AP_long = false;
+  }
   else {
-	  jp4 = res_no_l[j_resno+i_diff_P_AP];
-	  int jp4_chno = chain_no[jp4]-1;
-	  //parallel beta strands
-	  i_P = (i_chno==jp4_chno && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (ip4_chno!=j_chno && ip4_chno==i_chno && jp4_chno==j_chno);
+	  ip4_chno = chain_no[ip4]-1;
+	  jm4_chno = chain_no[jm4]-1;
+	  i_AP_long = (i_chno==j_chno && i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && ip4_chno==i_chno && jm4_chno==j_chno);
+  }
+
+  //parallel beta strands
+  int jp4, jp4_chno;
+  if (j_resno+i_diff_P_AP >= n){
+	  i_P = false ;
+  }
+  else{
+	jp4 = res_no_l[j_resno+i_diff_P_AP];
+	if (jp4==-1){
+		i_P = false;
+	}
+	else {
+		jp4_chno = chain_no[jp4]-1;
+		i_P = (i_chno==jp4_chno && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (i_chno!=j_chno && ip4_chno==i_chno && jp4_chno==j_chno);
+	}
   }
 
   if (i_AP_med || i_AP_long) {
-    if (res_info[ip4]==OFF || res_info[jm4]==OFF) return;
+    if ((res_info[ip4]!=LOCAL && res_info[ip4]!=GHOST) || (res_info[jm4]!=LOCAL && res_info[jm4]!=GHOST)) return;
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1]*k_betapred_P_AP : 0.0);
     } else {
@@ -2806,6 +2838,10 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
     }
 
     energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(ip4, jm4);
+
+    dx[0][0] = xca[i][0] - xca[j][0];
+    dx[0][1] = xca[i][1] - xca[j][1];
+    dx[0][2] = xca[i][2] - xca[j][2];
 
     dx[1][0] = xca[ip4][0] - xca[jm4][0];
     dx[1][1] = xca[ip4][1] - xca[jm4][1];
@@ -2832,7 +2868,7 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
   }
     
   if (i_P) {
-    if (res_info[ip4]==OFF || res_info[jp4]==OFF) return;
+    if ((res_info[ip4]!=LOCAL && res_info[ip4]!=GHOST) || (res_info[jp4]!=LOCAL && res_info[jp4]!=GHOST)) return;
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = k_P_AP[2]*k_betapred_P_AP;
     } else {
@@ -2840,6 +2876,10 @@ void FixBackbone::compute_P_AP_potential(int i_resno, int j_resno)
     }
 
     energy[ET_PAP] += -k_global_P_AP*epsilon*K*p_ap->nu(i, j)*p_ap->nu(ip4, jp4);
+
+    dx[0][0] = xca[i][0] - xca[j][0];
+    dx[0][1] = xca[i][1] - xca[j][1];
+    dx[0][2] = xca[i][2] - xca[j][2];
 
     dx[1][0] = xca[ip4][0] - xca[jp4][0];
     dx[1][1] = xca[ip4][1] - xca[jp4][1];
@@ -2933,10 +2973,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 	if (res_info[k]==OFF) continue;
 
 	if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-	else { 
-		xk = xcb[k]; katom  = beta_atoms[k];
-		if (katom == -1 ) continue;
-	}
+	else { xk = xcb[k]; katom  = beta_atoms[k]; }
 				
 	k_resno = res_no[k]-1;
 	k_chno = chain_no[k]-1;
@@ -3016,11 +3053,7 @@ void FixBackbone::compute_burial_potential(int i)
     
     if (abs(k_resno-i_resno)>1 || i_chno!=k_chno) {
       if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-      else { 
-    	  xk = xcb[k]; 
-    	  katom  = beta_atoms[k];
-    	  if (katom == -1) continue;
-      }
+      else { xk = xcb[k]; katom  = beta_atoms[k]; }
 
       dx[0] = xi[0] - xk[0];
       dx[1] = xi[1] - xk[1];
@@ -3039,13 +3072,20 @@ void FixBackbone::compute_burial_potential(int i)
   }
 }
 
-void FixBackbone::compute_helix_potential(int i_resno)
+void FixBackbone::compute_helix_potential(int i)
 {
-  int i = res_no_l[i_resno];
+  int i_resno = res_no[i]-1;
   int j = res_no_l[i_resno+helix_i_diff];
-  int j_resno = i_resno + helix_i_diff;
-  if (R->rNO(i, j)>helix_cutoff) return;
-	
+  int j_resno = res_no[j]-1;
+  int jm1 = res_no_l[j_resno-1];
+  int i_chno = chain_no[i]-1;
+  int j_chno = chain_no[j]-1;
+
+  if (R->rNO(i,j)>helix_cutoff) return;
+  if (j==-1   || (res_info[j]  !=LOCAL && res_info[j]  !=GHOST)) return;
+  if (jm1==-1 || (res_info[jm1]!=LOCAL && res_info[jm1]!=GHOST)) return;
+  if (i_chno!=j_chno) return;
+
   double R_NO, R_HO, xNO[3], xHO[3], dx[3];
   double pair_theta, prd_pair_theta[2], prob_sum;
   double pair_theta_gamma, sigmma_gamma, V;
@@ -3054,9 +3094,6 @@ void FixBackbone::compute_helix_potential(int i_resno)
   double hp1, hp2;
   int iatom, jatom, katom, k;
   int k_resno, k_chno;
-
-  int i_chno = chain_no[i]-1;
-  int j_chno = chain_no[j]-1;
 
   int ires_type = se_map[se[i_resno]-'A'];
   int jres_type = se_map[se[j_resno]-'A'];
@@ -3083,12 +3120,9 @@ void FixBackbone::compute_helix_potential(int i_resno)
   prd_pair_theta[1] = - (R_HO - helix_HO_zero)/(pow(helix_sigma_HO, 2)*R_HO);
 	
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
-  else { xi = xcb[i]; iatom  = beta_atoms[i]; }
+  else { xi = xcb[i]; iatom  = beta_atoms[i]; if (iatom==-1) return;}
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
-  else { xj = xcb[j]; 
-	jatom  = beta_atoms[j]; 
-	if (jatom==-1) return;
-  }
+  else { xj = xcb[j]; jatom  = beta_atoms[j]; if (jatom==-1) return;}
 	
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
@@ -3101,7 +3135,7 @@ void FixBackbone::compute_helix_potential(int i_resno)
   V = -epsilon*k_helix*sigmma_gamma*pair_theta;
 
   energy[ET_HELIX] += V;
-  int jm1 = res_no_l[j_resno-1];	
+	
   f[alpha_carbons[jm1]][0] -= -V*(an*prd_pair_theta[0]*xNO[0] + ah*prd_pair_theta[1]*xHO[0]);
   f[alpha_carbons[jm1]][1] -= -V*(an*prd_pair_theta[0]*xNO[1] + ah*prd_pair_theta[1]*xHO[1]);
   f[alpha_carbons[jm1]][2] -= -V*(an*prd_pair_theta[0]*xNO[2] + ah*prd_pair_theta[1]*xHO[2]);
@@ -3119,16 +3153,13 @@ void FixBackbone::compute_helix_potential(int i_resno)
   f[oxygens[i]][2] -= V*(prd_pair_theta[0]*xNO[2] + prd_pair_theta[1]*xHO[2]);
 
   for (k=0;k<nn;++k) {
-    if (res_info[k]==OFF) continue;
+    if (res_info[k]!=LOCAL || res_info[k]!=GHOST) continue;
 	
     k_resno = res_no[k]-1;
     k_chno = chain_no[k]-1;
     
     if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-    else { 
-    	xk = xcb[k]; katom  = beta_atoms[k]; 
-    	if (katom == -1) continue; 
-    }
+    else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1) continue; }
 		
     if (abs(k_resno-i_resno)>1 || k_chno!=i_chno) {
       dx[0] = xi[0] - xk[0];
@@ -6514,21 +6545,15 @@ void FixBackbone::compute_backbone()
       if (domain->xperiodic) {
 	xbox = (image[alpha_carbons[i]] & 1023) - 512;
 	xca[i][0] = x[alpha_carbons[i]][0] + xbox*prd[0];
-      } else {
-	xca[i][0] = x[alpha_carbons[i]][0];
-      }
+      } else xca[i][0] = x[alpha_carbons[i]][0];
       if (domain->yperiodic) {
 	ybox = (image[alpha_carbons[i]] >> 10 & 1023) - 512;
 	xca[i][1] = x[alpha_carbons[i]][1] + ybox*prd[1];
-      } else {
-	xca[i][1] = x[alpha_carbons[i]][1];
-      }
+      } else xca[i][1] = x[alpha_carbons[i]][1];
       if (domain->zperiodic) {
 	zbox = (image[alpha_carbons[i]] >> 20) - 512;
 	xca[i][2] = x[alpha_carbons[i]][2] + zbox*prd[2];
-      } else {
-	xca[i][2] = x[alpha_carbons[i]][2];
-      }
+      } else xca[i][2] = x[alpha_carbons[i]][2];
 					
       if (beta_atoms[i]!=-1) {
 	if (domain->xperiodic) {
@@ -6600,6 +6625,7 @@ void FixBackbone::compute_backbone()
   timerBegin();
   
   for (i=0;i<nn;i++) {
+    i_resno = res_no[i]-1;
     if (chain_flag && res_info[i]==LOCAL)
       compute_chain_potential(i);
   }
@@ -6653,7 +6679,7 @@ void FixBackbone::compute_backbone()
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
-      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
+      if (i_resno-2>=0 && i_resno+2<n && j_resno-2>=0 && j_resno+2<n && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
 	//			if (!isLast(i) && !isFirst(j) && abs(j_resno-i_resno)>2 && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
     }
@@ -6668,7 +6694,9 @@ void FixBackbone::compute_backbone()
   timerEnd(TIME_DSSP);
 
   for (i=0;i<nn;i++) {
+    i_resno = res_no[i]-1;
     for (j=0;j<nn;j++) {
+      j_resno = res_no[j]-1;
       if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j] == GHOST))
 	compute_P_AP_potential(i, j);
     }
@@ -6778,8 +6806,7 @@ void FixBackbone::compute_backbone()
   for (i=0;i<nn;i++) {
     i_resno = res_no[i]-1;
     i_chno = chain_no[i]-1;
-    if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff && 
-	i_chno==chain_no[i+helix_i_diff]-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff-1 && res_info[i]==LOCAL)
+    if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && res_info[i]==LOCAL)
       //		if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
       compute_helix_potential(i);
   }
@@ -6860,14 +6887,14 @@ void FixBackbone::compute_backbone()
 #else
   
   for (i=0;i<nn;i++) {
-    i_resno =   res_no[i] -1;
-    i_chno  = chain_no[i] -1;
+    i_resno = res_no[i]-1;
+    i_chno = chain_no[i]-1;
     
     if (chain_flag && res_info[i]==LOCAL)
-      compute_chain_potential(i_resno);
+      compute_chain_potential(i); //i_resno is the global residue index in parallelization, i is local
 
     if (!isFirst(i) && !isLast(i) && chi_flag && res_info[i]==LOCAL && se[i_resno]!='G')
-      compute_chi_potential(i_resno);
+      compute_chi_potential(i);
 
     if (shake_flag && res_info[i]==LOCAL)
       compute_shake(i);
@@ -6879,14 +6906,16 @@ void FixBackbone::compute_backbone()
       compute_membrane_potential(i);
 
     for (j=0;j<nn;j++) {
-      j_resno =   res_no[j] -1;
-      j_chno  = chain_no[j] -1;
+      j_resno = res_no[j]-1;
+      j_chno = chain_no[j]-1;
       		
+      //if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
       if (i_resno-2>=0 && i_resno+2<n && j_resno-2>=0 && j_resno+2<n && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
-	compute_dssp_hdrgn(i_resno, j_resno);
+	compute_dssp_hdrgn(i, j);
 				
-      if (j_resno>=i_resno+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
-	compute_P_AP_potential(i_resno, j_resno);
+      // Need to change
+      if (j_resno>i_resno+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+	compute_P_AP_potential(i, j);
 
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
       if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
@@ -6906,9 +6935,8 @@ void FixBackbone::compute_backbone()
       compute_burial_potential(i);
     	
     //    if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
-    if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && res_no_l[i_resno+helix_i_diff]<nn-1 && 
-	i_chno==chain_no[res_no_l[i_resno+helix_i_diff]]-1 && res_info[i]==LOCAL)
-      compute_helix_potential(i_resno);
+    if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && res_info[i]==LOCAL)
+      compute_helix_potential(i);
 			
     if (frag_mem_flag && res_info[i]==LOCAL)
       compute_fragment_memory_potential(i);

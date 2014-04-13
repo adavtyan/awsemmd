@@ -1975,8 +1975,12 @@ void FixBackbone::calcDihedralAndSlopes(int i, double& angle, int iAng)
   double X, Y, X2Y2;
   double dAngle_y, dAngle_x;
   double h1, h2, h3;
-	
-  if (iAng==PHI) {
+  int i_resno = res_no[i]-1;	
+  int im1 = res_no_l[i_resno-1];
+  int ip1 = res_no_l[i_resno+1];
+
+  if (im1!=-1 && ip1!=-1){
+   if (iAng==PHI) {
     a[0] = xcp[i][0] - xca[i][0];
     a[1] = xcp[i][1] - xca[i][1];
     a[2] = xcp[i][2] - xca[i][2];
@@ -1985,13 +1989,13 @@ void FixBackbone::calcDihedralAndSlopes(int i, double& angle, int iAng)
     b[1] = xca[i][1] - xn[i][1];
     b[2] = xca[i][2] - xn[i][2];
 		
-    c[0] = xn[i][0] - xcp[i-1][0];
-    c[1] = xn[i][1] - xcp[i-1][1];
-    c[2] = xn[i][2] - xcp[i-1][2];
-  } else {
-    a[0] = xn[i+1][0] - xcp[i][0];
-    a[1] = xn[i+1][1] - xcp[i][1];
-    a[2] = xn[i+1][2] - xcp[i][2];
+    c[0] = xn[i][0] - xcp[im1][0];
+    c[1] = xn[i][1] - xcp[im1][1];
+    c[2] = xn[i][2] - xcp[im1][2];
+   } else {
+    a[0] = xn[ip1][0] - xcp[i][0];
+    a[1] = xn[ip1][1] - xcp[i][1];
+    a[2] = xn[ip1][2] - xcp[i][2];
 		
     b[0] = xcp[i][0] - xca[i][0];
     b[1] = xcp[i][1] - xca[i][1];
@@ -2000,8 +2004,8 @@ void FixBackbone::calcDihedralAndSlopes(int i, double& angle, int iAng)
     c[0] = xca[i][0] - xn[i][0];
     c[1] = xca[i][1] - xn[i][1];
     c[2] = xca[i][2] - xn[i][2];
+   }
   }
-	
   adb = adotb(a, b);
   bdc = adotb(b, c);
   adc = adotb(a, c);
@@ -6585,28 +6589,30 @@ void FixBackbone::compute_backbone()
 	} else xo[i][2] = x[oxygens[i]][2];
       }
     }
-		
-    if ( i>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[i-1]==LOCAL || res_info[i-1]==GHOST) ) {
-      xn[i][0] = an*xca[i-1][0] + bn*xca[i][0] + cn*xo[i-1][0];
-      xn[i][1] = an*xca[i-1][1] + bn*xca[i][1] + cn*xo[i-1][1];
-      xn[i][2] = an*xca[i-1][2] + bn*xca[i][2] + cn*xo[i-1][2];
 
-      xh[i][0] = ah*xca[i-1][0] + bh*xca[i][0] + ch*xo[i-1][0];
-      xh[i][1] = ah*xca[i-1][1] + bh*xca[i][1] + ch*xo[i-1][1];
-      xh[i][2] = ah*xca[i-1][2] + bh*xca[i][2] + ch*xo[i-1][2];
+    i_resno=res_no[i]-1;
+    int im1 = res_no_l[i_resno-1];	
+    if ( im1!=-1 && i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[im1]==LOCAL || res_info[im1]==GHOST) ) {
+      xn[i][0] = an*xca[im1][0] + bn*xca[i][0] + cn*xo[im1][0];
+      xn[i][1] = an*xca[im1][1] + bn*xca[i][1] + cn*xo[im1][1];
+      xn[i][2] = an*xca[im1][2] + bn*xca[i][2] + cn*xo[im1][2];
+
+      xh[i][0] = ah*xca[im1][0] + bh*xca[i][0] + ch*xo[im1][0];
+      xh[i][1] = ah*xca[im1][1] + bh*xca[i][1] + ch*xo[im1][1];
+      xh[i][2] = ah*xca[im1][2] + bh*xca[i][2] + ch*xo[im1][2];
     } else {
       xn[i][0] = xn[i][1] = xn[i][2] = 0.0;
 
       xh[i][0] = xh[i][1] = xh[i][2] = 0.0;
     }
 		
-    if ( i>0) {
-      if (!isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[i-1]==LOCAL || res_info[i-1]==GHOST) ) {
-	xcp[i-1][0] = ap*xca[i-1][0] + bp*xca[i][0] + cp*xo[i-1][0];
-	xcp[i-1][1] = ap*xca[i-1][1] + bp*xca[i][1] + cp*xo[i-1][1];
-	xcp[i-1][2] = ap*xca[i-1][2] + bp*xca[i][2] + cp*xo[i-1][2];
-      } else {
-	xcp[i-1][0] = xcp[i-1][1] = xcp[i-1][2] = 0.0;
+    if ( im1!=-1 && i_resno>0) {
+      if (!isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[im1]==LOCAL || res_info[im1]==GHOST) ) {
+	xcp[im1][0] = ap*xca[im1][0] + bp*xca[i][0] + cp*xo[im1][0];
+	xcp[im1][1] = ap*xca[im1][1] + bp*xca[i][1] + cp*xo[im1][1];
+	xcp[im1][2] = ap*xca[im1][2] + bp*xca[i][2] + cp*xo[im1][2];
+      } else if (im1!=-1){
+	xcp[im1][0] = xcp[im1][1] = xcp[im1][2] = 0.0;
       }
     }
 

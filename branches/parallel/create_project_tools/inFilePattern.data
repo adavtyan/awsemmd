@@ -1,0 +1,41 @@
+# 3d protein simulation
+
+units real
+
+timestep 2
+
+dimension	3
+
+boundary s s s
+#boundary p p p
+
+neighbor	10 bin
+neigh_modify	delay 5
+
+atom_modify sort 0 0.0
+
+special_bonds fene
+
+atom_style	peptide
+
+``bonds
+
+``pair_interactions
+
+``read_data_file
+
+``pair_coeff
+
+velocity	all create 300.0 2349852
+
+``groups
+fix		  1 all nvt temp 300.0 300.0 100.0
+fix		  ``main_fix
+
+thermo		1000
+dump		1 all atom 1000 dump.lammpstrj
+
+dump_modify	1 sort id
+
+reset_timestep	0
+run		10000

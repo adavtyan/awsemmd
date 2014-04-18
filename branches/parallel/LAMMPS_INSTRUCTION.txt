@@ -1,0 +1,34 @@
+Prepared by Weihua Zheng
+
+******************
+A. Install LAMMPS:
+1. download LAMMPS: http://lammps.sandia.gov/download.html (the tarball version, not the SVN version)
+2. download fftw-2.1.5. and install it. http://www.fftw.org/download.html (newer version might have problems)
+	./configure --prefix=/home/weihua/fftw-2.1.5
+	make
+	make install
+
+3. cd LAMMPS/src/STUBS/ (LAMMPS/ is where the tar ball is extracted to)
+   make
+
+4. copy the attached Makefile.serial to LAMMPS/src/MAKE/, then 
+LAMMPS/src/make serial ('make clean-all' before recompile)
+'make serial' if Makefile.serial is used.
+
+**************************************
+B. Prepare input for LAMMPS simulation
+1. Install BioPython: http://biopython.org/wiki/Download
+2. Get a copy of the LAMMPS_tools developed by Aram (attached).
+3. Make a new directory 'newdir/', copy all scripts in LAMMPS_tools/create_project_tools/ into the directory. Copy all files in LAMMPS_tools/parameters/ to 'newdir/'.
+4. Copy the pdb file you want to study into the directory, run 
+./Pdb2Lammps.sh PDB_ID input (Note: PDB_ID is the pdb file name without '.pdb' part)
+The code will take the pdb file and generate a couple of input files for the simulation.
+5. Currently, 'ssweight' input file needs to be generated manually. Here is how. 
+ Submit your sequence to 'Jpred3' at http://www.compbio.dundee.ac.uk/www-jpred/. Use the 'view simple' results to generate the file. 'ssweight' is a two column data, number of rows is the same as the number of residues. In each row, if the corresponding residue is in helix form ('H'), then write '1.0 0.0'; write '0.0 1.0' if it's in beta sheet.
+6. Edit input.in file, change 'sequance.se' to 'input.se' or whatever input name you used in step 4. Find 'nvt' and add 'temp' after it with a space in between. After line 'dump ...', add a new line 'dump_modify 1 sort id' so that the atom order is correctly written into the trajectory file.
+
+*************************
+C. Run LAMMPS simulation
+In 'newdir/' created above, run
+LAMMPS/src/lmp_serial < input.in
+'lmp_serial' is the exe compiled in step A.

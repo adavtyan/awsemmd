@@ -1,0 +1,276 @@
+[Chain]
+10.0 10.0 30.0 
+2.45798 2.50665 2.44973
+
+[Shake]-
+10.0 3.83 2.36 2.71
+
+[Chi]
+20.0 -0.83
+
+[Excluded]-
+5.0 3.0
+5.0 4.0
+
+[Excluded_P]-
+4
+1.0 3.0
+1.0 4.0
+
+[Excluded_R6]-
+39.5935 4.0
+39.5935 4.0
+
+[Epsilon]
+1.0
+
+[Rama]
+2.0
+5
+ 1.3149  15.398 0.15   1.74 0.65 -2.138
+1.32016 49.0521 0.25  1.265 0.45  0.318
+ 1.0264 49.0954 0.65 -1.041 0.25  -0.78
+    2.0   419.0  1.0  0.995  1.0  0.820
+    2.0  15.398  1.0   2.25  1.0  -2.16
+
+[Rama_P]
+3
+ 0.0    0.0 1.0   0.0  1.0   0.0
+2.17 105.52 1.0 1.153 0.15  -2.4
+2.15 109.09 1.0  0.95 0.15 0.218
+ 0.0    0.0 1.0   0.0  2.0   0.0
+ 0.0    0.0 1.0   0.0  2.0   0.0
+
+[SSWeight]
+0 0 0 1 1 0
+0 0 0 0 0 0
+
+[ABC]
+0.483 0.703 -0.186
+0.444 0.235 0.321
+0.841 0.893 -0.734
+
+[Dssp_Hdrgn]-
+1.0
+0.0  0.0
+1.37  0.0  3.49 1.30 1.32 1.22   0.0
+1.36  0.0  3.50 1.30 1.32 1.22   3.47  0.33 1.01
+1.17  0.0  3.52 1.30 1.32 1.22   3.62  0.33 1.01
+0.76   0.68
+2.06   2.98
+7.0
+1.0    0.5
+12.0
+
+[P_AP]-
+1.0
+1.5
+1.0 0.4 0.4
+8.0
+7.0
+5 8
+4
+
+[Water]-
+1.0
+5.0 7.0
+2.6
+13
+2
+4.5 6.5 1
+6.5 9.5 1
+
+[Burial]-
+1.0
+4.0
+0.0 3.0
+3.0 6.0
+6.0 9.0
+
+[Helix]
+1.5
+2.0 -1.0
+7.0 7.0
+3.0
+4
+15.0
+4.5 6.5
+0.77 0.68 0.07 0.15 0.23 0.33 0.27 0.0 0.06 0.23 0.62 0.65 0.50 0.41 -3.0 0.35 0.11 0.45 0.17 0.14
+0 -3.0
+0.76   0.68
+2.06   2.98
+
+NOTE: helix_cutoff can be 7.0 instead fo 15.0
+
+#[AMH-Go]
+kamhgo
+pvalue
+cutoffdistance
+frustration_censoring_flag (if 1, must have frustration_censored_contacts.dat containing pairs of censored contacts)
+
+[AMH-Go]-
+1.0
+1
+8.0
+0
+
+NOTE: If you use AMH-Go you need to make sure that neigbour list cutoff and skin distance are set right
+
+[Fragment_Memory]-
+1.0
+1r69.mem
+1r69.gamma
+
+#[Fragment_Memory_Table]
+scaling_factor
+mem_file
+gamma_file
+rmin rmax dr
+
+[Fragment_Memory_Table]-
+1.0
+1r69.mem
+1r69.gamma
+0 50 0.1
+
+#[Solvent_Barrier]
+k1 (barrier height 1)
+rmin1 rmax1
+k2 (barrier height 2)
+rmin2 rmax2
+Kappa
+Min(I-J)
+SWITCH for residue type specifc case
+residue radii
+
+[Solvent_Barrier]-
+1.0
+4.5 6.5
+1.0
+6.0 7.0
+5.0
+13
+1
+0.00 2.04 0.57 0.57 0.36 1.11 1.17 -1.52 0.87 0.67 0.79 1.47 1.03 1.00 -0.10 0.26 0.37 1.21 1.15 0.39
+
+#[Phosphorylation]
+strength of hypercharge
+number of phosphorylated residues (up to 20)
+phosphorylated residue index (or indices)
+
+[Phosphorylation]-
+1.2
+1
+17
+
+#[Optimization]-
+output frequency
+
+[Optimization]-
+1
+
+#[Burial_Optimization]-
+output frequency
+
+[Burial_Optimization]-
+1
+
+#[DebyeHuckel]
+k_PlusPlus, k_MinusMinus, k_PlusMinus (electrostatic scaling factors)
+k_screening (1=screening on, 0=screening off)
+screening_length (in Angstroms)
+debye_huckel_min_sep (minimum sequence separation for DH interaction)
+
+[DebyeHuckel]
+1.0 1.0 1.0
+1.0
+10.0
+10
+
+[DebyeHuckel_Optimization]-
+1
+
+#[Tertiary_Frustratometer]
+9.5 (CB-CB cutoff)
+1000 (Num. decoys)
+1    (Output freq.)
+mutational (configurational or mutational or singleresidue)
+
+[Tertiary_Frustratometer]
+9.5
+1000
+1
+mutational
+
+#[Nmer_Frustratometer]
+6 (nmer_frust_size)
+9.5 (nmer_frust_cutoff)
+10 (nmer_contacts_cutoff)
+1000 (nmer_frust_ndecoys)
+1 (nmer_frust_output_freq)
+1.7 -1 0 (nmer_frust_min_frust_threshold nmer_frust_high_frust_threshold nmer_output_neutral_flag)
+0 0 1 0.6 (nmer_frust_trap_flag nmer_frust_draw_trap_flag nmer_frust_trap_num_sigma nmer_frust_ss_frac)
+singlenmer (mode: pairwise or singlenmer)
+
+[Nmer_Frustratometer]-
+6 
+9.5 
+10 
+1000 
+1 
+1.7 -1 0 
+0 0 1 0.6 
+singlenmer
+
+#[Amylometer]
+sequence.txt - file containing sequences
+6            - nmer size
+2 (*.gro 6.0)- 1=homogeneous mode, 2=heterogeneous mode; if 2, then give gro file
+               for native structure information and a cutoff for contacts in Angstroms
+
+# Homo amylometer
+[Amylometer]-
+SEQUENCEFILE
+6
+1
+
+# Hetero amylometer
+[Amylometer]-
+SEQUENCEFILE
+6
+2 test.gro 6.0
+
+#[Membrane]
+scaling factor
+kappa
+center of the membrane-pore (x, y, z)
+pore type (only 0)
+lenght of the membrane
+pore size
+distortion of the pore (from 0 to 100)
+gamma values
+
+[Membrane]
+2
+0.5
+0 0 0
+0
+30
+5
+0
+1 1 1 1
+1 1 1 1
+1 1 1 1
+
+[Selection_Temperature]-
+1000
+0
+seltemp_ixns_out
+0
+seltemp_sequences
+seltemp_residues
+seltemp_energies
+1
+9.5
+1
+seltemp_contactlist

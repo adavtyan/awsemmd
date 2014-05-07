@@ -1294,9 +1294,11 @@ inline void FixBackbone::Construct_Computational_Arrays()
   int nall = atom->nlocal + atom->nghost;
   int *mol_tag = atom->molecule;
   int *res_tag = atom->residue;
-	
 
   int i;
+  for (i=0; i<n; ++i){
+	res_no_l[i]=-1;
+  }
 
   // Creating index arrays for Alpha_Carbons, Beta_Atoms and Oxygens
   nn = 0;
@@ -3085,8 +3087,8 @@ void FixBackbone::compute_helix_potential(int i)
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
 
-  if (R->rNO(i,j)>helix_cutoff) return;
   if (j==-1   || (res_info[j]  !=LOCAL && res_info[j]  !=GHOST)) return;
+  if (R->rNO(i,j)>helix_cutoff) return;
   if (jm1==-1 || (res_info[jm1]!=LOCAL && res_info[jm1]!=GHOST)) return;
   if (i_chno!=j_chno) return;
 
@@ -3752,9 +3754,9 @@ void FixBackbone::table_fragment_memory(int i, int j)
       f[jatom[k]][1] += -ff*dx[1];
       f[jatom[k]][2] += -ff*dx[2];
     } else {
+      fprintf(screen,  "r=%f, i=%d, j=%d\n", r, i, j);
+      fprintf(logfile, "r=%f, i=%d, j=%d\n", r, i, j);
       error->all(FLERR,"Table Fragment Memory: r is out of computed range.");
-      fprintf(screen, "r=%f\n", r);
-      fprintf(logfile, "r=%f\n", r);
     }	    
   }
 }
@@ -6703,7 +6705,8 @@ void FixBackbone::compute_backbone()
     i_resno = res_no[i]-1;
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
-      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j] == GHOST))
+      //if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j] == GHOST))
+      if (j_resno>i_resno+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
     }
   }

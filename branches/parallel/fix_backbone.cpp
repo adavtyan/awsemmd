@@ -11,6 +11,7 @@
    Last Update: 03/9/2012
    ------------------------------------------------------------------------- */
 
+#include "mpi.h"
 #include "math.h"
 #include "string.h"
 #include "stdlib.h"
@@ -36,6 +37,7 @@
 using std::ifstream;
 
 #define delta 0.00001
+//#define DEBUGFORCES 1
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -1287,13 +1289,14 @@ int FixBackbone::Tag(int index) {
   return atom->tag[index];
 }
 
-inline void FixBackbone::Construct_Computational_Arrays()
+inline void FixBackbone::Construct_Computational_Arrays(int ntimestep)
 {
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
   int nall = atom->nlocal + atom->nghost;
   int *mol_tag = atom->molecule;
   int *res_tag = atom->residue;
+	
 
   int i;
   for (i=0; i<n; ++i){
@@ -2914,8 +2917,8 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 
 void FixBackbone::compute_water_potential(int i, int j)
 {	
-  if (chain_no[i]==chain_no[j] && res_no[j]-res_no[i]<contact_cutoff) return;
-  if (chain_no[i]!=chain_no[j] && res_no[j] < res_no[i]) return;
+  //if (chain_no[i]==chain_no[j] && res_no[j]-res_no[i]<contact_cutoff) return;
+  //if (chain_no[i]!=chain_no[j] && res_no[j] < res_no[i]) return;
 
   double dx[3], sigma_gamma, theta_gamma, force;
   double *xi, *xj, *xk;
@@ -2936,7 +2939,7 @@ void FixBackbone::compute_water_potential(int i, int j)
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
-  else { xj = xcb[j]; jatom  = beta_atoms[j]; }
+  else { xj = xcb[j]; jatom  = beta_atoms[j]; if(jatom==-1)return; }
 	
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
@@ -2979,7 +2982,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 	if (res_info[k]==OFF) continue;
 
 	if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-	else { xk = xcb[k]; katom  = beta_atoms[k]; }
+	else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)return;}
 				
 	k_resno = res_no[k]-1;
 	k_chno = chain_no[k]-1;
@@ -3059,7 +3062,7 @@ void FixBackbone::compute_burial_potential(int i)
     
     if (abs(k_resno-i_resno)>1 || i_chno!=k_chno) {
       if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-      else { xk = xcb[k]; katom  = beta_atoms[k]; }
+      else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)return;}
 
       dx[0] = xi[0] - xk[0];
       dx[1] = xi[1] - xk[1];
@@ -3754,8 +3757,8 @@ void FixBackbone::table_fragment_memory(int i, int j)
       f[jatom[k]][1] += -ff*dx[1];
       f[jatom[k]][2] += -ff*dx[2];
     } else {
-      fprintf(screen,  "r=%f, i=%d, j=%d\n", r, i, j);
-      fprintf(logfile, "r=%f, i=%d, j=%d\n", r, i, j);
+	if (comm->me==0 && k==0 )
+      fprintf(screen,  "step=%d, me=%d, r=%f, i=%d, j=%d, i_resno=%d, j_resno=%d, xca[i]=%f, xca[j]=%f, atom->x=%f, atom->f=%f, atom->nlocal=%d, res_info[i]=%d, res_info[j]=%d\n", ntimestep, comm->me, r, i, j, i_resno, j_resno, xca[i][0], xca[j][0], atom->x[alpha_carbons[i]][0], atom->f[alpha_carbons[i]][0], atom->nlocal, res_info[i], res_info[j]);
       error->all(FLERR,"Table Fragment Memory: r is out of computed range.");
     }	    
   }
@@ -6533,11 +6536,12 @@ void FixBackbone::compute_backbone()
   if(atom->nlocal==0) return;
 	
   if (comm->nprocs>1 || ntimestep==0)
-    Construct_Computational_Arrays();
+    Construct_Computational_Arrays(ntimestep);
 
   x = atom->x;
   f = atom->f;
   image = atom->image;
+  int nall=atom->nlocal + atom->nghost;
 
   int i, j, xbox, ybox, zbox;
   int i_resno, j_resno;
@@ -6546,7 +6550,7 @@ void FixBackbone::compute_backbone()
   for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
   force_flag = 0;
 
-  for (i=0;i<nn;++i) {		
+  for (i=0;i<nn;++i) {
     if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {
       if (domain->xperiodic) {
 	xbox = (image[alpha_carbons[i]] & 1023) - 512;
@@ -6590,6 +6594,7 @@ void FixBackbone::compute_backbone()
 	  xo[i][2] = x[oxygens[i]][2] + zbox*prd[2];
 	} else xo[i][2] = x[oxygens[i]][2];
       }
+		
     }
 
     i_resno=res_no[i]-1;
@@ -6688,7 +6693,6 @@ void FixBackbone::compute_backbone()
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
       if (i_resno-2>=0 && i_resno+2<n && j_resno-2>=0 && j_resno+2<n && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
-	//			if (!isLast(i) && !isFirst(j) && abs(j_resno-i_resno)>2 && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
     }
   }
@@ -7081,13 +7085,16 @@ void FixBackbone::compute_backbone()
 	
   if (ntimestep%output->thermo_every==0) {
     if (force_flag == 0) {
-      MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
+      MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+      //MPI_Reduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
       force_flag = 1;
     }
-	
-    fprintf(efile, "%d ", ntimestep);
-    for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%8.6f", energy_all[i]);
-    fprintf(efile, "\t%8.6f\n", energy_all[ET_TOTAL]);
+    //change
+    if(comm->me==0){
+	    fprintf(efile, "%d ", ntimestep);
+	    for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%8.6f", energy_all[i]);
+	    fprintf(efile, "\t%8.6f\n", energy_all[ET_TOTAL]);
+    }
   }
 }
 
@@ -7126,7 +7133,8 @@ double FixBackbone::compute_scalar()
   // only sum across procs one time
 
   if (force_flag == 0) {
-    MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
+    MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    //MPI_Reduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
     force_flag = 1;
   }
   return energy_all[ET_TOTAL];
@@ -7141,7 +7149,7 @@ double FixBackbone::compute_vector(int nv)
   // only sum across procs one time
 
   if (force_flag == 0) {
-    MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
+    MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
     force_flag = 1;
   }
   return energy_all[nv+1];

@@ -2982,7 +2982,7 @@ void FixBackbone::compute_water_potential(int i, int j)
 	if (res_info[k]==OFF) continue;
 
 	if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-	else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)return;}
+	else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k];}
 				
 	k_resno = res_no[k]-1;
 	k_chno = chain_no[k]-1;
@@ -3062,7 +3062,7 @@ void FixBackbone::compute_burial_potential(int i)
     
     if (abs(k_resno-i_resno)>1 || i_chno!=k_chno) {
       if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-      else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)return;}
+      else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k];}
 
       dx[0] = xi[0] - xk[0];
       dx[1] = xi[1] - xk[1];
@@ -3168,7 +3168,7 @@ void FixBackbone::compute_helix_potential(int i)
     k_chno = chain_no[k]-1;
     
     if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-    else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1) continue; }
+    else { katom  = beta_atoms[k]; if(katom==-1) continue; xk = xcb[k];}
 		
     if (abs(k_resno-i_resno)>1 || k_chno!=i_chno) {
       dx[0] = xi[0] - xk[0];

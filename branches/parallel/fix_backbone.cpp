@@ -3693,7 +3693,8 @@ void FixBackbone::table_fragment_memory(int i, int j)
   iatom[1] = alpha_carbons[i];
   iatom[2] = beta_atoms[i];
   iatom[3] = beta_atoms[i];
-  
+
+  if(beta_atoms[j]==-1)return;
   jatom[0] = alpha_carbons[j];
   jatom[1] = beta_atoms[j];
   jatom[2] = alpha_carbons[j];

@@ -2743,18 +2743,22 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 void FixBackbone::compute_P_AP_potential(int i, int j)
 {
   double K, force[2], dx[2][3];
-  //	double nu_P_AP[100][100], prd_nu_P_AP[100][100];
   bool i_AP_med, i_AP_long, i_P;
 
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
 
-  // Need to change
-  i_AP_med = i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
-  i_AP_long = i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n;
-  i_P = i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
+  int i_chno = chain_no[i]-1;
+  int j_chno = chain_no[j]-1;
 
-  //	if (ntimestep==0) fprintf(dout, "(%d %d) (%d %d) %d %d %d\n", i, j, i_resno, j_resno, i_AP_med, i_AP_long, i_P);
+  //i_AP_med = i_resno<n-(i_med_min+2*i_diff_P_AP)   && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
+  i_AP_med   = i_chno==j_chno &&  i_resno<n-(i_med_min+2*i_diff_P_AP)  && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP)    && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
+
+  //i_AP_long= i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n;
+  i_AP_long  = (i_chno==j_chno && i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j-i_diff_P_AP]-1)==j_chno);
+
+  //i_P      = i_resno<n-(i_med_max+1+i_diff_P_AP)   && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
+  i_P = (i_chno==(chain_no[j+i_diff_P_AP]-1) && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (i_chno!=j_chno && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j+i_diff_P_AP]-1)==j_chno);
 
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {

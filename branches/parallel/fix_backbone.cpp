@@ -1289,7 +1289,7 @@ int FixBackbone::Tag(int index) {
   return atom->tag[index];
 }
 
-inline void FixBackbone::Construct_Computational_Arrays(int ntimestep)
+inline void FixBackbone::Construct_Computational_Arrays()
 {
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
@@ -1523,8 +1523,9 @@ void FixBackbone::init_list(int id, NeighList *ptr)
 
 void FixBackbone::setup(int vflag)
 {
-  if (strstr(update->integrate_style,"verlet"))
+  if (strstr(update->integrate_style,"verlet")){
     pre_force(vflag);
+  }
   else {
     ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
     pre_force_respa(vflag,nlevels_respa-1,0);
@@ -2982,7 +2983,8 @@ void FixBackbone::compute_water_potential(int i, int j)
 	if (res_info[k]==OFF) continue;
 
 	if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-	else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k];}
+	else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
+	//else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)continue;}
 				
 	k_resno = res_no[k]-1;
 	k_chno = chain_no[k]-1;
@@ -3062,7 +3064,8 @@ void FixBackbone::compute_burial_potential(int i)
     
     if (abs(k_resno-i_resno)>1 || i_chno!=k_chno) {
       if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-      else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k];}
+      else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
+      //else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)continue;}
 
       dx[0] = xi[0] - xk[0];
       dx[1] = xi[1] - xk[1];
@@ -3129,9 +3132,9 @@ void FixBackbone::compute_helix_potential(int i)
   prd_pair_theta[1] = - (R_HO - helix_HO_zero)/(pow(helix_sigma_HO, 2)*R_HO);
 	
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
-  else { xi = xcb[i]; iatom  = beta_atoms[i]; if (iatom==-1) return;}
+  else { xi = xcb[i]; iatom  = beta_atoms[i];}
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
-  else { xj = xcb[j]; jatom  = beta_atoms[j]; if (jatom==-1) return;}
+  else { xj = xcb[j]; jatom  = beta_atoms[j]; if (jatom==-1)return;}
 	
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
@@ -3168,7 +3171,8 @@ void FixBackbone::compute_helix_potential(int i)
     k_chno = chain_no[k]-1;
     
     if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-    else { katom  = beta_atoms[k]; if(katom==-1) continue; xk = xcb[k];}
+    else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
+    //else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1) continue; }
 		
     if (abs(k_resno-i_resno)>1 || k_chno!=i_chno) {
       dx[0] = xi[0] - xk[0];
@@ -3693,7 +3697,7 @@ void FixBackbone::table_fragment_memory(int i, int j)
   iatom[1] = alpha_carbons[i];
   iatom[2] = beta_atoms[i];
   iatom[3] = beta_atoms[i];
-
+  
   if(beta_atoms[j]==-1)return;
   jatom[0] = alpha_carbons[j];
   jatom[1] = beta_atoms[j];
@@ -3734,22 +3738,17 @@ void FixBackbone::table_fragment_memory(int i, int j)
       r1 = tb_rmin + (double)ir*tb_dr;
       r2 = tb_rmin + (double)(ir+1)*tb_dr;
     	
-      //    	v1 = fm_table[tb_i][tb_j][k][ir].energy;
-      //    	v2 = fm_table[tb_i][tb_j][k][ir+1].energy;
       v1 = fm_table[itb][ir].energy;
       v2 = fm_table[itb][ir+1].energy;
     	
       V = ((v2-v1)*r + v1*r2 - v2*r1)/(r2-r1);
     	
-      //    	f1 = fm_table[tb_i][tb_j][k][ir].force;
-      //    	f2 = fm_table[tb_i][tb_j][k][ir+1].force;
       f1 = fm_table[itb][ir].force;
       f2 = fm_table[itb][ir+1].force;
     	
       ff = ((f2-f1)*r + f1*r2 - f2*r1)/(r2-r1);
     	   	
       energy[ET_FRAGMEM] += V;
-    	
       f[iatom[k]][0] += ff*dx[0];
       f[iatom[k]][1] += ff*dx[1];
       f[iatom[k]][2] += ff*dx[2];
@@ -3758,8 +3757,7 @@ void FixBackbone::table_fragment_memory(int i, int j)
       f[jatom[k]][1] += -ff*dx[1];
       f[jatom[k]][2] += -ff*dx[2];
     } else {
-	if (comm->me==0 && k==0 )
-      fprintf(screen,  "step=%d, me=%d, r=%f, i=%d, j=%d, i_resno=%d, j_resno=%d, xca[i]=%f, xca[j]=%f, atom->x=%f, atom->f=%f, atom->nlocal=%d, res_info[i]=%d, res_info[j]=%d\n", ntimestep, comm->me, r, i, j, i_resno, j_resno, xca[i][0], xca[j][0], atom->x[alpha_carbons[i]][0], atom->f[alpha_carbons[i]][0], atom->nlocal, res_info[i], res_info[j]);
+      fprintf(screen,  "step=%d, me=%d, r=%f\n", ntimestep, comm->me, r);
       error->all(FLERR,"Table Fragment Memory: r is out of computed range.");
     }	    
   }
@@ -6533,11 +6531,22 @@ void FixBackbone::print_forces(int coord)
 void FixBackbone::compute_backbone()
 {     
   ntimestep = update->ntimestep;
-
-  if(atom->nlocal==0) return;
 	
+  force_flag = 0;
+  if(atom->nlocal==0){
+	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
+  	for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];	
+	if (ntimestep%output->thermo_every==0) {
+	   if (force_flag == 0) {
+	      MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+	      force_flag = 1;
+	   }
+	}
+  	return;
+  }
+
   if (comm->nprocs>1 || ntimestep==0)
-    Construct_Computational_Arrays(ntimestep);
+    Construct_Computational_Arrays();
 
   x = atom->x;
   f = atom->f;
@@ -6549,7 +6558,6 @@ void FixBackbone::compute_backbone()
   int i_chno, j_chno;
 	
   for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
-  force_flag = 0;
 
   for (i=0;i<nn;++i) {
     if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {
@@ -6927,7 +6935,6 @@ void FixBackbone::compute_backbone()
       if (i_resno-2>=0 && i_resno+2<n && j_resno-2>=0 && j_resno+2<n && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
 				
-      // Need to change
       if (j_resno>i_resno+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
 
@@ -6957,7 +6964,6 @@ void FixBackbone::compute_backbone()
       
     if (vec_frag_mem_flag && res_info[i]==LOCAL)
       compute_vector_fragment_memory_potential(i);
-
   }
 
   // if the fragment frustratometer is on and it is time to compute the fragment frustration, do so!
@@ -7087,10 +7093,8 @@ void FixBackbone::compute_backbone()
   if (ntimestep%output->thermo_every==0) {
     if (force_flag == 0) {
       MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-      //MPI_Reduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
       force_flag = 1;
     }
-    //change
     if(comm->me==0){
 	    fprintf(efile, "%d ", ntimestep);
 	    for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%8.6f", energy_all[i]);
@@ -7135,7 +7139,6 @@ double FixBackbone::compute_scalar()
 
   if (force_flag == 0) {
     MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    //MPI_Reduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
     force_flag = 1;
   }
   return energy_all[ET_TOTAL];

@@ -265,11 +265,11 @@ public:
   int ntimestep;
   int n, nn; // n is the total number of residues, nn is the local number of residues
   double an, bn, cn, ap, bp, cp, ah, bh, ch;
-  int *alpha_carbons, *beta_atoms, *oxygens;
-  int *res_no,   *res_info, *chain_no;
+  int *alpha_carbons;
+  int *beta_atoms;
+  int *oxygens;
+  int *res_no, *res_info, *chain_no;
   double **xca, **xcb, **xo, **xn, **xcp, **xh;
-  int *res_no_l;
-
   double **x, **f;
   int *image;
   double prd[3], half_prd[3];
@@ -323,7 +323,7 @@ public:
   void compute_P_AP_potential(int i, int j);
   void compute_water_potential(int i, int j);
   void compute_burial_potential(int i);
-  void compute_helix_potential(int i);
+  void compute_helix_potential(int i, int j);
   void compute_amh_go_model();
   void compute_fragment_memory_potential(int i);
   void compute_decoy_memory_potential(int i, int decoy_calc);

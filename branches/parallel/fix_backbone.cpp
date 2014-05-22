@@ -3165,7 +3165,7 @@ void FixBackbone::compute_helix_potential(int i)
   f[oxygens[i]][2] -= V*(prd_pair_theta[0]*xNO[2] + prd_pair_theta[1]*xHO[2]);
 
   for (k=0;k<nn;++k) {
-    if (res_info[k]!=LOCAL || res_info[k]!=GHOST) continue;
+    if (res_info[k]!=LOCAL && res_info[k]!=GHOST) continue;
 	
     k_resno = res_no[k]-1;
     k_chno = chain_no[k]-1;

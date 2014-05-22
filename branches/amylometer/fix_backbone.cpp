@@ -3019,6 +3019,7 @@ void FixBackbone::compute_helix_potential(int i, int j)
 	
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
+  if(i_chno!=j_chno)return;
 
   int ires_type = se_map[se[i_resno]-'A'];
   int jres_type = se_map[se[j_resno]-'A'];

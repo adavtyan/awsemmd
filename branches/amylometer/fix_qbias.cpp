@@ -87,13 +87,21 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 			in >> q0;
 			in >> l;
 			in >> sigma;
-		}  else if (strcmp(varsection, "[QBias_Exp]")==0) {
+		} else if (strcmp(varsection, "[QBias_Exp]")==0) {
 			qbias_exp_flag = 1;
 			print_log("QBias_Exp flag on\n");
 			in >> k_qbias;
 			in >> q0;
 			in >> l;
 			in >> sigma_exp;
+		} else if (strcmp(varsection, "[QBias_Exp_Seq]")==0) {
+			qbias_exp_seq_flag = 1;
+			print_log("QBias_Exp_Seq flag on\n");
+			in >> k_qbias;
+			in >> q0;
+			in >> l;
+			in >> sigma_exp;
+			in >> qbias_min_sep >> qbias_max_sep;
 		} else if (strcmp(varsection, "[QOBias]")==0) {
 			qobias_flag = 1;
 			print_log("QOBias flag on\n");
@@ -102,7 +110,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 			in >> l;
 			in >> sigma;
 			in >> cutoff;
-		}  else if (strcmp(varsection, "[QOBias_Exp]")==0) {
+		} else if (strcmp(varsection, "[QOBias_Exp]")==0) {
 			qobias_exp_flag = 1;
 			print_log("QOBias_Exp flag on\n");
 			in >> k_qbias;
@@ -383,7 +391,7 @@ inline double FixQBias::PeriodicityCorrection(double d, int i)
 
 double FixQBias::Sigma(int sep)
 {
-	if (qbias_exp_flag || qobias_exp_flag)
+	if (qbias_exp_flag || qobias_exp_flag || qbias_exp_seq_flag)
 		return pow(1+sep, sigma_exp);
 
 	return sigma;
@@ -401,7 +409,8 @@ void FixQBias::compute_qbias()
 	for (i=0;i<n;++i) {
 		for (j=i+min_sep;j<n;++j) {
 			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>=cutoff ) continue;
-		
+			if ( (qbias_exp_seq_flag) && (abs(j-i) < qbias_min_sep || abs(j-i) > qbias_max_sep)) continue;
+
 			dx[0] = xca[i][0] - xca[j][0];
 			dx[1] = xca[i][1] - xca[j][1];
 			dx[2] = xca[i][2] - xca[j][2];
@@ -426,6 +435,7 @@ void FixQBias::compute_qbias()
 	for (i=0;i<n;++i) {
 		for (j=i+min_sep;j<n;++j) {
 			if ( (qobias_flag || qobias_exp_flag) && rN[i][j]>=cutoff ) continue;
+			if ( (qbias_exp_seq_flag) && (abs(j-i) < qbias_min_sep || abs(j-i) > qbias_max_sep)) continue;
 		
 			dx[0] = xca[i][0] - xca[j][0];
 			dx[1] = xca[i][1] - xca[j][1];

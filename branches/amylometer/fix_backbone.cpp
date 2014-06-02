@@ -4446,16 +4446,23 @@ double FixBackbone::compute_native_ixn(double rij, int i_resno, int j_resno, int
 {
   double water_energy, burial_energy_i, burial_energy_j, rik, rjk, rho_k;
   int k, kres_type;
+  double electrostatic_energy;
 
   // compute the energies for the (i,j) pair
   water_energy = compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
   burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
   burial_energy_j = compute_burial_energy(j_resno, jres_type, rho_j);
+  if (huckel_flag) {
+    electrostatic_energy = compute_electrostatic_energy(rij, i_resno, j_resno, ires_type, jres_type);
+  }
+  else {
+    electrostatic_energy = 0.0;
+  }
 
   // in configurational mode, only the (i,j) contact contributes to the native energy
   // so we are ready to return the sum of water_ij+burial_i+burial_j
   if (strcmp(tert_frust_mode, "configurational")==0) {
-    return water_energy + burial_energy_i + burial_energy_j;
+    return water_energy + burial_energy_i + burial_energy_j + electrostatic_energy;
   }
   // in mutational mode, all (i,k) and (j,k) pairs also contribute to the native energy
   // so we have to compute those first, then return the sum
@@ -4475,14 +4482,20 @@ double FixBackbone::compute_native_ixn(double rij, int i_resno, int j_resno, int
 	// add (i,k) contribution
 	water_energy += compute_water_energy(rik, i_resno, k, ires_type, kres_type, rho_i, rho_k);
       }
+      if (huckel_flag) {
+	electrostatic_energy += compute_electrostatic_energy(rik, i_resno, k, ires_type, kres_type);
+      }
       // check to see if j and k are in contact; if so, add the energy
       rjk = get_residue_distance(j_resno, k);
       if (rjk < tert_frust_cutoff) {	
 	// add (j,k) contribution
 	water_energy += compute_water_energy(rjk, j_resno, k, jres_type, kres_type, rho_j, rho_k);
       }
+      if (huckel_flag) {
+	electrostatic_energy += compute_electrostatic_energy(rjk, j_resno, k, jres_type, kres_type);
+      }
     }
-    return water_energy+burial_energy_i+burial_energy_j;
+    return water_energy+burial_energy_i+burial_energy_j+electrostatic_energy;
   }
 }
 
@@ -4490,6 +4503,7 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
 {
   int decoy_i, rand_i_resno, rand_j_resno, ires_type, jres_type, k, kres_type;
   double rij, rho_i, rho_j, water_energy, burial_energy_i, burial_energy_j, rik, rjk, rho_k;
+  double electrostatic_energy;
   
   for (decoy_i=0; decoy_i<tert_frust_ndecoys; decoy_i++) {
     if (strcmp(tert_frust_mode, "configurational")==0) {
@@ -4498,7 +4512,7 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
       rand_j_resno = get_random_residue_index();
       rij = get_residue_distance(rand_i_resno, rand_j_resno);
       // make sure that the randomly chosen residues are in contact
-      while(rij > tert_frust_cutoff) { 
+      while(rij > tert_frust_cutoff || rand_i_resno == rand_j_resno) { 
 	rand_i_resno = get_random_residue_index();
 	rand_j_resno = get_random_residue_index();
 	rij = get_residue_distance(rand_i_resno, rand_j_resno);
@@ -4526,6 +4540,12 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
     water_energy = compute_water_energy(rij, rand_i_resno, rand_j_resno, ires_type, jres_type, rho_i, rho_j);
     burial_energy_i = compute_burial_energy(rand_i_resno, ires_type, rho_i);
     burial_energy_j = compute_burial_energy(rand_j_resno, jres_type, rho_j);
+    if (huckel_flag) {
+      electrostatic_energy = compute_electrostatic_energy(rij, rand_i_resno, rand_j_resno, ires_type, jres_type);
+    }
+    else {
+      electrostatic_energy = 0.0;
+    }
 
     // in mutational mode, all (i,k) and (j,k) pairs also contribute to the decoy energy
     // so we have to compute those first, then return the sum
@@ -4545,17 +4565,23 @@ void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, 
 	  // add (i,k) contribution
 	  water_energy += compute_water_energy(rik, rand_i_resno, k, ires_type, kres_type, rho_i, rho_k);
 	}
+	if (huckel_flag) {
+	  electrostatic_energy += compute_electrostatic_energy(rik, rand_i_resno, k, ires_type, kres_type);
+	}
 	// check to see if j and k are in contact; if so, add the energy
 	rjk = get_residue_distance(j_resno, k);
 	if (rjk < tert_frust_cutoff) {	
 	  // add (j,k) contribution
 	  water_energy += compute_water_energy(rjk, rand_j_resno, k, jres_type, kres_type, rho_j, rho_k);
 	}
+	if (huckel_flag) {
+	  electrostatic_energy += compute_electrostatic_energy(rjk, rand_j_resno, k, jres_type, kres_type);
+	}
       }
     }
 
     // sum the energy terms, store in array
-    tert_frust_decoy_energies[decoy_i] = water_energy + burial_energy_i + burial_energy_j;
+    tert_frust_decoy_energies[decoy_i] = water_energy + burial_energy_i + burial_energy_j + electrostatic_energy;
   }
 
   // save the mean and standard deviation into the decoy_ixn_stats array
@@ -4574,12 +4600,16 @@ double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type,
 {
   double water_energy, burial_energy_i, rij, rho_j;
   int j, j_resno, jres_type, j_chno;
+  double electrostatic_energy;
 
   // find burial energy for residue i
   burial_energy_i = compute_burial_energy(i_resno, ires_type, rho_i);
 
   // initialize water energy
   water_energy = 0.0;
+
+  // initialize electrostatics energy
+  electrostatic_energy = 0.0;
 
   // loop over all possible interacting residues
   for (j=0; j<n; j++) {
@@ -4607,9 +4637,12 @@ double FixBackbone::compute_singleresidue_native_ixn(int i_resno, int ires_type,
       // compute the energies for the (i,j) pair
       water_energy += compute_water_energy(rij, i_resno, j_resno, ires_type, jres_type, rho_i, rho_j);
     }
+    if (huckel_flag) {
+      electrostatic_energy += compute_electrostatic_energy(rij, i_resno, j_resno, ires_type, jres_type);
+    }
   }
 
-  return water_energy + burial_energy_i;
+  return water_energy + burial_energy_i + electrostatic_energy;
 }
 
 void FixBackbone::compute_singleresidue_decoy_ixns(int i_resno, double rho_i, int i_chno)
@@ -4717,6 +4750,49 @@ double FixBackbone::compute_burial_energy(int i_resno, int ires_type, double rho
   burial_energy += -0.5*epsilon*k_burial*burial_gamma_2*(t[2][0] + t[2][1]);
 
   return burial_energy;
+}
+
+double FixBackbone::compute_electrostatic_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type)
+{
+  if (abs(i_resno-j_resno)<debye_huckel_min_sep) return 0.0;
+  
+  double charge_i = 0.0;
+  double charge_j = 0.0;
+  double term_qq_by_r;
+    
+  // check if ires_type is D, E, R or K; if not, skip; if so, assign charge type
+  if (ires_type=='R'-'A' || ires_type=='K'-'A') {
+    charge_i = 1.0;
+  }
+  else if (ires_type=='D'-'A' || ires_type=='E'-'A') {
+    charge_i = -1.0;
+  }
+  else {
+    return 0.0;
+  }
+
+  // check if jres_type is D, E, R or K; if not, skip; if so, assign charge type
+  if (jres_type=='R'-'A' || jres_type=='K'-'A') {
+    charge_j = 1.0;
+  }
+  else if (jres_type=='D'-'A' || jres_type=='E'-'A') {
+    charge_j = -1.0;
+  }
+  else {
+    return 0.0;
+  }
+
+  if( (charge_i > 0.0) && (charge_j > 0.0) ) {
+    term_qq_by_r = k_PlusPlus*charge_i*charge_j/rij;
+  }
+  else if(charge_i < 0.0 && charge_j < 0.0) {
+    term_qq_by_r = k_MinusMinus*charge_i*charge_j/rij;
+  }
+  else if( (charge_i < 0.0 && charge_j > 0.0) || (charge_i > 0.0 && charge_j < 0.0)) {
+    term_qq_by_r = k_PlusMinus*charge_i*charge_j/rij;
+  }
+  
+  return epsilon*term_qq_by_r*exp(-k_screening*rij/screening_length);
 }
 
 // generates a random but valid residue index

@@ -347,6 +347,7 @@ public:
   void compute_decoy_ixns(int i_resno_orig, int j_resno_orig, double rij_orig, double rho_i_orig, double rho_j_orig);
   double compute_water_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
   double compute_burial_energy(int i_resno, int ires_type, double rho_i);
+  double compute_electrostatic_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type);
   int get_random_residue_index();
   double get_residue_distance(int i_resno, int j_resno);
   double get_residue_density(int i);

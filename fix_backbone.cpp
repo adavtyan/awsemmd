@@ -48,6 +48,7 @@ using namespace FixConst;
 // {"ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"};
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
 int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 16, 0, 19, 17, 0, 18, 0};
+char one_letter_code[] = {'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V'};
 
 // Four letter classes
 // 1) SHL: Small Hydrophilic (ALA, GLY, PRO, SER THR) or (A, G, P, S, T) or {0, 7, 14, 15, 16}
@@ -4761,26 +4762,28 @@ double FixBackbone::compute_electrostatic_energy(double rij, int i_resno, int j_
   double term_qq_by_r;
     
   // check if ires_type is D, E, R or K; if not, skip; if so, assign charge type
-  if (ires_type=='R'-'A' || ires_type=='K'-'A') {
+  if (one_letter_code[ires_type]=='R' || one_letter_code[ires_type]=='K') {
     charge_i = 1.0;
   }
-  else if (ires_type=='D'-'A' || ires_type=='E'-'A') {
+  else if (one_letter_code[ires_type]=='D' || one_letter_code[ires_type]=='E') {
     charge_i = -1.0;
   }
   else {
     return 0.0;
   }
 
+
   // check if jres_type is D, E, R or K; if not, skip; if so, assign charge type
-  if (jres_type=='R'-'A' || jres_type=='K'-'A') {
+  if (one_letter_code[jres_type]=='R' || one_letter_code[jres_type]=='K') {
     charge_j = 1.0;
   }
-  else if (jres_type=='D'-'A' || jres_type=='E'-'A') {
+  else if (one_letter_code[jres_type]=='D' || one_letter_code[jres_type]=='E') {
     charge_j = -1.0;
   }
   else {
     return 0.0;
   }
+
 
   if( (charge_i > 0.0) && (charge_j > 0.0) ) {
     term_qq_by_r = k_PlusPlus*charge_i*charge_j/rij;
@@ -4792,7 +4795,9 @@ double FixBackbone::compute_electrostatic_energy(double rij, int i_resno, int j_
     term_qq_by_r = k_PlusMinus*charge_i*charge_j/rij;
   }
   
+  //return epsilon*(0.5*(tanh(5*(rij-9.5))+1))*term_qq_by_r*exp(-k_screening*rij/screening_length);
   return epsilon*term_qq_by_r*exp(-k_screening*rij/screening_length);
+
 }
 
 // generates a random but valid residue index

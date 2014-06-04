@@ -4423,7 +4423,7 @@ void FixBackbone::compute_tert_frust_singleresidue()
     atomselect += 1;
     fprintf(tert_frust_vmd_script,"mol addrep 0\n");
     fprintf(tert_frust_vmd_script,"mol modselect %d 0 resid %d\n", atomselect, i_resno+1);
-    fprintf(tert_frust_vmd_script,"mol modstyle %d 0 VDW %f 12.000000\n", atomselect, 0.5*abs(frustration_index));
+    fprintf(tert_frust_vmd_script,"mol modstyle %d 0 VDW %f 12.000000\n", atomselect, 0.5*fabs(frustration_index));
     fprintf(tert_frust_vmd_script,"mol modmaterial %d 0 Transparent\n", atomselect);
     if(frustration_index > 0.0) {
       // color the residue green\n

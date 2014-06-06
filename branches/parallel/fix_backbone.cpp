@@ -1013,7 +1013,6 @@ FixBackbone::~FixBackbone()
     delete [] oxygens;
     delete [] res_no;
     delete [] res_no_l;
-    delete [] res_array;
     delete [] res_info;
     delete [] chain_no;
     delete [] xca;
@@ -1173,7 +1172,6 @@ void FixBackbone::allocate()
   oxygens = new int[n];
   res_no    = new int[n];
   res_no_l  = new int[n];
-  res_array = new int[n];
   //for (i=0; i<n; ++i){
   //	res_no_l[i]=-1;
   //}

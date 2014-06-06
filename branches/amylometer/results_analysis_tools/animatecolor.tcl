@@ -66,6 +66,6 @@ color scale max 1.0
 color midpoint 0.5
 # call the function above with the first argument, 
 # e.g. "movie" if you have movie.pdb and movie.psf in your current directory
-# animatecolor $argv
+animatecolor $argv
 
 

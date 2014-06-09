@@ -549,31 +549,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     compute_fragment_memory_table();
   }
 
-// READ the charges 
-  if (huckel_flag) {
-    int residue_number, total_residues; 
-    double charge_value;
-    double total_charge =0;
-    ifstream input_charge("charge_on_residues.dat");
-    if (!input_charge) error->all(FLERR,"File charge_on_residues.dat doesn't exist");
-     input_charge >> total_residues;
-
-   //fprintf(screen, "check charge data \n");
-   fprintf(screen, "Number of Charge input = %5d \n", total_residues);
-    for(int ires = 0; ires<total_residues; ires++)
-     {
-     input_charge >> residue_number >> charge_value;
-     int res_min_one = residue_number -1;
-     charge_on_residue[res_min_one] = charge_value;
-     total_charge = total_charge + charge_value;
-     //fprintf(screen, "residue=%5d, charge on residue =%8.6f\n", residue_number, charge_value);
-     //fprintf(screen, "residue=%5d, charge on residue =%8.6f\n", res_min_one, charge_on_residue[res_min_one]);
-     }
-    input_charge.close();
-   fprintf(screen, "Total Charge on the System = %8.4f\n", total_charge );
-  
- }
-
 
 
   sStep=0, eStep=0;
@@ -618,7 +593,6 @@ FixBackbone::~FixBackbone()
       delete [] xcp[i];
       delete [] xh[i];
     }
-      delete[] charge_on_residue;
 
     for (int i=0;i<12;i++) delete [] aps[i];
 
@@ -702,7 +676,6 @@ void FixBackbone::allocate()
   xcp = new double*[n];
   xh = new double*[n];
 
-  charge_on_residue = new double[n];
 	
   water_par = WPV(water_kappa, water_kappa_sigma, treshold, n_wells, well_flag, well_r_min, well_r_max);
   helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold, n_helix_wells, helix_well_flag, helix_well_r_min, helix_well_r_max);
@@ -722,8 +695,6 @@ void FixBackbone::allocate()
     xn[i] = new double [3];
     xcp[i] = new double [3];
     xh[i] = new double [3];
-//Initialized the charges with zero charge 
-  charge_on_residue[i] = 0.0;
   }
 
   for (i = 0; i < 12; ++i) {
@@ -3320,8 +3291,12 @@ void FixBackbone::compute_solvent_barrier(int i, int j)
 
 void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
 {
+<<<<<<< .mine
+  if (i==j) return;
+=======
   if (i==j) return;
   //if (abs(i-j)<9) return;
+>>>>>>> .r525
 
   double dx[3];
   double *xi, *xj, r;
@@ -3333,16 +3308,40 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   double rcut=1.0;
 
 
+<<<<<<< .mine
+=======
   charge_i = charge_on_residue[i]; 
   charge_j = charge_on_residue[j]; 
 
   if (charge_i == 0 || charge_j == 0) return;
 
+>>>>>>> .r525
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
   
-  int ires_type = se_map[se[i_resno]-'A'];
-  int jres_type = se_map[se[j_resno]-'A'];
+  //int ires_type = se_map[se[i_resno]-'A'];
+  //int jres_type = se_map[se[j_resno]-'A'];
+
+  if (se[i_resno]=='R' || se[i_resno]=='K') {
+      charge_i = 1.0;
+  //fprintf(screen, "se[i_resno]= %c, i_resno=%5d, charge_i = %5f \n", se[i_resno], i_resno, charge_i );
+    }
+    else if (se[i_resno]=='D' || se[i_resno]=='E') {
+      charge_i = -1.0;
+  //fprintf(screen, "se[i_resno]= %c, i_resno=%5d, charge_i = %5f \n", se[i_resno], i_resno, charge_i );
+    }
+
+  if (se[j_resno]=='R' || se[j_resno]=='K') {
+      charge_j = 1.0;
+  //fprintf(screen, "se[j_resno]= %c, j_resno=%5d, charge_j = %5f \n", se[j_resno], j_resno, charge_j );
+    }
+    else if (se[j_resno]=='D' || se[j_resno]=='E') {
+      charge_j = -1.0;
+  //fprintf(screen, "se[j_resno]= %c, j_resno=%5d, charge_j = %5f \n", se[j_resno], j_resno, charge_j );
+    }
+
+  if (charge_i == 0 || charge_j == 0) return;
+
   
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
@@ -3370,9 +3369,16 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
 
   if(r < rcut) return;
    
+<<<<<<< .mine
+  //double dielectric_constant_factor = 332.24/dielectric_constant;
+  double dielectric_constant_factor = 1.0;
+  double inv_screening_length = 1.0/screening_length;
+  double term_exp_decay = exp(-screening_switch*inv_screening_length*r);
+=======
   double dielectric_constant_factor = 332.24/dielectric_constant;
   double inv_screening_length = 1.0/screening_length;
   double term_exp_decay = exp(-screening_switch*inv_screening_length*r);
+>>>>>>> .r525
   double term_energy = epsilon*dielectric_constant_factor*term_qq_by_r*term_exp_decay; 
   energy[ET_DH] += term_energy;
 

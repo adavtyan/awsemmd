@@ -5699,14 +5699,13 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   double charge_j = 0.0;
   double term_qq_by_r = 0.0;
   double force_term = 0.0;
-    
-  charge_i = charge_on_residue[i]; 
-  charge_j = charge_on_residue[j]; 
-  
-  if (charge_i == 0 && charge_j == 0) return;
-  
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
+    
+  charge_i = charge_on_residue[i_resno]; 
+  charge_j = charge_on_residue[j_resno]; 
+  
+  if (charge_i == 0 || charge_j == 0) return;
   
   int ires_type = se_map[se[i_resno]-'A'];
   int jres_type = se_map[se[j_resno]-'A'];
@@ -5714,7 +5713,7 @@ void FixBackbone::compute_DebyeHuckel_Interaction(int i, int j)
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
-  else { xj = xcb[j]; jatom  = beta_atoms[j]; }
+  else { jatom  = beta_atoms[j]; if(jatom==-1)return; xj = xcb[j]; }
   
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];

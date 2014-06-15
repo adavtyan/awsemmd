@@ -76,25 +76,37 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
   if (!file) { error = ERR_FILE; return; }
   fgets(buff, 100, file);
   fscanf(file, "%d",&nAtoms);
+  int count=-1; 
+  int old_ires=-9999;
   for (i=0;i<nAtoms;++i) {
     fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
-    if (ires>fpos && ires<=fpos+len) {
-      ires -= fpos + 1;
+    //if (ires>fpos && ires<=fpos+len) {
+    if(count>=len){fprintf(stderr, "nca=%d, count=%d, ires=%d, fpos=%d\n", nca, count, ires, fpos); break;} //faster than reading the whole file
+    if (ires>fpos) {
+      if(ires!=old_ires){
+	++count; 
+	old_ires=ires; 
+	if(count>=len){
+		//fprintf(stderr, "nca=%d, count=%d, ires=%d, fpos=%d\n", nca, count, ires, fpos); 
+		break; //faster than reading the whole file
+	}
+      }
+      //ires -= fpos + 1; //use count instead of ires
       x *= 10; y *= 10; z *= 10;
       if (strcmp(atomty,"CA")==0) {
-        if (ires>=len || nca>=len) { error = ERR_ATOM_COUNT; return; }
-        se[ires] = ThreeLetterToOne(resty);
-        if (se[ires]=='-') { error = ERR_RES; return; }
-        xca[ires][0] = x;
-        xca[ires][1] = y;
-        xca[ires][2] = z;
+        if (count>=len || nca>=len) { error = ERR_ATOM_COUNT; fprintf(stderr, "CA atoms are problematic!\n"); return; }
+        se[count] = ThreeLetterToOne(resty);
+        if (se[count]=='-') { error = ERR_RES; return; }
+        xca[count][0] = x;
+        xca[count][1] = y;
+        xca[count][2] = z;
         nca++;
       }
       if (strcmp(atomty,"CB")==0) {
-        if (ires>=len || ncb>=len) { error = ERR_ATOM_COUNT; return; }
-        xcb[ires][0] = x;
-        xcb[ires][1] = y;
-        xcb[ires][2] = z;
+        if (count>=len || ncb>=len) { error = ERR_ATOM_COUNT; fprintf(stderr, "CB atoms are problematic!\n"); return; }
+        xcb[count][0] = x;
+        xcb[count][1] = y;
+        xcb[count][2] = z;
         ncb++;
       }
     }
@@ -107,7 +119,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
   	fprintf(dout, "len=%d\n", len);
   }
   
-  if (nca!=len) { error = ERR_ATOM_COUNT; return; }
+  if (nca!=len) { error = ERR_ATOM_COUNT; fprintf(stderr, "N_Ca=%d, len(frag)=%d, Mismatch!\n", nca, len); return; }
   
   for (i=0;i<len;++i) {
     for (j=0;j<len;++j) {

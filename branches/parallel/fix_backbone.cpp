@@ -5551,13 +5551,13 @@ void FixBackbone::compute_membrane_potential(int i)
   s_por=0.5*(1-(tanh(k_bin*(rho_actual-rho0))));
   s_nopor=(1-s_por);
 
-  if (z_res[i] == 1) {
+  if (z_res[i_resno] == 1) {
     V=(-g_memb[0][0]*s_per)+(-g_memb[0][1]*s_cyt)+(g_memb[0][2]*s_mem*s_nopor)+(-g_memb[0][3]*s_mem*s_por);
   }
-  else if (z_res[i] == 2){
+  else if (z_res[i_resno] == 2){
     V=(g_memb[1][0]*s_per)+(g_memb[1][1]*s_cyt)+(-g_memb[1][2]*s_mem*s_nopor)+(g_memb[1][3]*s_mem*s_por);
   }
-  else if (z_res[i] == 3) {
+  else if (z_res[i_resno] == 3) {
     V=(-g_memb[2][0]*s_per)+(-g_memb[2][1]*s_cyt)+(g_memb[2][2]*s_mem*s_nopor)+(-g_memb[2][3]*s_mem*s_por);
   }
 
@@ -5590,17 +5590,17 @@ dz_s_por_smem=s_mem*dz_s_por+dz_mem*s_por;
 dz_s_nopor_smem=s_mem*dz_s_nopor+dz_mem*s_nopor;
 
 //calculate general derivatives
- if (z_res[i] == 1) {
+ if (z_res[i_resno] == 1) {
    dV_dx=g_memb[0][2]*s_mem*dx_s_nopor+(-g_memb[0][3])*s_mem*dx_s_por;
    dV_dy=g_memb[0][2]*s_mem*dy_s_nopor+(-g_memb[0][3])*s_mem*dy_s_por;
    dV_dz=-g_memb[0][0]*dz_per+(-g_memb[0][1])*dz_cyt+g_memb[0][2]*dz_s_nopor_smem+(-g_memb[0][3])*dz_s_por_smem;
    }
- else if (z_res[i] == 2){
+ else if (z_res[i_resno] == 2){
    dV_dx=-g_memb[1][2]*s_mem*dx_s_nopor+g_memb[1][3]*s_mem*dx_s_por;
    dV_dy=-g_memb[1][2]*s_mem*dy_s_nopor+g_memb[1][3]*s_mem*dy_s_por;
    dV_dz=g_memb[1][0]*dz_per+g_memb[1][1]*dz_cyt+(-g_memb[1][2])*dz_s_nopor_smem+g_memb[1][3]*dz_s_por_smem;
    }
- else if (z_res[i] == 3){
+ else if (z_res[i_resno] == 3){
    dV_dx=g_memb[2][2]*s_mem*dx_s_nopor+(-g_memb[2][3])*s_mem*dx_s_por;
    dV_dy=g_memb[2][2]*s_mem*dy_s_nopor+(-g_memb[2][3])*s_mem*dy_s_por;
    dV_dz=-g_memb[2][0]*dz_per+(-g_memb[2][1])*dz_cyt+g_memb[2][2]*dz_s_nopor_smem+(-g_memb[2][3])*dz_s_por_smem;

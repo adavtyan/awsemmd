@@ -14,7 +14,7 @@
 
 == Step by step guide ==
   * Download and unzip FFTW 2.1.5
-  * Install FFTW 2.1.5 somewhere locally using _./conﬁgure –preﬁx=/your_home_directory/local; make; make install_
+  * Install FFTW 2.1.5 somewhere locally using `./conﬁgure –preﬁx=/your_home_directory/local; make; make install`
   * Download and unzip LAMMPS source code
   * Copy all _.cpp_ and _.h_ file from awsemmd directory to LAMMPS_DIR/src/
   * Go to LAMMPSDIR/src/STUBS/ and execute make command to compile a dummy MPI library

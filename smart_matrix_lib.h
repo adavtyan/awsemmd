@@ -4,10 +4,10 @@ Copyright (2010) Aram Davtyan and Garegin Papoian
 Papoian's Group, University of Maryland at Collage Park
 http://papoian.chem.umd.edu/
 
-Last Update: 12/01/2010
-------------------------------------------------------------------------- */
+The modified density depending on zim file is included
 
-#include "math.h"
+Last Update: 3/9/2012
+------------------------------------------------------------------------- */
 
 typedef struct WPV {
   double kappa;
@@ -15,31 +15,23 @@ typedef struct WPV {
   double treshold;
   int n_wells, well_flag[5];
   double well_r_min[5], well_r_max[5];
-  double well_rcut_lo[5], well_rcut_hi[5];
-  double prec;
   WPV() {}
   WPV(double k, double ks, double t, int nw, int *wflag, double *wr_min, double *wr_max): 
   	  kappa(k), kappa_sigma(ks), treshold(t), n_wells(nw)
   {
-	prec = 1e-6;
-
   	for (int i=0; i<n_wells; ++i) {
   		well_flag[i] = wflag[i];
   		well_r_min[i] = wr_min[i];
   		well_r_max[i] = wr_max[i];
-		well_rcut_lo[i] = well_r_min[i] - 0.5*log(0.5/prec - 1)/kappa;
-		well_rcut_hi[i] = well_r_max[i] + 0.5*log(0.5/prec - 1)/kappa;
   	}
   }
   WPV &operator = (const WPV &x) { 
-  	kappa=x.kappa; kappa_sigma=x.kappa_sigma; treshold=x.treshold; n_wells=x.n_wells; prec=x.prec;
+  	kappa=x.kappa; kappa_sigma=x.kappa_sigma; treshold=x.treshold; n_wells=x.n_wells;
   	
   	for (int i=0; i<n_wells; ++i) {
   		well_flag[i] = x.well_flag[i];
   		well_r_min[i] = x.well_r_min[i];
   		well_r_max[i] = x.well_r_max[i];
-		well_rcut_lo[i] = x.well_rcut_lo[i];
-		well_rcut_hi[i] = x.well_rcut_hi[i];
   	}
   	
   	return *this; 
@@ -276,6 +268,8 @@ public:
 	void compute_sigma(int i, int j);
 	void compute_H(int i);
 	void compute_ro(int i);
+	WPV par;
+
 private:
 	int n, m, nw;
 	T ***v_theta;
@@ -290,7 +284,6 @@ private:
 	int *gRo;
 	int *ind;
 	U *lc;
-	WPV par;
 };
 
 template <typename T, typename U>
@@ -464,18 +457,13 @@ void cWell<T, U>::compute_theta(int i, int j, int i_well)
 	dx[2] = xi[2] - xj[2];
 	
 	rij = sqrt(pow(dx[0],2) + pow(dx[1],2) + pow(dx[2],2));
-
-	if (rij<par.well_rcut_hi[i_well] && rij>par.well_rcut_lo[i_well]) {
-		t_min = tanh( par.kappa*(rij - par.well_r_min[i_well]) );
-		t_max = tanh( par.kappa*(par.well_r_max[i_well] - rij) );
-		v_theta[i_well][i][j] = 0.25*(1.0 + t_min)*(1.0 + t_max);
-		v_theta[i_well][j][i] = v_theta[i_well][i][j];
-		v_prd_theta[i_well][i][j] = par.kappa*v_theta[i_well][i][j]*(t_max - t_min)/rij;
-		v_prd_theta[i_well][j][i] = v_prd_theta[i_well][i][j];
-	} else {
-		v_theta[i_well][i][j] = v_theta[i_well][j][i] = 0.0;
-		v_prd_theta[i_well][i][j] = v_prd_theta[i_well][j][i] = 0.0;
-	}
+	
+	t_min = tanh( par.kappa*(rij - par.well_r_min[i_well]) );
+	t_max = tanh( par.kappa*(par.well_r_max[i_well] - rij) );
+	v_theta[i_well][i][j] = 0.25*(1.0 + t_min)*(1.0 + t_max);
+	v_theta[i_well][j][i] = v_theta[i_well][i][j];
+	v_prd_theta[i_well][i][j] = par.kappa*v_theta[i_well][i][j]*(t_max - t_min)/rij;
+	v_prd_theta[i_well][j][i] = v_prd_theta[i_well][i][j];
 }
 
 template <typename T, typename U>
@@ -508,6 +496,14 @@ void cWell<T, U>::compute_ro(int i)
   		v_ro[i] += theta(i, j, 0);
   }
   
+// add new density which depend on z (if memb potential is on)
+  if ( lc->memb_flag){
+   if (lc->z_res[i]==2){
+     v_ro[i] +=lc->memb_dens_offset;
+  }
+}
+
+
 //  for (j=0;j<i-1;++j) v_ro[i] += theta(i, j, 0);
 //  for (j=i+2;j<n;++j) v_ro[i] += theta(i, j, 0);
 }

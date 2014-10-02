@@ -622,6 +622,7 @@ FixBackbone::~FixBackbone()
     delete [] beta_atoms;
     delete [] oxygens;
     delete [] res_no;
+    delete [] res_no_l;
     delete [] res_info;
     delete [] chain_no;
     delete [] xca;
@@ -686,6 +687,7 @@ void FixBackbone::allocate()
   beta_atoms = new int[n];
   oxygens = new int[n];
   res_no = new int[n];
+  res_no_l = new int[n];
   res_info = new int[n];
   chain_no = new int[n];
   se = new char[n+2];
@@ -774,6 +776,9 @@ inline void FixBackbone::Construct_Computational_Arrays()
 	
 
   int i;
+  for (i=0; i<n; ++i){
+  	res_no_l[i] =-1;
+  }
 
   // Creating index arrays for Alpha_Carbons, Beta_Atoms and Oxygens
   nn = 0;
@@ -815,6 +820,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
     beta_atoms[nn] = jm[1];
     oxygens[nn] = jm[2];
     res_no[nn] = amin;
+    res_no_l[res_no[nn]-1]=nn; //local i=res_no_l[i_resno]; 
     last = amin;
     nn++;
   }
@@ -3558,8 +3564,20 @@ void FixBackbone::compute_backbone()
 {
   ntimestep = update->ntimestep;
 
-  if(atom->nlocal==0) return;
-	
+  //if(atom->nlocal==0) return;
+  force_flag = 0;
+  if(atom->nlocal==0){
+        for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
+        for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
+        if (ntimestep%output->thermo_every==0) {
+           if (force_flag == 0) {
+              MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+              force_flag = 1;
+           }
+        }
+        return;
+  }
+
   if (comm->nprocs>1 || ntimestep==0)
     Construct_Computational_Arrays();
 
@@ -3572,7 +3590,6 @@ void FixBackbone::compute_backbone()
   int i_chno, j_chno;
 	
   for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
-  force_flag = 0;
 
   for (i=0;i<nn;++i) {		
     if ( (res_info[i]==LOCAL || res_info[i]==GHOST) ) {
@@ -3620,30 +3637,45 @@ void FixBackbone::compute_backbone()
       }
     }
 		
-    if ( i>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[i-1]==LOCAL || res_info[i-1]==GHOST) ) {
-      xn[i][0] = an*xca[i-1][0] + bn*xca[i][0] + cn*xo[i-1][0];
-      xn[i][1] = an*xca[i-1][1] + bn*xca[i][1] + cn*xo[i-1][1];
-      xn[i][2] = an*xca[i-1][2] + bn*xca[i][2] + cn*xo[i-1][2];
+    i_resno=res_no[i]-1;
+    int im1 = res_no_l[i_resno-1];
+    if (i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST))	{
+      if (im1==-1){
+        fprintf(stderr,"In compute_backbone(), likely the bond was stretched for too long, im1=%d on processor %d, Exit!\n", im1, comm->me);
+      	error->all(FLERR,"In compute_backbone, im1==-1!");
+      }	
+      if (res_info[im1]==LOCAL || res_info[im1]==GHOST){
+	      xn[i][0] = an*xca[im1][0] + bn*xca[i][0] + cn*xo[im1][0];
+	      xn[i][1] = an*xca[im1][1] + bn*xca[i][1] + cn*xo[im1][1];
+	      xn[i][2] = an*xca[im1][2] + bn*xca[i][2] + cn*xo[im1][2];
 
-      xh[i][0] = ah*xca[i-1][0] + bh*xca[i][0] + ch*xo[i-1][0];
-      xh[i][1] = ah*xca[i-1][1] + bh*xca[i][1] + ch*xo[i-1][1];
-      xh[i][2] = ah*xca[i-1][2] + bh*xca[i][2] + ch*xo[i-1][2];
+	      xh[i][0] = ah*xca[im1][0] + bh*xca[i][0] + ch*xo[im1][0];
+	      xh[i][1] = ah*xca[im1][1] + bh*xca[i][1] + ch*xo[im1][1];
+	      xh[i][2] = ah*xca[im1][2] + bh*xca[i][2] + ch*xo[im1][2];
+      }
     } else {
       xn[i][0] = xn[i][1] = xn[i][2] = 0.0;
-
       xh[i][0] = xh[i][1] = xh[i][2] = 0.0;
     }
 		
-    if ( i>0) {
-      if (!isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[i-1]==LOCAL || res_info[i-1]==GHOST) ) {
-	xcp[i-1][0] = ap*xca[i-1][0] + bp*xca[i][0] + cp*xo[i-1][0];
-	xcp[i-1][1] = ap*xca[i-1][1] + bp*xca[i][1] + cp*xo[i-1][1];
-	xcp[i-1][2] = ap*xca[i-1][2] + bp*xca[i][2] + cp*xo[i-1][2];
+    if (i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST)) {
+      if (im1==-1){        
+	fprintf(stderr,"In compute_backbone(), likely the bond was stretched for too long, im1=%d on processor %d, Exit!\n", im1, comm->me);
+      	error->all(FLERR,"In compute_backbone, im1==-1!");
+      }	
+      if ( (res_info[im1]==LOCAL || res_info[im1]==GHOST) ) {
+	xcp[im1][0] = ap*xca[im1][0] + bp*xca[i][0] + cp*xo[im1][0];
+	xcp[im1][1] = ap*xca[im1][1] + bp*xca[i][1] + cp*xo[im1][1];
+	xcp[im1][2] = ap*xca[im1][2] + bp*xca[i][2] + cp*xo[im1][2];
       } else {
-	xcp[i-1][0] = xcp[i-1][1] = xcp[i-1][2] = 0.0;
+	xcp[im1][0] = xcp[im1][1] = xcp[im1][2] = 0.0;
       }
     }
 
+  }
+  if(nn<=0){
+    	fprintf(stderr, "nn = %d rank = %d\n", nn, comm->me);    	
+  	error->all(FLERR,"In compute_backbone, nn <=0 on one processor!");
   }
   xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
 

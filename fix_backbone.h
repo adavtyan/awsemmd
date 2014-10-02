@@ -110,6 +110,7 @@ public:
   Gamma_Array *fm_gamma;
   char frag_mems_file[100];
   char fm_gamma_file[100];
+  double fm_sigma_exp;
   
   // Table Fragment Memory parameters
   TBV **fm_table;
@@ -119,6 +120,9 @@ public:
   // Vector Fragment Memory
   double k_vec_frag_mem;
   double vfm_sigma, vfm_sigma_sq;
+  double frag_table_well_width;
+  int fm_energy_debug_flag;
+
   
   // Table Vector Fragment Memory
   TBV **vfm_table;

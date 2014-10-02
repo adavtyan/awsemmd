@@ -274,6 +274,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> fm_gamma_file;
       in >> tb_rmin >> tb_rmax >> tb_dr;
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
+      in >> frag_table_well_width;
+      in >> fm_energy_debug_flag;
+      in >> fm_sigma_exp;      
     } else if (strcmp(varsection, "[Vector_Fragment_Memory]")==0) {
       vec_frag_mem_flag = 1;
       if (comm->me==0) print_log("Vector_Fragment_Memory flag on\n");
@@ -3151,7 +3154,7 @@ void FixBackbone::compute_fragment_memory_potential(int i)
       
       if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
       
-      fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+      fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
       
       if (!fm_gamma->fourResTypes()) {
 	frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);
@@ -3249,7 +3252,8 @@ void FixBackbone::compute_fragment_memory_table()
 		  
 	//		  if (chain_no[i]!=chain_no[j]) error->all(FLERR,"Fragment Memory: Interaction between residues of different chains");
 		  
-	fm_sigma_sq = pow(abs(i_resno-j_resno), 0.3);
+	fm_sigma_sq = pow(abs(i_resno-j_resno), 2*fm_sigma_exp);
+	fm_sigma_sq = fm_sigma_sq*frag_table_well_width*frag_table_well_width;
 		  
 	if (!fm_gamma->fourResTypes()) {
 	  frag_mem_gamma = fm_gamma->getGamma(ires_type, jres_type, i_resno, j_resno);

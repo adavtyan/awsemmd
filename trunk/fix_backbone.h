@@ -151,6 +151,7 @@ public:
   int *beta_atoms;
   int *oxygens;
   int *res_no, *res_info, *chain_no;
+  int *res_no_l;
   double **xca, **xcb, **xo, **xn, **xcp, **xh;
   double **x, **f;
   int *image;

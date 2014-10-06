@@ -1,0 +1,7 @@
+1. Run unfolding simulations (simulated annealing with increasing temperature).
+Copy the folder to Rice cluster Davinci, within the folder, type
+	$ qsub unfolding.pbs
+'unfolding.pbs' file contains the commands to run the simulation, the name of the input file, and scripts for post-simulation calculations.
+After the simulation finishes, plot file '1_q' to see how the structure unfolds when temperature increases. Compare your results with the file unfolding_q.png.
+
+2. Run folding simulations (simulated annealing with decreasing temperature).

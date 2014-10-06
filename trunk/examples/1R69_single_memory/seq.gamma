@@ -1,0 +1,11 @@
+# i_min i_med_min i_med_max
+2 9
+#
+# ALL - all residue types
+# SHL - Small Hydrophilic (ALA, GLY, PRO, SER THR)
+# AHL - Acidic Hydrophilic (ASN, ASP, GLN, GLU)
+# BAS - Basic (ARG HIS LYS)
+# HPB - Hydrophobic (CYS, ILE, LEU, MET, PHE, TRP, TYR, VAL)
+#
+# ires_code   jres_code   class      gamma
+        ALL         ALL       1        1.0

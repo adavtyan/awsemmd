@@ -15,7 +15,7 @@ cd $PBS_O_WORKDIR
 
 ~/opt/bin/lmp_serial_499 < unfolding.in  ##Modify the path to your own path
 
-python /home/wz12/work/AWSEMMD/trunk/results_analysis_tools/CalcQValue_multi.py 1r69 1_dump 1_q 1 ##Modify the path to your own path
+python /home/wz12/work/AWSEMMD/trunk/results_analysis_tools/CalcQValue_multi.py 1r69 1_dump 1_qo 1 ##Modify the path to your own path
 
 sed  "/Fix print/d" energy     > 1_energy
 sed  "/Step/d"      energy.log > 1_energy.log

@@ -119,12 +119,18 @@ scaling_factor
 mem_file
 gamma_file
 rmin rmax dr
+frag_table_well_width
+fm_energy_debug_flag
+fm_sigma_exp
 
 [Fragment_Memory_Table]-
 1.0
 1r69.mem
 uniform.gamma
 0 50 0.1
+0.1
+0
+0.15
 
 #[Solvent_Barrier]
 k1 (barrier height 1)

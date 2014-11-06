@@ -81,7 +81,7 @@ zlo = -200.0
 zhi = 200.0
 masses = [12.0, 14.0, 16.0, 12.0, 1.0]
 if cg and not go:
-	masses = [27.0, 14.0, 28.0, 60.0, 60.0]
+	masses = [27.0, 14.0, 28.0, 60.0, 2.0]
 n_atom_types = 5
 if cg:
 	if cg_bonds: n_bond_types = 5

@@ -197,6 +197,7 @@ In order to use these compute functions, it is necessary to prepare the rnative.
 python /path/to/awsemmd/create_project_tools/GetCACADistancesFile.py 1ubqA rnative.dat
 python /path/to/awsemmd/create_project_tools/GetCACoordinatesFromPDB.py 1ubqA nativecoords.dat
 }}}
+Note:Use GetCACADistanceFile_multiChain.py for multi-chain simulation.
 The result of running a simulation with code like that above in the input file should be a file called wham.dat in the directory where the simulation was run.
 
 == Setup multiple directories, Run all simulations, Collect the data ==

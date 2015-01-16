@@ -70,6 +70,7 @@ FixQBias::FixQBias(LAMMPS *lmp, int narg, char **arg) :
 	qbias_exp_flag = 0;
 	qobias_flag = 0;
 	qobias_exp_flag = 0;
+  qbias_exp_seq_flag = 0; 
 	epsilon = 1.0;
 
 	int i, j;

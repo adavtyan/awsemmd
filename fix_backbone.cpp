@@ -56,6 +56,7 @@ char one_letter_code[] = {'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L',
 // 3) BAS: Basic (ARG HIS LYS) or (R, H, K) or {1, 8, 11}
 // 4) HPB: Hydrophobic (CYS, ILE, LEU, MET, PHE, TRP, TYR, VAL) or (C, I, L, M, F, W, Y, V)  or {4, 9, 10, 12, 13, 17, 18, 19}
 int bb_four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4, 4};
+bool firsttimestep = true;
 
 void itoa(int a, char *buf, int s)
 {
@@ -6531,7 +6532,8 @@ void FixBackbone::compute_backbone()
 
   if(atom->nlocal==0) return;
 	
-  if (comm->nprocs>1 || ntimestep==0)
+  if (comm->nprocs>1 || ntimestep==0 || firsttimestep)
+    firsttimestep = false;
     Construct_Computational_Arrays();
 
   x = atom->x;

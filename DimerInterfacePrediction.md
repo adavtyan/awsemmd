@@ -1,0 +1,51 @@
+# Introduction #
+Starting with two monomers separated, gradually lower the temperature to search for the optimal binding configuration. The monomer structure is usually biased to (not very rigid) the native monomer structure in the dimer using short range fragment potential with the native structure of the monomer (so-called single memory), a weak center-of-mass bias is added for the monomers to come close to each other. All files mentioned below can be found in **trunk/examples/1CTA\_Dimer\_Binding**
+
+# Details #
+1. Prepare input files for binding simulations.
+  * Generate input file 1cta.in:
+> Download the dimer structure of Troponin C site III (1CTA), copy it to 1cta.pdb, remove the water molecues, remove additional chains other than the two that will be simulated, then run:
+> > $ python $path/create\_project\_tools/PDBToCoordinates.py 1cta 1cta.coord  ## first argument '1cta' is the name of the pdb file. This script generate 1cta.coord
+> > $ python $path/create\_project\_tools/CoordinatesToWorkLammpsDataFile.py 1cta.coord data.1cta -b
+
+> The three newly generated files are needed for simulations: 1cta.in  1cta.seq  data.1cta. Check to see if the number of residues in 1cta.seq match with that in 1cta.pdb. If not, go to the "Troubleshooting section" below for more details.
+
+  * A weak long range force is added to keep two monomers in vicinity. Please note that two groups (chainA\_CA & chainB\_CA) are added to the 1cta.in file, and a new line "fix 3 chainA\_CA spring couple chainB\_CA 0.01(biasing strength k) 0 0 0 10(equilibrium biasing distance d0)" is used to add the biasing force.
+
+  * Build fragment memory file: fragsLAMW.mem.single
+> > $ python $path/frag\_mem\_tools/Pdb2Gro.py 1cta 1ctaa.gro A   ### this will generate 1ctaa.gro using the chain A in pdb file 1cta.pdb.
+
+> Now we can use 1ctaa.gro as the single memory for both monomers. Create file fragsLAMW.mem.single.
+
+  * Generate ssweight file
+> The ssweight file contains the secondary structure information of the native state. It has N rows (N is the total number of residues) and two columns. One way to generate this file is to get the "plain" version (from http://webclu.bio.wzw.tum.de/cgi-bin/stride/db.py)
+of the stride database entry into a file called ssweight.stride, then run
+> > $ python $path/create\_project\_tools/stride2ssweight.py > ssweight
+
+list of files: 1cta.pdb, 1cta.in, 1cta.seq, data.1cta, fragsLAMW.mem.single
+
+2. Run the simulation.
+  * Separate two monomers from the bound complex. Use strong force (k=2) to pull the monomers apart, equilibrium distance between the center of mass of each monomer d0=80 A. e.g., modify line 'fix 3' to:
+
+> fix 3 chainA\_CA spring couple chainB\_CA 2 0 0 0 80   ## k=2, d0=80
+> Generate restart file (and rename it to 'unfold.separated') from the end of the simulation, by uncommenting the next to the last line of 1cta.in.
+  * Run simulated annealing simulations for binding prediction. Use restart file unfold.separated to start the simulation (by replacing 'read\_data data.1ctaDimer' with 'read\_restart unfold.separated'). Reduce the biasing force (k=0.01), change d0 to 10 so that two monomers can be pulled closer to each other.
+> fix 3 chainA\_CA spring couple chainB\_CA 0.02 0 0 0 10  ## k=0.02, d0=80
+> Recommended annealing schedule: 450K-350K over 4000000 steps.
+
+# Troubleshooting #
+  1. While create input file (e.g., 1cta.in) and data file (e.g., data.1cta) from the PDB file, a common problem is that seq file doesn't have the same number of residues as that in the PDB file or contain irregular residues (e.g. '?' or 'X'). The following is an example error message of a typical problem: some residues have missing 'O' atom.
+Error message:
+Traceback (most recent call last):
+> File "/home/wz12/opt/script/PDBToCoordinates.py", line 193, in module
+> > xyz\_O = res['O'].get\_coord()
+
+> File "/apps/python/lib64/python2.6/site-packages/Bio/PDB/Entity.py", line 38, in getitem
+> > return self.child\_dict[id](id.md)
+KeyError: 'O'
+
+Solution: a) Try a different chain; or b)Use other software (e.g. Modeller) to fix the missing atom.
+Note: similar error message will be given when CA or CB atoms are missing.
+
+
+> 2. About missing residues: Warning: if an entire residue(s) is missing from the PDB file, the program may not give an error message. This is why it is crucial to double check whether the PDB file is consistent with the generated .seq file in terms of number of residues.

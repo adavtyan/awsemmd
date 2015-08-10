@@ -6931,7 +6931,8 @@ void FixBackbone::compute_backbone()
       if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_solvent_barrier(i, j);
 
-      if (huckel_flag && (j > i || i_chno!=j_chno) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+      //if (huckel_flag && (j > i || i_chno!=j_chno) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+      if (huckel_flag && (j > i) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
         compute_DebyeHuckel_Interaction(i, j);
     }
 		

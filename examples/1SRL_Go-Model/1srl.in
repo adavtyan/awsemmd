@@ -2,11 +2,10 @@
 
 units real
 
-timestep 30
+timestep 20
 
 dimension	3
 
-#boundary s s s
 boundary p p p
 
 neighbor	5 bin
@@ -16,24 +15,34 @@ atom_modify sort 0 0.0
 
 special_bonds fene
 
-atom_style	bond
+atom_style	awsemmd
 
-read_restart unfolded.1srl.restart
-#read_data data.1srl
+#read_restart start.restart
+read_data data.1srl
 
 velocity        all create 300.0 23492
 
 group           alpha_carbons id 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56
 
-fix		  1 all nvt 300.0 300.0 50.0
+#compute         1 alpha_carbons qonuchic qonuchic.dat shadow 1srl_cmap.shadow 1.2
+compute         1 alpha_carbons qonuchic cutoff 8.0 1srl.ca.xyz 1.2
+
+variable q equal c_1
+
+fix		  1 all nvt temp 300.0 300.0 1000.0
 fix		  2 alpha_carbons gomodel fix_gomodel_coeff.data
-#fix		  3 alpha_carbons qbias fix_qbias_coeff.data
+#fix		  3 alpha_carbons momentum 10000 angular
+#fix		  4 alpha_carbons qbias fix_qbias_coeff.data
+fix               q all print 1000 "$q" file q.txt screen no &
 
-thermo		100
-dump		1 all atom 100 dump.lammpstrj
-restart         1000 restart.1srl
+thermo		1000
+dump		1 all atom 1000 dump.lammpstrj
+restart         100000 restart.1srl
 
-dump_modify     1 sort id
+dump_modify	1 sort id
 
-reset_timestep	0
-run		10000
+thermo_style custom step temp pe etotal v_q press vol
+
+reset_timestep  0
+
+run             1000000

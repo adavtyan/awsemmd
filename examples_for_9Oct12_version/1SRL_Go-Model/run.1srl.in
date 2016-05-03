@@ -1,0 +1,2 @@
+../lmp_opensuse < 1srl.in
+python CountNativeContactsDifference.py dump.lammpstrj 1SRL contacts.data

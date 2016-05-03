@@ -1,0 +1,2 @@
+./lmp_serial < 7cei.in
+python CalcQValue.py 7cei dump.lammpstrj qvalues.dat

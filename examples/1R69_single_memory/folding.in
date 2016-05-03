@@ -16,14 +16,16 @@ atom_modify sort 0 0.0
 
 special_bonds fene
 
-atom_style	peptide
+atom_style	awsemmd
 
 bond_style harmonic
 
 pair_style vexcluded 2 3.5 3.5
 
-read_restart unfold.restart
-#read_data data.1r69
+# The original example used the read_restart 
+# The restart file has to be regenerated for the newest version of LAMMPS
+#read_restart unfold.restart
+read_data data.1r69
 
 pair_coeff * * 0.0
 pair_coeff 1 1 20.0 3.5 4.5

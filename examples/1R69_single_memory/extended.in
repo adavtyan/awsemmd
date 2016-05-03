@@ -16,7 +16,7 @@ atom_modify sort 0 0.0
 
 special_bonds fene
 
-atom_style	peptide
+atom_style	awsemmd
 
 bond_style harmonic
 
@@ -49,7 +49,7 @@ fix 11 all langevin 350.0 500.0 1000 3456  #change 3456 to other RANDOM numbers 
 
 fix		  2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data extended.seq
 
-thermo		2000
+thermo		1000
 dump		1 all atom 2000 1_dump
 
 dump_modify	1 sort id

@@ -16,6 +16,7 @@ Last Update: 12/01/2010
 #include "comm.h"
 #include "force.h"
 #include "update.h"
+#include "neighbor.h"
 #include "neigh_list.h"
 #include "memory.h"
 #include "error.h"
@@ -239,6 +240,8 @@ void PairExcludedVolume::init_style()
 {
   avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
   if (!avec) error->all(FLERR,"Pair excluded_volume requires atom style awsemmd");
+
+  neighbor->request(this,instance_me);
 }
 
 /* ----------------------------------------------------------------------

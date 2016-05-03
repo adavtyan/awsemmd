@@ -371,6 +371,8 @@ void PairGoContacts::init_style()
 {
   avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
   if (!avec) error->all(FLERR,"Pair go-contacts requires atom style awsemmd");
+
+  neighbor->request(this,instance_me);
 }
 
 /* ----------------------------------------------------------------------

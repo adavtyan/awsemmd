@@ -222,7 +222,10 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	ifstream in_rs("record_steps");
 	in_rs >> sStep >> eStep;
 	in_rs.close();
-	
+
+	avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+	if (!avec) error->all(FLERR,"Fix gomodel requires atom style awsemmd");
+
 	Construct_Computational_Arrays();
 }
 
@@ -444,9 +447,6 @@ int FixGoModel::setmask()
 
 void FixGoModel::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
-  if (!avec) error->all(FLERR,"Fix gomodel requires atom style awsemmd");
-
 	if (strstr(update->integrate_style,"respa"))
 		nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }

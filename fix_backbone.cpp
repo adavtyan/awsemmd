@@ -979,6 +979,9 @@ int FixBackbone::setmask()
 
 void FixBackbone::init()
 {
+  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+  if (!avec) error->all(FLERR,"Fix backbone requires atom style awsemmd");
+
   if (strstr(update->integrate_style,"respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 	
@@ -995,9 +998,6 @@ void FixBackbone::init()
 
 void FixBackbone::init_list(int id, NeighList *ptr)
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
-  if (!avec) error->all(FLERR,"Fix backbone requires atom style awsemmd");
-
   list = ptr;
 }
 

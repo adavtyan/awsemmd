@@ -9,11 +9,10 @@ Last Update: 08/18/2011
 ------------------------------------------------------------------------- */
 
 #include "mpi.h"
-#include <math.h>
-#include <string.h>
+#include "math.h"
+#include "string.h"
 #include "compute_q_onuchic.h"
 #include "atom.h"
-#include "atom_vec_awsemmd.h"
 #include "update.h"
 #include "domain.h"
 #include "group.h"
@@ -137,9 +136,6 @@ ComputeQOnuchic::~ComputeQOnuchic()
 
 void ComputeQOnuchic::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
-  if (!avec) error->all(FLERR,"Compute qonuchic requires atom style awsemmd");
-
   if (atom->tag_enable == 0)
     error->all(FLERR,"Cannot use compute qonuchic unless atoms have IDs");
 }
@@ -235,7 +231,7 @@ double ComputeQOnuchic::compute_scalar()
   int *mask = atom->mask;
   int *type = atom->type;
   int *tag = atom->tag;
-  int *res = avec->residue;
+  int *res = atom->residue;
   int *image = atom->image;
   int nlocal = atom->nlocal;
   int nall = atom->nlocal + atom->nghost;

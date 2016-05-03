@@ -47,8 +47,6 @@ class ComputeQOnuchic : public Compute {
   enum type{T_CUTOFF=0, T_SHADOW=1, T_CUTOFF_GAUSS=2, T_SHADOW_GAUSS=3};
   
   class NeighList *list;
-
-  class AtomVecAWSEM *avec;
 };
 
 }

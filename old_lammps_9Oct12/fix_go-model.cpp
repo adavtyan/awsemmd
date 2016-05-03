@@ -8,12 +8,12 @@ Gaussian Contacts Potential was contributed by Weihua Zheng
 
 Last Update: 03/23/2011
 ------------------------------------------------------------------------- */
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+
+#include "math.h"
+#include "string.h"
+#include "stdlib.h"
 #include "fix_go-model.h"
 #include "atom.h"
-#include "atom_vec_awsemmd.h"
 #include "timer.h"
 #include "output.h"
 #include "update.h"
@@ -299,7 +299,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 	int nlocal = atom->nlocal;
 	int nall = atom->nlocal + atom->nghost;
 	int *mol_tag = atom->molecule;
-	int *res_tag = avec->residue;
+	int *res_tag = atom->residue;
 
 	int i, j, js;
 
@@ -444,9 +444,6 @@ int FixGoModel::setmask()
 
 void FixGoModel::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
-  if (!avec) error->all(FLERR,"Fix gomodel requires atom style awsemmd");
-
 	if (strstr(update->integrate_style,"respa"))
 		nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }

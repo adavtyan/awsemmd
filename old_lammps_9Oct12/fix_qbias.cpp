@@ -7,11 +7,11 @@ http://papoian.chem.umd.edu/
 Last Update: 12/01/2010
 ------------------------------------------------------------------------- */
 
-#include <math.h>
-#include <string.h>
+#include "math.h"
+#include "string.h"
+#include "stdlib.h"
 #include "fix_qbias.h"
 #include "atom.h"
-#include "atom_vec_awsemmd.h"
 #include "timer.h"
 #include "update.h"
 #include "respa.h"
@@ -198,7 +198,7 @@ inline void FixQBias::Construct_Computational_Arrays()
 	int nlocal = atom->nlocal;
 	int nall = atom->nlocal + atom->nghost;
 	int *mol_tag = atom->molecule;
-	int *res_tag = avec->residue;
+	int *res_tag = atom->residue;
 
 	int i, j, js;
 
@@ -319,9 +319,6 @@ int FixQBias::setmask()
 
 void FixQBias::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
-  if (!avec) error->all(FLERR,"Fix qbias requires atom style awsemmd");
-
 	if (strstr(update->integrate_style,"respa"))
 		nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }

@@ -34,8 +34,6 @@ namespace LAMMPS_NS {
     int igroup,groupbit;
   
     class NeighList *list;
-
-    class AtomVecAWSEM *avec;
   };
 
 }

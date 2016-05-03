@@ -7,11 +7,10 @@
    ------------------------------------------------------------------------- */
 
 #include "mpi.h"
-#include <math.h>
-#include <string.h>
+#include "math.h"
+#include "string.h"
 #include "compute_contactmap.h"
 #include "atom.h"
-#include "atom_vec_awsemmd.h"
 #include "update.h"
 #include "domain.h"
 #include "group.h"
@@ -78,9 +77,6 @@ ComputeContactmap::~ComputeContactmap()
 
 void ComputeContactmap::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
-  if (!avec) error->all(FLERR,"Compute contactmap requires atom style awsemmd");
-
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
     error->all(FLERR,"Cannot use compute contactmap unless atoms have IDs");
@@ -103,7 +99,7 @@ double ComputeContactmap::compute_scalar()
   double **x = atom->x; // atom positions
   int *mask = atom->mask; // atom mask (?)
   int *tag = atom->tag; // atom index
-  int *residue = avec->residue; // atom's residue index
+  int *residue = atom->residue; // atom's residue index
   int nlocal = atom->nlocal; // number of atoms on this processor
   int nall = atom->nlocal + atom->nghost; // total number of atoms
   

@@ -10,10 +10,10 @@ Last Update: 05/01/2012
 ------------------------------------------------------------------------- */
 
 #include "ctype.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
 #include "pair_ex_gauss_coul_cut.h"
 #include "atom.h"
 #include "comm.h"
@@ -201,9 +201,9 @@ void PairExGaussCoulCut::settings(int narg, char **arg)
 {
   if (narg < 1 || narg > 2) error->all(FLERR,"Pair_style Ex/Gauss/Coul/Cut: Illegal pair_style command");
 
-  cut_ex_global = force->numeric(FLERR,arg[0]);
+  cut_ex_global = force->numeric(arg[0]);
   if (narg == 1) cut_coul_global = cut_ex_global;
-  else cut_coul_global = force->numeric(FLERR,arg[1]);
+  else cut_coul_global = force->numeric(arg[1]);
 
   // reset cutoffs that have been explicitly set
 
@@ -241,8 +241,8 @@ void PairExGaussCoulCut::coeff(int narg, char **arg)
   
   double cut_ex_one = cut_ex_global;
   double cut_coul_one = cut_coul_global;
-  if (narg >= 4) cut_coul_one = cut_ex_one = force->numeric(FLERR,arg[3]);
-  if (narg == 5) cut_coul_one = force->numeric(FLERR,arg[4]);
+  if (narg >= 4) cut_coul_one = cut_ex_one = force->numeric(arg[3]);
+  if (narg == 5) cut_coul_one = force->numeric(arg[4]);
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {

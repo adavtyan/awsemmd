@@ -41,6 +41,8 @@ namespace LAMMPS_NS {
     char *filename, *datafile;
   
     class NeighList *list;
+
+    class AtomVecAWSEM *avec;
   };
 
 }

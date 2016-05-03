@@ -34,6 +34,8 @@ namespace LAMMPS_NS {
     FILE *pairdistmatfile;
   
     class NeighList *list;
+
+    class AtomVecAWSEM *avec;
   };
 
 }

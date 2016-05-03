@@ -34,6 +34,8 @@ namespace LAMMPS_NS {
     FILE *contactmapfile;
   
     class NeighList *list;
+
+    class AtomVecAWSEM *avec;
   };
 
 }

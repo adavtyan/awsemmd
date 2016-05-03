@@ -243,8 +243,6 @@ public:
   int sStep, eStep;
   void print_forces(int coord=0);
   
-  class AtomVecAWSEM *avec;
-
 /*  double tmpforce1[1000][3];
   double tmpforce2[1000][3];
   double tmpmax;

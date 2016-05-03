@@ -3,39 +3,37 @@
 
    Wolynes Group, Rice University
 
-   Last Update: 09/23/2011
+   Created on: 2/22/12
    ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
 
-ComputeStyle(totalcontacts,ComputeTotalcontacts)
+ComputeStyle(contactmap,ComputeContactmap)
 
 #else
 
-#ifndef LMP_COMPUTE_TOTALCONTACTS_H
-#define LMP_COMPUTE_TOTALCONTACTS_H
+#ifndef LMP_COMPUTE_CONTACTMAP_H
+#define LMP_COMPUTE_CONTACTMAP_H
 
 #include "compute.h"
 
 namespace LAMMPS_NS {
 
-  class ComputeTotalcontacts : public Compute {
+  class ComputeContactmap : public Compute {
   public:
-    ComputeTotalcontacts(class LAMMPS *, int, char **);
-    ~ComputeTotalcontacts();
+    ComputeContactmap(class LAMMPS *, int, char **);
+    ~ComputeContactmap();
     void init();
     //  void init_list(int, class NeighList *);
     double compute_scalar();
 
   private:
     double cutoff;
-    int sep;
     int numres;
     int igroup,groupbit;
+    FILE *contactmapfile;
   
     class NeighList *list;
-
-    class AtomVecAWSEM *avec;
   };
 
 }

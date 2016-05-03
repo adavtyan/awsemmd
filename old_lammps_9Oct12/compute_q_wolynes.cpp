@@ -7,11 +7,10 @@
    ------------------------------------------------------------------------- */
 
 #include "mpi.h"
-#include <math.h>
-#include <string.h>
+#include "math.h"
+#include "string.h"
 #include "compute_q_wolynes.h"
 #include "atom.h"
-#include "atom_vec_awsemmd.h"
 #include "update.h"
 #include "domain.h"
 #include "group.h"
@@ -120,9 +119,6 @@ ComputeQWolynes::~ComputeQWolynes()
 
 void ComputeQWolynes::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
-  if (!avec) error->all(FLERR,"Compute qwolynes requires atom style awsemmd");
-
   // check to make sure tags are enabled
   if (atom->tag_enable == 0)
     error->all(FLERR,"Cannot use compute qwolynes unless atoms have IDs");
@@ -164,7 +160,7 @@ double ComputeQWolynes::compute_scalar()
   int *mask = atom->mask; // atom mask (?)
   int *image = atom->image; // atom image
   int *tag = atom->tag; // atom index
-  int *residue = avec->residue; // atom's residue index
+  int *residue = atom->residue; // atom's residue index
   int nlocal = atom->nlocal; // number of atoms on this processor
   int nall = atom->nlocal + atom->nghost; // total number of atoms
   

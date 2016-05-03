@@ -29,6 +29,7 @@ class PairExcludedVolume : public Pair {
   void compute(int, int);
   void settings(int, char **);
   void coeff(int, char **);
+  void init_style();
   double init_one(int, int);
   void write_restart(FILE *);
   void read_restart(FILE *);
@@ -48,6 +49,8 @@ class PairExcludedVolume : public Pair {
   double **cutsq_long;
 
   void allocate();
+
+  class AtomVecAWSEM *avec;
 };
 
 }

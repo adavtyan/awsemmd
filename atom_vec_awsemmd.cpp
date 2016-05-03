@@ -760,7 +760,7 @@ int AtomVecAWSEM::size_restart()
   int nlocal = atom->nlocal;
   int n = 0;
   for (i = 0; i < nlocal; i++)
-    n += 17 + 2*num_bond[i] + 4*num_angle[i] +
+    n += 18 + 2*num_bond[i] + 4*num_angle[i] +
       5*num_dihedral[i] + 5*num_improper[i];
 
   if (atom->nextra_restart)

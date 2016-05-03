@@ -1,2 +1,0 @@
-./lmp_opensuse < 1srl.wham.in
-python CalcQValue.py 1SRL dump.lammpstrj qvalues.dat

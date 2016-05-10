@@ -128,7 +128,7 @@ fm_sigma_exp
 1r69.mem
 uniform.gamma
 0 50 0.1
-0.1
+1.0
 0
 0.15
 

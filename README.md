@@ -4,10 +4,8 @@ The AWSEM force field grew out of the Associative Memory Hamiltonian (AMH) famil
 
 The AWSEM potential is based on a three-bead per amino-acid residue representation of protein chains, having many terms representing the backbone stereochemistry, independent and cooperative hydrogen bonding, water-mediated tertiary interactions, and biasing local structural preferences based on short fragment memories. Dr. Aram Davtyan, while being a graduate student in Prof. Garegin Papoian's group at the University of Maryland, designed the architecture of AWSEM's code, and implemented its main features in C++, as an add-on package compatible with the LAMMPS simulation platform. Dr. Nicholas Schafer and Dr. Weihua Zheng from Prof. Peter Wolynes' group at Rice University also made significant early contributions to AWSEM's development, applications and documentation. Currently, AWSEM software is being actively developed by many members and alumni of the Papoian and Wolynes laboratories, as well as other scientists. Dr. Aram Davtyan continues to serve as software's lead developer.
 
-<br>
 
-To cite AWSEM and for a complete description of the forcefield please refer to of the following paper and its supporting information.<br>
-<br>
+To cite AWSEM and for a complete description of the forcefield please refer to the following paper and its supporting information.
+
 Aram Davtyan, Nicholas P. Schafer, Weihua Zheng, Cecilia Clementi, Peter G. Wolynes, and Garegin A. Papoian, "<b>AWSEM-MD: Protein Structure Prediction Using Coarse-Grained Physical Potentials and Bioinformatically Based Local Structure Biasing</b>", The Journal of Physical Chemistry B 2012 116 (29), 8494-8503<br>
-<br>
 <a href='http://http://pubs.acs.org/doi/abs/10.1021/jp212541y'>http://http://pubs.acs.org/doi/abs/10.1021/jp212541y</a>

@@ -118,6 +118,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   an = 0.4831806; bn = 0.7032820; cn = -0.1864262;
   ap = 0.4436538; bp = 0.2352006; cp = 0.3211455;
   ah = 0.8409657; bh = 0.8929599; ch = -0.7338894;
+  
+  // Default value for fm_sigma_exp
+  fm_sigma_exp = 0.15;
 
   n_wells = 0;
   n_helix_wells = 0;

@@ -779,11 +779,12 @@ inline void FixBackbone::Construct_Computational_Arrays()
   int *res_tag = avec->residue;
 
 	
-
   int i;
   for (i=0; i<n; ++i){
   	res_no_l[i] =-1;
   }
+
+//  printf("proc: %d, n: %d\n", comm->me, n);
 
   // Creating index arrays for Alpha_Carbons, Beta_Atoms and Oxygens
   nn = 0;
@@ -829,6 +830,8 @@ inline void FixBackbone::Construct_Computational_Arrays()
     last = amin;
     nn++;
   }
+
+//  printf("proc: %d, nn: %d\n", comm->me, nn);
 
   for (i = 0; i < nn; ++i) {
     chain_no[i] = -1;
@@ -876,6 +879,10 @@ inline void FixBackbone::Construct_Computational_Arrays()
       error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 004)");
     }
   }
+
+/*  for (i = 0; i < nn; ++i) {
+    printf("proc: %d Ca: %d Cb: %d O: %d Res#: %d Chain# %d ResI: %d\n", comm->me, alpha_carbons[i], beta_atoms[i], oxygens[i], res_no[i], chain_no[i], res_info[i]);
+  }*/
 	
   /*	if (ntimestep==0) {
 	for (i = 0; i < nn; ++i) {
@@ -1023,6 +1030,15 @@ void FixBackbone::min_setup(int vflag)
 {
   pre_force(vflag);
 }
+
+/* ---------------------------------------------------------------------- */
+
+void FixBackbone::setup_pre_force(int vflag)
+{
+  Construct_Computational_Arrays();
+  pre_force(vflag);
+}
+
 
 /* ---------------------------------------------------------------------- */
 
@@ -3684,11 +3700,12 @@ void FixBackbone::compute_backbone()
 		
     i_resno=res_no[i]-1;
     int im1 = res_no_l[i_resno-1];
-    if (i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST))	{
-      if (im1==-1){
+    if (im1!=-1 && i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST))	{
+/*      if (im1==-1){
+        printf("proc: %d i: %d i_resno: %d im1: %d isF: %d resI: %d\n", comm->me, i, i_resno, im1, isFirst(i), res_info[i]);
         fprintf(stderr,"Warning: In compute_backbone(), likely the bond was stretched for too long, im1=%d on processor %d, Exit!\n", im1, comm->me);
       	//error->all(FLERR,"In compute_backbone, im1==-1!");
-      }	
+      }	*/
       if (res_info[im1]==LOCAL || res_info[im1]==GHOST){
 	      xn[i][0] = an*xca[im1][0] + bn*xca[i][0] + cn*xo[im1][0];
 	      xn[i][1] = an*xca[im1][1] + bn*xca[i][1] + cn*xo[im1][1];
@@ -3703,11 +3720,12 @@ void FixBackbone::compute_backbone()
       xh[i][0] = xh[i][1] = xh[i][2] = 0.0;
     }
 		
-    if (i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST)) {
-      if (im1==-1){        
+    if (im1!=-1 && i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST)) {
+/*      if (im1==-1){        
+        printf("proc: %d i: %d i_resno: %d im1: %d isF: %d resI: %d\n", comm->me, i, i_resno, im1, isFirst(i), res_info[i]);
 	fprintf(stderr,"Warning: In compute_backbone(), likely the bond was stretched for too long, im1=%d on processor %d, Exit!\n", im1, comm->me);
       	//error->all(FLERR,"In compute_backbone, im1==-1!");
-      }	
+      }	*/
       if ( (res_info[im1]==LOCAL || res_info[im1]==GHOST) ) {
 	xcp[im1][0] = ap*xca[im1][0] + bp*xca[i][0] + cp*xo[im1][0];
 	xcp[im1][1] = ap*xca[im1][1] + bp*xca[i][1] + cp*xo[im1][1];
@@ -3718,11 +3736,11 @@ void FixBackbone::compute_backbone()
     }
 
   }
-  if(nn<=0){
+/*  if(nn<=0){
     	fprintf(stderr, "nn = %d rank = %d\n", nn, comm->me);    	
   	error->all(FLERR,"In compute_backbone, nn <=0 on one processor!");
-  }
-  xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
+  }*/
+  if (nn>0) xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
 
  // Debug  
 /* for (i=0;i<atom->nlocal;i++) {

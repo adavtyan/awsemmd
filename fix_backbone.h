@@ -36,6 +36,7 @@ class FixBackbone : public Fix {
   void min_setup(int);
   void pre_force(int);
   void pre_force_respa(int, int, int);
+  void setup_pre_force(int);
   void min_pre_force(int);
   double compute_scalar();
   double compute_vector(int);

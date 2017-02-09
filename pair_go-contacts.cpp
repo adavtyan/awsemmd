@@ -344,8 +344,8 @@ void PairGoContacts::coeff(int narg, char **arg)
   int ilo,ihi,jlo,jhi;
   double cut_one;
   
-  force->bounds(arg[0],atom->ntypes,ilo,ihi);
-  force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
 
   cut_one = cut_global;
   if (narg == 3)

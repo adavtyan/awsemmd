@@ -55,21 +55,22 @@ dump		1 all atom 1000 dump.lammpstrj
 
 dump_modify	1 sort id
 
-variable E_bond  equal emol
-variable E_chain equal f_2[1]
-variable E_excl  equal epair
-variable E_chi   equal f_2[3]
-variable E_rama  equal f_2[4]
-variable E_dssp  equal f_2[6]
-variable E_pap   equal f_2[7]
-variable E_water equal f_2[8]
-variable E_helix equal f_2[10]
-variable E_fmem  equal f_2[12]
-variable E_P     equal v_E_chain+v_E_chi+v_E_rama+v_E_water+v_E_helix+v_E_fmem+v_E_excl+v_E_bond+v_E_dssp+v_E_pap
-variable E_K     equal ke
+variable E_bond   equal emol
+variable E_chain  equal f_2[1]
+variable E_excl   equal epair
+variable E_chi    equal f_2[3]
+variable E_rama   equal f_2[4]
+variable E_dssp   equal f_2[6]
+variable E_pap    equal f_2[7]
+variable E_water  equal f_2[8]
+variable E_burial equal f_2[9]
+variable E_helix  equal f_2[10]
+variable E_fmem   equal f_2[12]
+variable E_P      equal v_E_chain+v_E_chi+v_E_rama+v_E_water+v_E_burial+v_E_helix+v_E_fmem+v_E_excl+v_E_bond+v_E_dssp+v_E_pap
+variable E_K      equal ke
 variable E_total equal v_E_P+v_E_K
 variable Step equal step
-fix energy all print 1000 "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_helix} ${E_fmem} ${E_P}" file energy.log screen no
+fix energy all print 1000 "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_burial} ${E_helix} ${E_fmem} ${E_P}" file energy.log screen no
 
 reset_timestep	0
 

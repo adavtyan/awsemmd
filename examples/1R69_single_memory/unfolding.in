@@ -65,12 +65,12 @@ variable E_water equal f_2[8]
 variable E_burial equal f_2[9]
 variable E_helix equal f_2[10]
 variable E_fmem  equal f_2[12]
-variable E_P     equal v_E_chain+v_E_chi+v_E_rama+v_E_water+v_E_helix+v_E_fmem+v_E_excl+v_E_dssp+v_E_pap+v_E_bond
+variable E_P     equal v_E_chain+v_E_chi+v_E_rama+v_E_water+v_E_helix+v_E_fmem+v_E_excl+v_E_dssp+v_E_pap+v_E_bond+v_E_burial
 variable E_K     equal ke
 variable E_total equal v_E_P+v_E_K
 variable Step equal step
 #Output to energy file
-fix energy all print 2000 "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_helix} ${E_fmem} ${E_P}" file energy screen no
+fix energy all print 2000 "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_burial} ${E_helix} ${E_fmem} ${E_P}" file energy screen no
 
 reset_timestep	0
 restart 2000000 unfold

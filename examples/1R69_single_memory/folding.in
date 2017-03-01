@@ -52,7 +52,7 @@ fix 11 all langevin 500.0 300.0 1000 3456  #Temperature increases from 350K to 5
 
 fix		  2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data extended.seq
 
-thermo		2000
+thermo		1000
 dump		1 all atom 2000 2_dump
 
 dump_modify	1 sort id

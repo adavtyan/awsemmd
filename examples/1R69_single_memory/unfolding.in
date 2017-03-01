@@ -49,7 +49,7 @@ fix 11 all langevin 350.0 550.0 1000 3456  #Temperature increases from 350K to 5
 
 fix		  2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data extended.seq
 
-thermo		2000
+thermo		1000
 dump		1 all atom 2000 1_dump
 
 dump_modify	1 sort id
@@ -70,7 +70,7 @@ variable E_K     equal ke
 variable E_total equal v_E_P+v_E_K
 variable Step equal step
 #Output to energy file
-fix energy all print 2000 "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_burial} ${E_helix} ${E_fmem} ${E_P}" file energy screen no
+fix energy all print 1000 "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_burial} ${E_helix} ${E_fmem} ${E_P}" file energy screen no
 
 reset_timestep	0
 restart 2000000 unfold

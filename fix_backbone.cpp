@@ -3136,6 +3136,7 @@ void FixBackbone::compute_amhgo_normalization()
   double normi;
 	
   // Loop over chains
+  amh_go_norm[0] = 0.0; //BinZhang
   for (ich=0;ich<nch;++ich) {
     res0 = ch_pos[ich]-1;
     resn = ch_pos[ich]+ch_len[ich]-1;
@@ -3166,11 +3167,14 @@ void FixBackbone::compute_amhgo_normalization()
 	    }
 	  }
 	}
-	amh_go_norm[ich] += pow(fabs(normi), amh_go_p);
+	//amh_go_norm[ich] += pow(fabs(normi), amh_go_p);
+	amh_go_norm[0] += pow(fabs(normi), amh_go_p); //BinZhang; do not use per chain normalization
       }
     }
-    amh_go_norm[ich] /= 8*resn;
+    //amh_go_norm[ich] /= 8*resn;
   }	
+  amh_go_norm[0] /= 8*resn;     // BinZhang
+  fprintf(screen, "amhgo: %d, %12.6f,\n", resn, amh_go_norm[0]);
 }
 
 void FixBackbone::compute_amh_go_model()
@@ -3231,7 +3235,9 @@ void FixBackbone::compute_amh_go_model()
 	}
         
         // atom j is either C-Alpha or C-Bata
-        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && abs(ires-jres)>=amh_go_gamma->minSep() && imol==jmol ) {
+        // BinZhang; Use AmhGo for interchain as well
+        //if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && abs(ires-jres)>=amh_go_gamma->minSep() && imol==jmol ) {
+        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && abs(ires-jres)>=amh_go_gamma->minSep() ) {
           xj[0] = x[j][0];
           xj[1] = x[j][1];
           xj[2] = x[j][2];
@@ -3283,14 +3289,17 @@ void FixBackbone::compute_amh_go_model()
         }
       }
       
-      factor = -0.5*epsilon*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1)/amh_go_norm[imol-1];
+      //BinZhang
+      //factor = -0.5*epsilon*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1)/amh_go_norm[imol-1];
+      factor = -0.5*epsilon*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1)/amh_go_norm[0];
       for (k=0;k<nforces;k++) {
         f[amh_go_force_map[k]][0] += factor*amh_go_force[k][0];
         f[amh_go_force_map[k]][1] += factor*amh_go_force[k][1];
         f[amh_go_force_map[k]][2] += factor*amh_go_force[k][2];
       }
       
-      E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[imol-1];
+      //E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[imol-1];
+      E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[0];
     }
   }
   

@@ -649,7 +649,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all(FLERR,"AMH_Go: Wrong atom count in memory structure file");
     if (m_amh_go->error==m_amh_go->ERR_RES) error->all(FLERR,"AMH_Go: Unknown residue");
 
-    // if frustration censoring is on, read in frustration censored interactions
+    // if frustration censoring flag is 1, read in frustration censored interactions
     if (frustration_censoring_flag == 1) {
       std::ifstream infile("frustration_censored_contacts.dat");
       int i, j;
@@ -657,7 +657,25 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	frustration_censoring_map[i-1][j-1] = 1;
       }
     }
-
+    
+    //if frustration censoring is 2, read in rnative distances for DCA predicted Go
+    if (frustration_censoring_flag == 2) {
+      std::ifstream in_rnativeCACA("go_rnativeCACA.dat");
+      std::ifstream in_rnativeCBCB("go_rnativeCBCB.dat");
+      std::ifstream in_rnativeCACB("go_rnativeCACB.dat");
+      if (!in_rnativeCACA || !in_rnativeCACB || !in_rnativeCBCB) error->all(FLERR,"Go native distance file can't be read");
+      for (i=0;i<n;++i) {
+        for (j=0;j<n;++j) {
+          in_rnativeCACA >> r_nativeCACA[i][j];
+          in_rnativeCBCB >> r_nativeCBCB[i][j];
+          in_rnativeCACB >> r_nativeCACB[i][j];
+        }
+      }
+      in_rnativeCACA.close();
+      in_rnativeCBCB.close();
+      in_rnativeCACB.close();
+    }
+    
     // Calculate normalization factor for AMH-GO potential
     compute_amhgo_normalization();
   }
@@ -1037,13 +1055,24 @@ FixBackbone::~FixBackbone()
       delete m_amh_go;
       delete amh_go_gamma;
       if (frustration_censoring_flag == 1) {
-	for (int i=0;i<n;i++) {
-	  delete [] frustration_censoring_map[i];
-	}
-	delete [] frustration_censoring_map;
+        for (int i=0;i<n;i++) {
+          delete [] frustration_censoring_map[i];
+        }
+        delete [] frustration_censoring_map;
+      }
+    
+      if (frustration_censoring_flag == 2) {
+        for (int i=0;i<n;i++) {
+          delete [] r_nativeCACA[i];
+          delete [] r_nativeCBCB[i];
+          delete [] r_nativeCACB[i];
+        }
+        delete [] r_nativeCACA;
+        delete [] r_nativeCBCB;
+        delete [] r_nativeCACB;
       }
     }
-    
+
     if (frag_mem_flag || frag_mem_tb_flag) {
       delete fm_gamma;
 			
@@ -1242,14 +1271,26 @@ void FixBackbone::allocate()
     if (frustration_censoring_flag == 1){
       frustration_censoring_map = new int*[n];
       for (int i=0;i<n;i++) {
-	frustration_censoring_map[i] = new int[n];
-	for (int j=0;j<n;j++) {
-	  frustration_censoring_map[i][j] = 0;
-	}
+        frustration_censoring_map[i] = new int[n];
+        for (int j=0;j<n;j++) {
+          frustration_censoring_map[i][j] = 0;
+        }
+      }
+    }
+  
+    //if DCA-Go mode is on, allocate the r_native matrices
+    if (frustration_censoring_flag == 2){
+      r_nativeCACA = new double*[n];
+      r_nativeCBCB = new double*[n];
+      r_nativeCACB = new double*[n];
+      for (int i=0;i<n;i++) {
+        r_nativeCACA[i] = new double[n];
+        r_nativeCBCB[i] = new double[n];
+        r_nativeCACB[i] = new double[n];
       }
     }
   }
-  
+      
   if (average_sequence_optimization_flag) {
     average_sequence = new double*[n];
     for (int i=0;i<n;i++) {
@@ -3159,8 +3200,15 @@ void FixBackbone::compute_amhgo_normalization()
 	    // if (frustration_censoring_flag == 1){
 	    //   if (frustration_censoring_map[i][j] == 1 || frustration_censoring_map[j][i] == 1) continue;
 	    // }
-						
-	    rnative = m_amh_go->Rf(i, iatom, j, jatom);
+
+            // if using dca predicted Go contacts read in rnative from file
+	    if (frustration_censoring_flag == 2) {
+              if (iatom==Fragment_Memory::FM_CA && jatom==Fragment_Memory::FM_CA) rnative = r_nativeCACA[i][j];
+              else if (iatom==Fragment_Memory::FM_CB && jatom==Fragment_Memory::FM_CB) rnative = r_nativeCBCB[i][j];
+              else rnative = r_nativeCACB[i][j];
+            }
+            else rnative = m_amh_go->Rf(i, iatom, j, jatom);
+
 	    if (rnative<amh_go_rc) {
 	      amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, i, j);
 	      normi +=amhgo_gamma;
@@ -3248,7 +3296,14 @@ void FixBackbone::compute_amh_go_model()
 
           if (mask[i]&groupbit) iatom = Fragment_Memory::FM_CA; else iatom = Fragment_Memory::FM_CB;
           if (mask[j]&groupbit) jatom = Fragment_Memory::FM_CA; else jatom = Fragment_Memory::FM_CB;
-          rnative = m_amh_go->Rf(ires-1, iatom, jres-1, jatom);          
+
+          // if using dca predicted Go contacts read in rnative from file
+          if (frustration_censoring_flag == 2) {
+            if (iatom==Fragment_Memory::FM_CA && jatom==Fragment_Memory::FM_CA) rnative = r_nativeCACA[ires-1][jres-1];
+            else if (iatom==Fragment_Memory::FM_CB && jatom==Fragment_Memory::FM_CB) rnative = r_nativeCBCB[ires-1][jres-1];
+            else rnative = r_nativeCACB[ires-1][jres-1];
+          }
+          else rnative = m_amh_go->Rf(ires-1, iatom, jres-1, jatom);
 
           if (rnative<amh_go_rc) {
 	    dx[0] = xi[0] - xj[0];

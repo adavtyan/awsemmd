@@ -106,6 +106,9 @@ public:
   int *amh_go_force_map;
   double *amh_go_norm;
   int **frustration_censoring_map;
+  double **r_nativeCACA;
+  double **r_nativeCBCB;
+  double **r_nativeCACB;
   
   // Fragment Memory parameters
   double k_frag_mem;
@@ -285,7 +288,7 @@ public:
   bool tert_frust_flag;
   bool nmer_frust_flag;
   bool selection_temperature_flag;
-  bool frustration_censoring_flag;
+  int frustration_censoring_flag;
   bool optimization_flag;
   bool burial_optimization_flag;
   bool debyehuckel_optimization_flag;

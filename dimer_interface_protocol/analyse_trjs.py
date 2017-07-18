@@ -115,7 +115,7 @@ def analyse_trjs(parametersobject):
 	for i in range(1,1+Number_of_orientations):
 		print("Analysing trajectory number\t"+str(i))
 		location = os.path.normpath(Path_to_awsem+'/dimer_interface_protocol/Build_pdb_with_models.py')
-		os.system('python3 '+location+" r_"+str(i).zfill(3)+".lammpstrj t_"+str(i).zfill(3)+" "+name+"_recentred"+".seq")
+		os.system('python2 '+location+" r_"+str(i).zfill(3)+".lammpstrj t_"+str(i).zfill(3)+" "+name+"_recentred"+".seq")
 		input_file_name = 't_'+str(i).zfill(3)+'.pdb'
 		output_file = 'angles_'+str(i).zfill(3)+".txt"
 		if dd['first_chain_is_bigger']:

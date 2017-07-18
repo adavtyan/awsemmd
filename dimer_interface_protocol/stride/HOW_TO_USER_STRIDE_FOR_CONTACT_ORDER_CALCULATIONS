@@ -1,0 +1,17 @@
+
+Whole PDB entry:
+
+stride 1bed.brk -$ -k
+
+Residue range:
+
+stride 2gsq.brk -$ -k -x76 -y202
+
+Single chain:
+
+stride 1alv.brk -$ -k  -ra
+
+Residue range in a chain:
+
+stride 1bmt.brk -$ -k  -ra -x651 -y740
+

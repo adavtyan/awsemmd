@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import os
+import os, sys
 
 
 
@@ -34,6 +34,8 @@ def graph_angles(parametersobject):
 	y_label3 = [r"$" + format(r/np.pi, ".2g")+ r"\pi$" for r in y_tick3]
 
 	for i in range(1,1+number_of_orientations):
+		sys.stdout.write('Part 1 of 2. Progress: %d out of %d\r' % (i, number_of_orientations))
+		sys.stdout.flush()
 		data.append(np.loadtxt('angles_'+str(i).zfill(3)+'.txt', unpack=True))
 		if include_energy:
 			energy.append(np.loadtxt('e_'+str(i).zfill(3)+'.txt', unpack=True))
@@ -83,12 +85,14 @@ def graph_angles(parametersobject):
 			subplot = plt.subplot(gs[2,:])
 			plt.plot(energy[i-1][0]/Dump_time, energy[i-1][1], '.')
 			plt.axis([0,x_range,e_min,e_max])
-		plt.savefig('fig_'+str(i).zfill(3)+'.svg', bbox_inches = 'tight')
+		plt.savefig('individual/dot_'+str(i).zfill(3)+'.png', bbox_inches = 'tight')
 		plt.close(fig)
 		#plt.show()
 		
 
 	for i in range(1,1+number_of_orientations):
+		sys.stdout.write('Consolidating...\r')
+		sys.stdout.flush()
 		#data.append(np.loadtxt('angles_'+str(i).zfill(3)+'.txt', unpack=True))
 		#energy.append(np.loadtxt('e_'+str(i).zfill(3)+'.txt', unpack=True))
 		fig=plt.figure(100, figsize=(15,8))
@@ -136,5 +140,5 @@ def graph_angles(parametersobject):
 			subplot = plt.subplot(gs[2,:])
 			plt.plot(energy[i-1][0]/Dump_time, energy[i-1][1], 'b.', lw=1, alpha=alpha)
 			plt.axis([0,x_range,e_min,e_max])
-	plt.savefig('fig_all.png', bbox_inches = 'tight')
+	plt.savefig('dot_all.png', bbox_inches = 'tight')
 	plt.close(fig)

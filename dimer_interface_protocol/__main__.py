@@ -26,7 +26,8 @@ def execute2(parametersobject):
 	parametersobject.read_derived()
 	if not parametersobject.parameterdic['Replot_only']:
 		analyse_trjs(parametersobject)
-		get_energies(parametersobject)
+		if parametersobject.parameterdic['Plot_energy']:
+			get_energies(parametersobject)
 		contactmap_getdata(parametersobject)
 	graph_angles(parametersobject)
 	contactmap_draw(parametersobject)

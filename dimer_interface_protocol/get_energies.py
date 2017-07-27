@@ -8,7 +8,7 @@ def get_energies(parametersobject):
 		for j, line in enumerate(f_in):
 			data = line.strip().split()
 			if data[0].isdigit():
-				f_out.write(line[0]+'\t'+line[1]+'\n')
+				f_out.write(data[0]+'\t'+data[1]+'\n')
 				
 			else:
 				break

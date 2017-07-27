@@ -4,11 +4,10 @@ import numpy as np
 
 from Bio.PDB import Vector
 
-def add_frame():
+def add_frame(img):
 	global infile
 	global chain_boundary
 	global end
-	global average_img
 	chain1 = []
 	chain2 = []
 	line = []
@@ -39,13 +38,12 @@ def add_frame():
 		row = []
 		for j, atom2 in enumerate(chain2):
 			d = (atom1-atom2).norm()
-			average_img[i][j]+=d
+			img[i][j]+=d
 
 def skip_frame():
 	global infile
 	global chain_boundary
 	global end
-	global average_img
 	chain1 = []
 	chain2 = []
 	line = []
@@ -59,8 +57,7 @@ def skip_frame():
 			break
 	#if line == '\n':
 	#	end = True
-
-
+	
 
 def contactmap_draw(parametersobject):
 	pd = parametersobject.parameterdic
@@ -73,6 +70,8 @@ def contactmap_draw(parametersobject):
 	contact_min = pd['Contact_map_min_distance']
 	contact_max = pd['Contact_map_max_distance']
 	
+	orientations = pd['Number_of_orientations']
+	
 	#average_img = [x[:] for x in [[0.0] * residues2] * residues1]
 	average_img = []
 	
@@ -84,22 +83,51 @@ def contactmap_draw(parametersobject):
 			average_img[i].append(float(line_split[j]))
 	f_data.close()
 	plt.imshow(average_img, origin = 'lower', vmin = contact_min, vmax = contact_max, interpolation ='nearest', cmap = 'rainbow')
+	ax = plt.gca()
+	ax.grid(color = 'w', linewidth = 1, linestyle = 'dotted')
+	plt.xlabel('chain '+dd['first_chain'])
+	plt.ylabel('chain '+dd['second_chain'])
 	plt.colorbar()
 	plt.savefig('contactmap.png', bbox_inches = 'tight')
 	plt.savefig('contactmap.svg', bbox_inches = 'tight')
 	plt.close()
 	plt.imshow(average_img, origin = 'lower', interpolation ='nearest', cmap = 'rainbow')
+	ax = plt.gca()
+	ax.grid(color = 'w', linewidth = 1, linestyle = 'dotted')
+	plt.xlabel('chain '+dd['first_chain'])
+	plt.ylabel('chain '+dd['second_chain'])
 	plt.colorbar()
 	plt.savefig('contactmap_free.png', bbox_inches = 'tight')
 	plt.savefig('contactmap_free.svg', bbox_inches = 'tight')
 	plt.close()
+	for o in range(1,orientations+1):
+		sys.stdout.write("Writing contact map %d out of %d\r" % (o, orientations))
+		sys.stdout.flush()
+		f_data = open("individual/cmap_"+str(o).zfill(3)+".dat", "r")
+		img = []
+		for i in range(residues1):
+			line = next(f_data).strip()
+			line_split = line.split()
+			img.append([])
+			for j in range(residues2):
+				img[i].append(float(line_split[j]))
+		f_data.close()
+		plt.imshow(img, origin = 'lower', interpolation ='nearest', cmap = 'rainbow')
+		ax = plt.gca()
+		ax.grid(color = 'w', linewidth = 1, linestyle = 'dotted')
+		plt.xlabel('chain '+dd['first_chain'])
+		plt.ylabel('chain '+dd['second_chain'])
+		plt.colorbar()
+		plt.savefig('individual/cmap_'+str(o).zfill(3)+'.png', bbox_inches = 'tight')
+		plt.close()
+
+	
 	
 	
 def contactmap_getdata(parametersobject):
 	global infile
 	global chain_boundary
 	global end
-	global average_img
 	
 	pd = parametersobject.parameterdic
 	dd = parametersobject.deriveddic
@@ -118,12 +146,15 @@ def contactmap_getdata(parametersobject):
 	for i in range(1,orientations+1):
 		end = False
 		infile = open("r_"+str(i).zfill(3)+".lammpstrj", "r")
+		individual_outfile = open("individual/cmap_"+str(i).zfill(3)+".dat", "w+")
+		individual_img = [x[:] for x in [[0.0] * residues2] * residues1]
 		frames = 0
+		individual_count = 0
 		while not end:
 			frames+=1
 			if frames>skip:
-				add_frame()
-				count+=1
+				add_frame(individual_img)
+				individual_count+=1
 			else:
 				skip_frame()
 			if frames%10 == 0:
@@ -131,6 +162,16 @@ def contactmap_getdata(parametersobject):
 				sys.stdout.flush()
 		print('%d frames processed in file %d out of %d.' % (frames, i, orientations))
 		infile.close()
+		for i,row in enumerate(individual_img):
+			for j,cell in enumerate(row):
+				average_img[i][j]+=individual_img[i][j]
+				individual_outfile.write("%.4f\t" % (individual_img[i][j]/individual_count))
+			individual_outfile.write("\n")
+		individual_outfile.close()
+		
+		count+=individual_count
+		
+	
 	f_data = open("contactmap.dat", "w+")
 	for i in range(residues1):
 		for j in range(residues2):

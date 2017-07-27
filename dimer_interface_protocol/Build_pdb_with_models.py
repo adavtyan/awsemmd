@@ -100,7 +100,7 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=3 and len(sys.argv)!=4:
-	print("\n" + sys.argv[0] + " lammps_Input pdb_Output pdbID.seq [snapshot]\n")
+	print "\n" + sys.argv[0] + " lammps_Input pdb_Output pdbID.seq [snapshot]\n"
 	exit()
 
 lammps_file = sys.argv[1]
@@ -121,8 +121,8 @@ for line in fh.readlines():
   nres_tot += len(seq)
   nch += 1
 fh.close()
-print("Number of sequences:", nch)
-print("Total length:", nres_tot)
+print "Number of sequences:", nch
+print "Total length:", nres_tot
 
 ich = 1
 ch_map = {}
@@ -163,8 +163,8 @@ def convertToPDB():
   for ia in atoms2:
     if ia.desc == 'N': ires = ires + 1
     resname = one2three(seqs_all[ires-1])
-    if not ires in ch_map:
-      print("Error! atom list and sequance file size mismatch!\n")
+    if not ch_map.has_key(ires):
+      print "Error! atom list and sequance file size mismatch!\n"
       sys.exit()
     ch = ch_map[ires]
     atom = PDB_Atom(ia.No, PDB_type[ia.No_m], resname, ch, ires, ia.x, ia.y, ia.z, ia.ty)

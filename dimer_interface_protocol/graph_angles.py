@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 import matplotlib.gridspec as gridspec
 import os, sys
 
@@ -36,9 +37,9 @@ def graph_angles(parametersobject):
 	for i in range(1,1+number_of_orientations):
 		sys.stdout.write('Part 1 of 2. Progress: %d out of %d\r' % (i, number_of_orientations))
 		sys.stdout.flush()
-		data.append(np.loadtxt('angles_'+str(i).zfill(3)+'.txt', unpack=True))
+		data.append(np.loadtxt('analysis/angles_'+str(i).zfill(3)+'.txt', unpack=True))
 		if include_energy:
-			energy.append(np.loadtxt('e_'+str(i).zfill(3)+'.txt', unpack=True))
+			energy.append(np.loadtxt('analysis/e_'+str(i).zfill(3)+'.txt', unpack=True))
 		fig=plt.figure(i, figsize=(15,8))
 
 		subplot = plt.subplot(gs[0,0])
@@ -85,16 +86,16 @@ def graph_angles(parametersobject):
 			subplot = plt.subplot(gs[2,:])
 			plt.plot(energy[i-1][0]/Dump_time, energy[i-1][1], '.')
 			plt.axis([0,x_range,e_min,e_max])
-		plt.savefig('individual/dot_'+str(i).zfill(3)+'.png', bbox_inches = 'tight')
+		plt.savefig('results_individual/dot_'+str(i).zfill(3)+'.png', bbox_inches = 'tight')
 		plt.close(fig)
 		#plt.show()
 		
 
 	for i in range(1,1+number_of_orientations):
-		sys.stdout.write('Consolidating...\r')
+		sys.stdout.write('Part 2 of 2: Consolidating...\r')
 		sys.stdout.flush()
-		#data.append(np.loadtxt('angles_'+str(i).zfill(3)+'.txt', unpack=True))
-		#energy.append(np.loadtxt('e_'+str(i).zfill(3)+'.txt', unpack=True))
+		#data.append(np.loadtxt('analysis/angles_'+str(i).zfill(3)+'.txt', unpack=True))
+		#energy.append(np.loadtxt('analysis/e_'+str(i).zfill(3)+'.txt', unpack=True))
 		fig=plt.figure(100, figsize=(15,8))
 		subplot = plt.subplot(gs[0,0])
 		plt.plot(data[i-1][0], data[i-1][1], 'b.', lw=1, alpha = alpha)
@@ -140,5 +141,5 @@ def graph_angles(parametersobject):
 			subplot = plt.subplot(gs[2,:])
 			plt.plot(energy[i-1][0]/Dump_time, energy[i-1][1], 'b.', lw=1, alpha=alpha)
 			plt.axis([0,x_range,e_min,e_max])
-	plt.savefig('dot_all.png', bbox_inches = 'tight')
+	plt.savefig('results_main/dot_all.png', bbox_inches = 'tight')
 	plt.close(fig)

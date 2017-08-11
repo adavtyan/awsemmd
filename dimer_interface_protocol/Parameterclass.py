@@ -1,3 +1,5 @@
+import sys
+
 class Parameterclass(object):
 	def __init__(self):
 		self.parameterdic = {}
@@ -8,7 +10,7 @@ class Parameterclass(object):
 		with open(filename) as f:
 			content = f.readlines()
 			self._values = [x.strip() for x in content[1::2]]
-		if len(self._values)!=20:
+		if len(self._values)!=22:
 			#raise InputError(expression = 'filename', message = 'Invalid parameters file')
 			print("Invalid parameters file")
 			sys.exit(0)
@@ -28,6 +30,7 @@ class Parameterclass(object):
 			"Plot_x_range",
 			"Plot_energy",
 			"Replot_only",
+			"Delete_PDB_trajs",
 			"Contact_map_max_distance",
 			"Contact_map_min_distance",
 			"Energy_graph_max",
@@ -35,6 +38,7 @@ class Parameterclass(object):
 			"Skip_initial_frames",
 			"Path_to_awsem",
 			"Path_to_lmp_serial",
+			"Python2_command",
 			"Dump_time",
 			"Restart_time"
 		]	
@@ -66,6 +70,13 @@ class Parameterclass(object):
 			d['Replot_only'] = True
 		elif d['Replot_only'].lower() == 'no':
 			d['Replot_only'] = False
+		else:
+			print("Error in parameters file")
+			sys.exit(1)
+		if d['Delete_PDB_trajs'].lower() == 'yes':
+			d['Delete_PDB_trajs'] = True
+		elif d['Delete_PDB_trajs'].lower() == 'no':
+			d['Delete_PDB_trajs'] = False
 		else:
 			print("Error in parameters file")
 			sys.exit(1)

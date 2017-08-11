@@ -10,6 +10,8 @@ from get_energies import get_energies
 from graph_angles import graph_angles
 from contactmap import contactmap_draw
 from contactmap import contactmap_getdata
+from delete_extras import delete_extras
+from cluster import *
 
 
 def write_sample_parameters():
@@ -29,8 +31,10 @@ def execute2(parametersobject):
 		if parametersobject.parameterdic['Plot_energy']:
 			get_energies(parametersobject)
 		contactmap_getdata(parametersobject)
+		cluster(parametersobject)
 	graph_angles(parametersobject)
 	contactmap_draw(parametersobject)
+	cluster_dotplot(parametersobject)
 
 
 if len(sys.argv) < 2:
@@ -61,11 +65,14 @@ else:
 	print("\t2.1 Analyse trajectory orientations only")
 	print("\t2.2 Analyse trajectory energies only")
 	print("\t2.3 Analyse trajectory contacts only")
-	print("\t2.4 Draw orientation (and energy) plots only")
-	print("\t2.5 Draw contact map only")
+	print("\t2.4 Analyse clusters only")
+	print("\t2.5 Draw orientation (and energy) plots only")
+	print("\t2.6 Draw contact map only")
+	print("\t2.7 Draw cluster coded dot plot only")
+	print("3: Remove PDB trajectories, keeping only lammps trajectories.")
 	instruction = sys.stdin.readline().strip()
 	
-instructionlist = {'1':execute1, '2':execute2, '1.1':read_pdb, '1.2':create_project, '2.1':analyse_trjs, '2.2':get_energies, '2.3':contactmap_getdata, '2.4':graph_angles, '2.5':contactmap_draw}
+instructionlist = {'1':execute1, '2':execute2, '1.1':read_pdb, '1.2':create_project, '2.1':analyse_trjs, '2.2':get_energies, '2.3':contactmap_getdata, '2.4':cluster, '2.5':graph_angles, '2.6':contactmap_draw, '2.7':cluster_dotplot, '3':delete_extras}
 if instruction not in instructionlist:
 	print("Invalid instructions entered.")
 	sys.exit(0)

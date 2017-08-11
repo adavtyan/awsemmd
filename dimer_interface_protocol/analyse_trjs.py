@@ -7,7 +7,7 @@ import numpy as np
 from Bio.PDB.Vector import rotmat
 from Bio.SVDSuperimposer import SVDSuperimposer
 
-def analyse(input_file_name, refer_file_name, moved_chain_id, fixed_chain_id, r_moved_chain_id, r_fixed_chain_id, output_file, r_model_number = 0):
+def analyse(input_file_name, refer_file_name, moved_chain_id, fixed_chain_id, r_moved_chain_id, r_fixed_chain_id, output_file1, output_file2, r_model_number = 0):
 
 	structure = PDBParser(PERMISSIVE=1).get_structure('to_analyse', input_file_name)
 	reference = PDBParser(PERMISSIVE=1).get_structure('reference', refer_file_name)
@@ -21,6 +21,10 @@ def analyse(input_file_name, refer_file_name, moved_chain_id, fixed_chain_id, r_
 	theta_y = []
 	theta_z = []
 	d=[]
+	coords_x = []
+	coords_y = []
+	coords_z = []
+	matrix_entries = [_[:] for _ in [[]]*9]
 
 	for model_number, model in enumerate(structure):
 		chain_moved = structure[model_number][moved_chain_id]
@@ -71,20 +75,18 @@ def analyse(input_file_name, refer_file_name, moved_chain_id, fixed_chain_id, r_
 		com_denominator=0.0
 		com_numerator = Vector(0,0,0)
 		
+		x = moved_centre._ar[0]
+		y = moved_centre._ar[1]
+		z = moved_centre._ar[2]
+		coords_x.append(x)
+		coords_y.append(y)
+		coords_z.append(z)
+		
 		d.append((moved_centre - fixed_centre).norm())
 		if moved_centre.norm() > 1e-6:
 			theta.append(moved_centre.angle(Vector(0,0,1)))
-			
-			x = moved_centre._ar[0]
-			y = moved_centre._ar[1]
 			norm = np.sqrt(x*x + y*y)
 			if norm > 1e-6:
-				'''
-				if y>0:
-					phi.append(np.arccos(x/norm))
-				else:
-					phi.append(np.arccos(x/norm) + np.pi)
-				'''
 				phi.append(np.arctan2(y,x))
 		else:
 			theta.append(0.0)
@@ -100,24 +102,39 @@ def analyse(input_file_name, refer_file_name, moved_chain_id, fixed_chain_id, r_
 		theta_x.append(np.arctan2(R[2][1], R[2][2]))
 		theta_y.append(np.arctan2(-R[2][0], np.sqrt(R[2][1]*R[2][1]+R[2][2]*R[2][2])))
 		theta_z.append(np.arctan2(R[1][0], R[0][0]))
+		for _ in range(3):
+			matrix_entries[_].append(R[0][_])
+			matrix_entries[_+3].append(R[1][_])
+			matrix_entries[_+6].append(R[2][_])
 
-	f_results = open(output_file, "w+")
+	f_results1 = open(output_file1, "w+")
 	for frame in range(0,len(structure)):
-		f_results.write(str(frame)+'\t'+str(d[frame])+'\t'+str(theta[frame])+'\t'+str(phi[frame])+'\t'+str(theta_x[frame])+'\t'+str(theta_y[frame])+'\t'+str(theta_z[frame])+'\n')
-	f_results.close()
+		f_results1.write(str(frame)+'\t'+str(d[frame])+'\t'+str(theta[frame])+'\t'+str(phi[frame])+'\t'+str(theta_x[frame])+'\t'+str(theta_y[frame])+'\t'+str(theta_z[frame])+'\n')
+	f_results1.close()
+	f_results2 = open(output_file2, "w+")
+	for frame in range(0,len(structure)):
+		f_results2.write(str(frame)+'\t'+str(coords_x[frame])+'\t'+str(coords_y[frame])+'\t'+str(coords_z[frame])+'\t')
+		for _ in range(3):
+			f_results2.write(str(matrix_entries[_][frame])+'\t')
+			f_results2.write(str(matrix_entries[_+3][frame])+'\t')
+			f_results2.write(str(matrix_entries[_+6][frame])+'\t')
+		f_results2.write('\n')
+	f_results2.close()
 	
 def analyse_trjs(parametersobject):
 	pd = parametersobject.parameterdic
 	dd = parametersobject.deriveddic
+	Python2_command = pd['Python2_command']
 	Path_to_awsem = pd['Path_to_awsem']
 	Number_of_orientations = pd['Number_of_orientations']
 	name = pd['Initial_dimer_pdb'][:-4]
 	for i in range(1,1+Number_of_orientations):
 		print("Analysing trajectory number\t"+str(i))
 		location = os.path.normpath(Path_to_awsem+'/dimer_interface_protocol/Build_pdb_with_models.py')
-		os.system('python2 '+location+" r_"+str(i).zfill(3)+".lammpstrj t_"+str(i).zfill(3)+" "+name+"_recentred"+".seq")
-		input_file_name = 't_'+str(i).zfill(3)+'.pdb'
-		output_file = 'angles_'+str(i).zfill(3)+".txt"
+		os.system(Python2_command+' '+location+" md_output/r_"+str(i).zfill(3)+".lammpstrj pdb_trajectories/t_"+str(i).zfill(3)+" "+name+"_recentred"+".seq")
+		input_file_name = 'pdb_trajectories/t_'+str(i).zfill(3)+'.pdb'
+		output_file1 = 'analysis/angles_'+str(i).zfill(3)+".txt"
+		output_file2 = 'analysis/coord_matrix_'+str(i).zfill(3)+".txt"
 		if dd['first_chain_is_bigger']:
 			fixed_chain_id = 'A'
 			r_fixed_chain_id = 'A'
@@ -137,5 +154,6 @@ def analyse_trjs(parametersobject):
 			r_fixed_chain_id = r_fixed_chain_id,
 			r_moved_chain_id = r_moved_chain_id,
 			r_model_number = 0,
-			output_file = output_file
+			output_file1 = output_file1,
+			output_file2 = output_file2
 		)

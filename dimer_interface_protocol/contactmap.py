@@ -66,7 +66,7 @@ def contactmap_draw(parametersobject):
 	residues1 = dd['first_chain_length']
 	residues2 = dd['second_chain_length']
 	chain_boundary = dd['first_chain_max_id']
-	f_data = open("contactmap.dat", "r")
+	f_data = open("analysis/contactmap.dat", "r")
 	contact_min = pd['Contact_map_min_distance']
 	contact_max = pd['Contact_map_max_distance']
 	
@@ -88,8 +88,8 @@ def contactmap_draw(parametersobject):
 	plt.xlabel('chain '+dd['first_chain'])
 	plt.ylabel('chain '+dd['second_chain'])
 	plt.colorbar()
-	plt.savefig('contactmap.png', bbox_inches = 'tight')
-	plt.savefig('contactmap.svg', bbox_inches = 'tight')
+	plt.savefig('results_main/contactmap.png', bbox_inches = 'tight')
+	#plt.savefig('results_main/contactmap.svg', bbox_inches = 'tight')
 	plt.close()
 	plt.imshow(average_img, origin = 'lower', interpolation ='nearest', cmap = 'rainbow')
 	ax = plt.gca()
@@ -97,13 +97,13 @@ def contactmap_draw(parametersobject):
 	plt.xlabel('chain '+dd['first_chain'])
 	plt.ylabel('chain '+dd['second_chain'])
 	plt.colorbar()
-	plt.savefig('contactmap_free.png', bbox_inches = 'tight')
-	plt.savefig('contactmap_free.svg', bbox_inches = 'tight')
+	plt.savefig('results_main/contactmap_free.png', bbox_inches = 'tight')
+	#plt.savefig('results_main/contactmap_free.svg', bbox_inches = 'tight')
 	plt.close()
 	for o in range(1,orientations+1):
 		sys.stdout.write("Writing contact map %d out of %d\r" % (o, orientations))
 		sys.stdout.flush()
-		f_data = open("individual/cmap_"+str(o).zfill(3)+".dat", "r")
+		f_data = open("analysis/cmap_"+str(o).zfill(3)+".dat", "r")
 		img = []
 		for i in range(residues1):
 			line = next(f_data).strip()
@@ -118,7 +118,7 @@ def contactmap_draw(parametersobject):
 		plt.xlabel('chain '+dd['first_chain'])
 		plt.ylabel('chain '+dd['second_chain'])
 		plt.colorbar()
-		plt.savefig('individual/cmap_'+str(o).zfill(3)+'.png', bbox_inches = 'tight')
+		plt.savefig('results_individual/cmap_'+str(o).zfill(3)+'.png', bbox_inches = 'tight')
 		plt.close()
 
 	
@@ -135,7 +135,6 @@ def contactmap_getdata(parametersobject):
 	residues1 = dd['first_chain_length']
 	residues2 = dd['second_chain_length']
 	chain_boundary = dd['first_chain_max_id']
-	f_data = open("contactmap.dat", "w+")
 	orientations = pd['Number_of_orientations']
 	
 	reading_atoms = False
@@ -145,8 +144,8 @@ def contactmap_getdata(parametersobject):
 	count = 0
 	for i in range(1,orientations+1):
 		end = False
-		infile = open("r_"+str(i).zfill(3)+".lammpstrj", "r")
-		individual_outfile = open("individual/cmap_"+str(i).zfill(3)+".dat", "w+")
+		infile = open("md_output/r_"+str(i).zfill(3)+".lammpstrj", "r")
+		individual_outfile = open("analysis/cmap_"+str(i).zfill(3)+".dat", "w+")
 		individual_img = [x[:] for x in [[0.0] * residues2] * residues1]
 		frames = 0
 		individual_count = 0
@@ -172,7 +171,7 @@ def contactmap_getdata(parametersobject):
 		count+=individual_count
 		
 	
-	f_data = open("contactmap.dat", "w+")
+	f_data = open("analysis/contactmap.dat", "w+")
 	for i in range(residues1):
 		for j in range(residues2):
 			average_img[i][j] /= count

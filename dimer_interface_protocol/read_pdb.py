@@ -10,6 +10,7 @@ def read_pdb(parametersobject):
 	sys.stdout = open(os.devnull, 'w')
 	pdbname = parametersobject.parameterdic['Initial_dimer_pdb']
 	Path_to_awsem = parametersobject.parameterdic['Path_to_awsem']
+	Python2_command = parametersobject.parameterdic['Python2_command']
 	name = pdbname[:-4]
 	structure = PDBParser(PERMISSIVE=1).get_structure('init', pdbname)
 	if len(structure) > 1:
@@ -54,10 +55,27 @@ def read_pdb(parametersobject):
 	w.save(name+'_recentred.pdb')
 	
 	
-	os.system("python2 "+Path_to_awsem+"/create_project_tools/PDBToCoordinates.py "+name+"_recentred "+name+"_recentred"+".coord")
-	os.system("python2 "+Path_to_awsem+"/create_project_tools/CoordinatesToWorkLammpsDataFile.py "+name+"_recentred"+".coord "+name+"_recentred"+".data -b")
-	os.system("python2 "+Path_to_awsem+"/frag_mem_tools/Pdb2Gro.py "+name+"_recentred "+" chain1.gro "+chain[0].id)
-	os.system("python2 "+Path_to_awsem+"/frag_mem_tools/Pdb2Gro.py "+name+"_recentred "+" chain2.gro "+chain[1].id)
+	
+	
+	
+	cwd = os.getcwd()
+	
+	directorynames = ['md_input', 'md_output', 'analysis', 'results_main', 'results_individual', 'pdb_trajectories']
+	
+	for d in directorynames:
+		directory = os.path.normpath(cwd+'/'+d)
+		try:
+			os.makedirs(directory)
+		except OSError as e:
+			pass
+	
+	
+	
+	
+	os.system(Python2_command+" "+Path_to_awsem+"/create_project_tools/PDBToCoordinates.py "+name+"_recentred "+name+"_recentred"+".coord")
+	os.system(Python2_command+" "+Path_to_awsem+"/create_project_tools/CoordinatesToWorkLammpsDataFile.py "+name+"_recentred"+".coord "+name+"_recentred"+".data -b")
+	os.system(Python2_command+" "+Path_to_awsem+"/frag_mem_tools/Pdb2Gro.py "+name+"_recentred "+" md_input/chain1.gro "+chain[0].id)
+	os.system(Python2_command+" "+Path_to_awsem+"/frag_mem_tools/Pdb2Gro.py "+name+"_recentred "+" md_input/chain2.gro "+chain[1].id)
 	f_data = open(name+"_recentred"+".data", "r")
 	f_lammps = open(name+"_recentred"+".lammpstrj", "w+")
 	f_lammps.write("ITEM: TIMESTEP\n0\nITEM: BOX BOUNDS ff ff ff\n")
@@ -83,10 +101,12 @@ def read_pdb(parametersobject):
 				
 	f_lammps.close()
 	f_data.close()
-	location = os.path.normpath(Path_to_awsem+"results_analysis_tools/BuildAllAtomsFromLammps_seq_multichain.py "+name+"_recentred"+".lammpstrj")
-	os.system("python2 "+location+" refpdb "+name+"_recentred"+".seq")
-	sys.stdout = actualstdout
 	
+	
+	location = os.path.normpath(Path_to_awsem+"results_analysis_tools/BuildAllAtomsFromLammps_seq_multichain.py "+name+"_recentred"+".lammpstrj")
+	os.system(Python2_command+" "+location+" refpdb "+name+"_recentred"+".seq")
+	sys.stdout = actualstdout
+	os.remove("refpdb.psf")
 	os.remove(name+"_recentred"+".lammpstrj")
 	os.remove(name+"_recentred"+".data")
 	os.remove(name+"_recentred"+".coord")
@@ -100,4 +120,7 @@ def read_pdb(parametersobject):
 	d['first_chain_max_id'] = first_chain_max_id
 	d['first_chain_is_bigger'] = first_chain_is_bigger
 	parametersobject.save_derived()
+	
+	
+	
 	

@@ -1,0 +1,32 @@
+========================29.01.96 ==========================
+
+1. I can not supply the compiled Vax VMS version any
+   more since I have no access to old VAXes. OPENVMS
+   version is still available.
+2. Bug fixed: if a PDB file has no HEADER record,
+   or if this record does not contain the 4-letter
+   structure code, STRIDE produces output with no
+   line breaks. This has now been fixed. I thank
+   STRIDE users for reporting this bug
+3. Please note that the maximal number of atoms in
+   one residue is set to 50. This is in principle
+   more than enough. However, if your coordinate set
+   contains large things (like FAD) which are erraneously
+   in the ATOM records, STRIDE will not work. Such groups
+   should be put in HETATM records, where the current limit
+   is 200 atoms. You can always change these limits by
+   modifying the following two lines in the file stride.h:
+
+   #define MAX_AT_IN_RES             50
+   #define MAX_AT_IN_HETERORES       200
+	
+
+===========================================================
+
+
+Dmitrij Frishman
+European Molecular Biology Laboratory
+Meyerhofstr. 1, 69012 Heidelberg, Germany
+tel. +49 -6221 - 387231
+fax. +49 -6221 - 387517
+frishman@mailserver.embl-heidelberg.de

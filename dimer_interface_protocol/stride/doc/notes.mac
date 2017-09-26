@@ -1,0 +1,58 @@
+
+
+STRIDE was initially developed for UNIX and thoroughly tested on 3000 PDB files and many
+different computers. For Macintosh I compiled STRIDE using the commercially available Metrowerks C
+compiler. Two versions of the executable were prepared stored in BinHex format: mac68K.hqx for older 
+Macs and powmac.hqx for PowerMacintosh.
+
+NOTE ABOUT INTERFACE: STRIDE uses unix-style command line interface. Since Mac has no command
+line, I had to use the SIOUX console IO library and modify main() (file stride.c) by adding 
+just two lines in the very beginning:
+
+---------------------------------------------------------
+
+#include "stride.h"
+#include <console.h>	/* First modification */
+
+main()....
+
+..............
+
+
+argc = ccommand(&argv); /* Second modification */
+
+---------------------------------------------------------
+
+Note that these two lines are commented out in the source code, so if you want to recompile
+the program, you will have to uncomment them.
+
+
+Now if you click on the appropriate executable, a simple window pops up where you can type
+all command line parameters exactly as under UNIX, for example:
+
+1acp.brk -h -f1acp.str (see documentation).
+
+After you press RETURN, the computer will freeze for 1 to 20 minutes, dependent on the PDB 
+structure size, and then come back to life again. The PowerMac version is 10-20 times faster
+on a PowerMac than mac68K.bin.
+
+If you need a fancier, more Macintosh-like interface, you are more than welcome to develop
+it. I am perfectly willing to cooperate, so please do not hesitate to contact me.
+
+IMPORTANT NOTE: I am not a Mac expert and this is the first time I used a Mac for anything 
+other than typing text. I have no idea about Mac's architecture. For example, the current
+settings of minimal and typical memory required for the program and stack size were made 
+essentially randomly. You might want to change these settings using the appropriate Mac 
+utilities. Any feedback is welcome. Also, since I do not know how to run command scripts 
+on Mac (is it possible?), the only way for me to test the program was to type command line 
+parameters for every PDB file. I did it for about 100 randomly selected PDB structures and 
+the results were correct. Still this is only a limited test...
+
+
+
+Dmitrij Frishman
+European Molecular Biology Laboratory
+Meyerhofstr. 1, 69012 Heidelberg, Germany
+tel. +49 -6221 - 387231
+fax. +49 -6221 - 387517
+frishman@embl-heidelberg.de

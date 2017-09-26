@@ -209,7 +209,7 @@ if go:
 
 space11 = "           "
 out = open(out_file,'w')
-out.write("LAMMPS protain data file\n\n")
+out.write("LAMMPS protein data file\n\n")
 
 out.write( (space11+str(n_atoms))[-12:] + "  atoms\n" )
 out.write( (space11+str(n_bonds))[-12:] + "  bonds\n" )

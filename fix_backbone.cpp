@@ -6,13 +6,13 @@
 
    Solvent Separated Barrier Potential was contributed by Nick Schafer
 
-   Last Update: 03/23/2011
+   Last Update: 12/20/2017
    ------------------------------------------------------------------------- */
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "math.h"
+#include "stdio.h"
+#include "string.h"
+#include "stdlib.h"
 #include "fix_backbone.h"
 #include "atom.h"
 #include "update.h"
@@ -48,6 +48,7 @@ using namespace FixConst;
 // {"ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"};
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
 int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 16, 0, 19, 17, 0, 18, 0};
+char one_letter_code[] = {'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V'};
 
 // Four letter classes
 // 1) SHL: Small Hydrophilic (ALA, GLY, PRO, SER THR) or (A, G, P, S, T) or {0, 7, 14, 15, 16}
@@ -55,6 +56,7 @@ int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 1
 // 3) BAS: Basic (ARG HIS LYS) or (R, H, K) or {1, 8, 11}
 // 4) HPB: Hydrophobic (CYS, ILE, LEU, MET, PHE, TRP, TYR, VAL) or (C, I, L, M, F, W, Y, V)  or {4, 9, 10, 12, 13, 17, 18, 19}
 int bb_four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4, 4};
+bool firsttimestep = true;
 
 void itoa(int a, char *buf, int s)
 {
@@ -82,7 +84,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 7) error->all(FLERR,"Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
-	
+  fmenergiesfile = fopen("fmenergies.log", "w");
+
   char buff[5];
   char forcefile[20]="";
   itoa(comm->me+1,buff,10);
@@ -91,7 +94,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   strcat(forcefile, ".dat");
   dout = fopen(forcefile, "w");
 	
-  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tSSB     \tVTotal\n";
+  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tMembrane\tSSB     \tElectro.\tVTotal\n";
   fprintf(efile, "%s", eheader);
 
   scalar_flag = 1;
@@ -104,7 +107,13 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
   abc_flag = chain_flag = shake_flag = chi_flag = rama_flag = rama_p_flag = excluded_flag = p_excluded_flag = r6_excluded_flag = 0;
   ssweight_flag = dssp_hdrgn_flag = p_ap_flag = water_flag = burial_flag = helix_flag = amh_go_flag = frag_mem_flag = vec_frag_mem_flag = 0;
-  ssb_flag = frag_mem_tb_flag = vec_frag_mem_tb_flag = phosph_flag = 0;
+  ssb_flag = frag_mem_tb_flag = phosph_flag = amylometer_flag = memb_flag = selection_temperature_flag = 0;
+  frag_frust_flag = tert_frust_flag = nmer_frust_flag = optimization_flag = burial_optimization_flag = 0;
+  huckel_flag = debyehuckel_optimization_flag = 0;
+  shuffler_flag = 0;
+  mutate_sequence_flag = 0;
+  monte_carlo_seq_opt_flag = 0;
+
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
 	
@@ -264,6 +273,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_amh_go;
       in >> amh_go_p;
       in >> amh_go_rc;
+      in >> frustration_censoring_flag;
     } else if (strcmp(varsection, "[Fragment_Memory]")==0) {
       frag_mem_flag = 1;
       if (comm->me==0) print_log("Fragment_Memory flag on\n");
@@ -287,16 +297,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_vec_frag_mem;
       in >> vfm_sigma;
       vfm_sigma_sq = vfm_sigma*vfm_sigma;
-    } else if (strcmp(varsection, "[Vector_Fragment_Memory_Table]")==0) {
-      vec_frag_mem_tb_flag = 1;
-      if (comm->me==0) print_log("Vector_Fragment_Memory_Table flag on\n");
-      in >> k_vec_frag_mem;
-      in >> vfm_sigma;
-      in >> vfm_tb_size;
-      vfm_sigma_sq = vfm_sigma*vfm_sigma;
-      vfm_tb_vmin = 0.0;
-      vfm_tb_vmax = M_PI;
-      vfm_tb_dv = (vfm_tb_vmax - vfm_tb_vmin)/(double)vfm_tb_size;
     } else if (strcmp(varsection, "[Solvent_Barrier]")==0) {
       ssb_flag = 1;
       if (comm->me==0) print_log("Solvent separated barrier flag on\n");
@@ -309,6 +309,74 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> ssb_rad_cor;
       for (int j=0;j<20;++j)
         in >> ssb_rshift[j];
+    } else if (strcmp(varsection, "[Membrane]")==0) {
+      memb_flag = 1;
+      print_log("Membrane flag on\n");
+      in >> k_overall_memb;
+      in >> memb_dens_offset;
+      in >> k_bin;
+      in >> memb_xo[0] >> memb_xo[1] >> memb_xo[2];
+      in >> memb_pore_type;
+      in >> memb_len;
+      in >> rho0_max;
+      in >> rho0_distor;
+      for (int i=0;i<3;++i)
+        for (int j=0;j<4;++j) 
+          in >> g_memb[i][j]; 
+    } else if (strcmp(varsection, "[Fragment_Frustratometer]")==0) {
+      // The fragment frustratometer requires the fragment memory potential to be active
+      if (!frag_mem_flag && !frag_mem_tb_flag) error->all(FLERR,"Cannot run Fragment_Frustratometer without Fragment_Memory or Fragment_Memory_Table.");
+      frag_frust_flag = 1; // activate flag for fragment frustratometer
+      if (comm->me==0) print_log("Fragment_Frustratometer flag on\n");
+      in >> frag_frust_mode; // the possible modes are "read" and "shuffle"
+      if (strcmp(frag_frust_mode, "shuffle")==0) {
+	if (comm->me==0) print_log("Fragment_Frustratometer in shuffle mode\n");
+	frag_frust_shuffle_flag=1; // activate "shuffle" specific flag
+	in >> decoy_mems_file; // read in the decoy fragments that will be shuffled to generated decoy energies
+	in >> num_decoy_calcs; // this is the number of times that the decoy fragments will be shuffled
+	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
+      }
+      else if (strcmp(frag_frust_mode, "read")==0) {
+	if (comm->me==0) print_log("Fragment_Frustratometer in read mode\n");
+	frag_frust_read_flag=1; // activate "read" specific flag
+	in >> decoy_mems_file; // read in the decoy structures that will be used to generate the decoy energies
+	in >> frag_frust_output_freq; // this is the number of steps between frustration calculations
+	in >> frag_frust_well_width; // parameter to tune well width, default is 1.0
+	in >> frag_frust_seqsep_flag >> frag_frust_seqsep_gamma; // flag and parameter to tune sequence separation dependent gamma
+	in >> frag_frust_normalizeInteraction; // flag that determines whether or not the fragment interaction is normalized by the width of the interaction
+      }
+      else {
+	// throw an error if the "mode" is anything but "read" or "shuffle"
+	error->all(FLERR,"Only \"shuffle\" and \"read\" are acceptable modes for the Fragment_Frustratometer.");
+      }
+    } else if (strcmp(varsection, "[Tertiary_Frustratometer]")==0) {
+      tert_frust_flag = 1;
+      if (comm->me==0) print_log("Tertiary_Frustratometer flag on\n");
+      in >> tert_frust_cutoff;
+      in >> tert_frust_ndecoys;
+      in >> tert_frust_output_freq;
+      in >> tert_frust_mode;
+      // Set the value of this flag to 0 so that the configurational decoy statistics will be computed at least once
+      already_computed_configurational_decoys = 0;
+      if (strcmp(tert_frust_mode, "configurational")!=0 && strcmp(tert_frust_mode, "mutational")!=0 && strcmp(tert_frust_mode, "singleresidue")!=0) {
+	// throw an error if the "mode" is anything but "configurational" or "mutational"
+	error->all(FLERR,"Only \"configurational\", \"mutational\", \"singleresidue\" are acceptable modes for the Tertiary_Frustratometer.");
+      }
+    } else if (strcmp(varsection, "[Nmer_Frustratometer]")==0) {
+      nmer_frust_flag = 1;
+      if (comm->me==0) print_log("Nmer_Frustratometer flag on\n");
+      in >> nmer_frust_size;
+      in >> nmer_frust_cutoff;
+      in >> nmer_contacts_cutoff;
+      in >> nmer_frust_ndecoys;
+      in >> nmer_frust_output_freq;
+      in >> nmer_frust_min_frust_threshold >> nmer_frust_high_frust_threshold >> nmer_output_neutral_flag;
+      in >> nmer_frust_trap_flag >> nmer_frust_draw_trap_flag >> nmer_frust_trap_num_sigma >> nmer_frust_ss_frac;
+      in >> nmer_frust_mode;
+      if (strcmp(nmer_frust_mode, "pairwise")!=0 && strcmp(nmer_frust_mode, "singlenmer")!=0) {
+	// throw an error if the "mode" is anything but "configurational" or "mutational"
+	error->all(FLERR,"Only \"pairwise\", \"singlenmer\" are acceptable modes for the Nmer_Frustratometer.");
+      }	    
     } else if (strcmp(varsection, "[Phosphorylation]")==0) {
       if (!water_flag) error->all(FLERR,"Cannot run phosphorylation without water potential");
       phosph_flag = 1;
@@ -318,13 +386,84 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       if (n_phosph_res > 20) error->all(FLERR,"Number of phosphorylated residues may not exceed 20");
       for (int i=0;i<n_phosph_res;++i)
 	in >> phosph_res[i];
-      
-    } else if (strcmp(varsection, "[Epsilon]")==0)
+    } else if (strcmp(varsection, "[Epsilon]")==0) {
       in >> epsilon;
+    } else if (strcmp(varsection, "[Amylometer]")==0) {
+      amylometer_flag = 1;
+      if (comm->me==0) print_log("Amylometer flag on\n");
+      in >> amylometer_sequence_file;
+      in >> amylometer_nmer_size;
+      // 1 == self-only, 2 == heterogeneous
+      in >> amylometer_mode;
+      if (amylometer_mode == 2) {
+	in >> amylometer_structure_file;
+	in >> amylometer_contact_cutoff;
+      }
+      read_amylometer_sequences(amylometer_sequence_file, amylometer_nmer_size, amylometer_mode);
+    } else if (strcmp(varsection, "[Selection_Temperature]")==0) {
+      selection_temperature_flag = 1;
+      if (comm->me==0) print_log("Selection_Temperature flag on \n");
+      // outputting interaction energies
+      in >> selection_temperature_output_frequency;
+      in >> selection_temperature_output_interaction_energies_flag;
+      in >> selection_temperature_file_name;
+      // evaluating multiple sequence energies
+      in >> selection_temperature_evaluate_sequence_energies_flag;
+      in >> selection_temperature_sequences_file_name;
+      in >> selection_temperature_residues_file_name;
+      in >> selection_temperature_sequence_energies_output_file_name;
+      // outputting contact lists
+      in >> selection_temperature_output_contact_list_flag;
+      in >> selection_temperature_rij_cutoff;
+      in >> selection_temperature_min_seq_sep;
+      in >> selection_temperature_output_contact_list_file_name;
+    } else if (strcmp(varsection, "[Monte_Carlo_Seq_Opt]")==0) {
+      monte_carlo_seq_opt_flag = 1;
+      if (comm->me==0) print_log("Monte_Carlo_Seq_Opt flag on \n");
+      in >> mcso_start_temp >> mcso_end_temp >> mcso_num_steps;
+      in >> mcso_seq_output_file_name;
+      in >> mcso_energy_output_file_name;
+    } else if (strcmp(varsection, "[Optimization]")==0) {
+      optimization_flag = 1;
+      if (comm->me==0) print_log("Optimization flag on\n");
+      in >> optimization_output_freq;
+    }
+    else if (strcmp(varsection, "[Burial_Optimization]")==0) {
+      burial_optimization_flag = 1;
+      if (comm->me==0) print_log("Burial Optimization flag on\n");
+      in >> burial_optimization_output_freq;
+    } else if (strcmp(varsection, "[DebyeHuckel]")==0) {
+      huckel_flag = 1;
+      if (comm->me==0) print_log("DebyeHuckel on\n");
+      in >> k_PlusPlus >> k_MinusMinus >> k_PlusMinus;
+      in >> k_screening;
+      in >> screening_length;
+      fprintf(screen, "Debye-Huckel Screening Length = %8.6f Angstroms\n", screening_length);  
+      in >> debye_huckel_min_sep;
+    } else if (strcmp(varsection, "[DebyeHuckel_Optimization]")==0) {
+      debyehuckel_optimization_flag = 1;
+      if (comm->me==0) print_log("DebyeHuckel_Optimization flag on\n");
+      in >> debyehuckel_optimization_output_freq;
+    } else if (strcmp(varsection, "[Shuffler]")==0) {
+      in >> shuffler_flag;
+      in >> shuffler_mode;
+      if ( shuffler_flag == 1 ) {
+	if (comm->me==0) print_log("Shuffler flag on\n");
+      }
+    } else if (strcmp(varsection, "[Mutate_Sequence]")==0) {
+      in >> mutate_sequence_flag;
+      in >> mutate_sequence_sequences_file_name;
+      if ( mutate_sequence_flag == 1 ) {
+	if (comm->me==0) print_log("Mutate_Sequence flag on\n");
+      }
+    } 
+      
     varsection[0]='\0'; // Clear buffer
   }
   in.close();
   if (comm->me==0) print_log("\n");
+
+  // Do senity check to make sure that e.g. water potential is on when needed by other function
 	
   force_flag = 0;
   n = (int)(group->count(igroup)+1e-12);
@@ -408,6 +547,17 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     in_ssw.close();
   }
 
+  if (memb_flag) {
+    ifstream in_memb_zim("zim");
+    if (!in_memb_zim) error->all(FLERR,"File zim doesn't exist");
+    // what's happen if zim file is not correct
+    for (i=0;i<n;++i) {
+      in_memb_zim >> z_res[i];
+    }
+    in_memb_zim.close();
+  }
+
+
   if (water_flag) {
     ifstream in_wg("gamma.dat");
     if (!in_wg) error->all(FLERR,"File gamma.dat doesn't exist");
@@ -487,7 +637,34 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     if (m_amh_go->error==m_amh_go->ERR_FILE) error->all(FLERR,"Cannot read file amh-go.gro");
     if (m_amh_go->error==m_amh_go->ERR_ATOM_COUNT) error->all(FLERR,"AMH_Go: Wrong atom count in memory structure file");
     if (m_amh_go->error==m_amh_go->ERR_RES) error->all(FLERR,"AMH_Go: Unknown residue");
-		
+
+    // if frustration censoring flag is 1, read in frustration censored interactions
+    if (frustration_censoring_flag == 1) {
+      std::ifstream infile("frustration_censored_contacts.dat");
+      int i, j;
+      while(infile >> i >> j) {
+	frustration_censoring_map[i-1][j-1] = 1;
+      }
+    }
+    
+    //if frustration censoring is 2, read in rnative distances for DCA predicted Go
+    if (frustration_censoring_flag == 2) {
+      std::ifstream in_rnativeCACA("go_rnativeCACA.dat");
+      std::ifstream in_rnativeCBCB("go_rnativeCBCB.dat");
+      std::ifstream in_rnativeCACB("go_rnativeCACB.dat");
+      if (!in_rnativeCACA || !in_rnativeCACB || !in_rnativeCBCB) error->all(FLERR,"Go native distance file can't be read");
+      for (i=0;i<n;++i) {
+        for (j=0;j<n;++j) {
+          in_rnativeCACA >> r_nativeCACA[i][j];
+          in_rnativeCBCB >> r_nativeCBCB[i][j];
+          in_rnativeCACB >> r_nativeCACB[i][j];
+        }
+      }
+      in_rnativeCACA.close();
+      in_rnativeCBCB.close();
+      in_rnativeCACB.close();
+    }
+    
     // Calculate normalization factor for AMH-GO potential
     compute_amhgo_normalization();
   }
@@ -534,6 +711,210 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     }
   }
   
+  // if the fragment frustratometer flag is on, perform appropriate initializations
+  if (frag_frust_flag) {
+    // open fragment frustration file for writing
+    fragment_frustration_file = fopen("fragment_frustration.dat","w");
+    fragment_frustration_gap_file = fopen("fragment_frustration_gap.dat","w");
+    fragment_frustration_variance_file = fopen("fragment_frustration_variance.dat","w");
+    fragment_frustration_decoy_data = fopen("fragment_frustration_decoy.dat","w");
+    fragment_frustration_native_data = fopen("fragment_frustration_native.dat","w");
+
+    if (comm->me==0) print_log("Reading decoy fragments...\n");
+    // create a decoy memory array by reading in the appropriate file
+    decoy_mems = read_mems(decoy_mems_file, n_decoy_mems); // n_decoy_mems is set equal to the number of decoys in the read_mems function
+    // because the number of decoy calculations is set by the size of the decoy list in "read" mode, we need to initialize the variable here
+    if (frag_frust_read_flag) {
+      num_decoy_calcs = n_decoy_mems+1; // add one so that the "native" energy can occupy the 0 index
+    }
+
+    // allocate decoy_mem_map and ilen_decoy_map
+    ilen_decoy_map = new int[n]; // Number of decoys for residue i
+    decoy_mem_map = new int*[n]; // decoy Memory Fragments map
+    for (i=0;i<n;++i) {
+      ilen_decoy_map[i] = 0;
+      decoy_mem_map[i] = NULL;
+    }
+	
+    // Fill Decoy Memory map
+    int k, pos, len, min_sep;
+    min_sep = fm_gamma->minSep();
+    for (k=0;k<n_decoy_mems;++k) {
+      pos = decoy_mems[k]->pos;
+      len = decoy_mems[k]->len;
+      
+      if (pos+len>n) {
+	fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
+	error->all(FLERR,"Fragment_Frustratometer: Incorrectly defined memory fragment");
+      }
+      
+      for (i=pos; i<pos+len-min_sep; ++i) {
+	ilen_decoy_map[i]++;
+	decoy_mem_map[i] = (int *) memory->srealloc(decoy_mem_map[i],ilen_decoy_map[i]*sizeof(int),"modify:decoy_mem_map");
+	decoy_mem_map[i][ilen_decoy_map[i]-1] = k;
+      }
+    }
+
+    // Allocate decoy_energy array
+    decoy_energy = new double*[n];
+    for (i=0;i<n;i++)
+      {
+	decoy_energy[i] = new double[num_decoy_calcs];
+	for(int decoyindex=0; decoyindex<num_decoy_calcs; decoyindex++)
+	  {
+	    decoy_energy[i][decoyindex] = 0.0;
+	  }
+      }
+    // if in "read" mode, allocate per residue mean and variance arrays and compute generated decoy energies
+    if (frag_frust_read_flag)
+      {
+	frag_frust_read_mean = new double[n];
+	frag_frust_read_variance = new double[n];
+      }
+  }
+
+  // if tert_frust_flag is on, perform appropriate initializations
+  if(tert_frust_flag) {
+    tert_frust_decoy_energies = new double[tert_frust_ndecoys];
+    decoy_ixn_stats = new double[2];
+    tert_frust_output_file = fopen("tertiary_frustration.dat","w");
+    tert_frust_vmd_script = fopen("tertiary_frustration.tcl","w");
+    if (strcmp(tert_frust_mode, "configurational")==0 || strcmp(tert_frust_mode, "mutational")==0) {
+      fprintf(tert_frust_output_file,"# i j i_chain j_chain xi yi zi xj yj zj r_ij rho_i rho_j a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    }
+    else if (strcmp(tert_frust_mode, "singleresidue")==0) {
+      fprintf(tert_frust_output_file,"# i i_chain xi yi zi rho_i a_i native_energy <decoy_energies> std(decoy_energies) f_i\n");
+    }
+  }
+
+  // if nmer_frust_flag is on, perform appropriate initializations
+  if(nmer_frust_flag) {
+    nmer_frust_decoy_energies = new double[nmer_frust_ndecoys];
+    nmer_decoy_ixn_stats = new double[2];
+    nmer_seq_i = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_i[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_seq_j = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_j[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_seq_k = new char[nmer_frust_size+1]; // extend the array
+    nmer_seq_k[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_i = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_i[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_j = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_j[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_ss_k = new char[nmer_frust_size+1]; // extend the array
+    nmer_ss_k[nmer_frust_size] = '\0';       // and null terminate it so that it can be printed properly
+    nmer_frust_output_file = fopen("nmer_frustration.dat","w");
+    nmer_frust_vmd_script = fopen("nmer_frustration.tcl","w");
+    if (strcmp(nmer_frust_mode, "pairwise")==0) {
+      fprintf(nmer_frust_output_file,"# i j ncontacts a_i a_j native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    }
+    else if (strcmp(nmer_frust_mode, "singlenmer")==0) {
+      fprintf(nmer_frust_output_file,"# i a_i native_energy <decoy_energies> std(decoy_energies) f_ij\n");
+    }
+    if(nmer_frust_trap_flag) {
+      nmer_frust_trap_file = fopen("nmer_traps.dat", "w");
+      fprintf(nmer_frust_trap_file,"# i a_i ss_i j a_j ss_j threshold_energy k a_k ss_k direction trap_energy\n");
+    }
+  }
+
+  // Selection temperature file
+  if (selection_temperature_flag) {
+    if (selection_temperature_output_interaction_energies_flag) {
+      selection_temperature_file = fopen(selection_temperature_file_name, "w");
+    }
+    if (selection_temperature_evaluate_sequence_energies_flag) {
+      selection_temperature_sequence_energies_output_file = fopen(selection_temperature_sequence_energies_output_file_name, "w");
+      fprintf(selection_temperature_file, "# i j a_i a_j rij rho_i rho_j water burial_i burial_j\n");
+      // read in sequences in selection temperature sequences file
+      char temp_sequence[1000];
+      ifstream selection_temperature_sequences_file(selection_temperature_sequences_file_name);
+      selection_temperature_sequences_file >> num_selection_temperature_sequences;
+      selection_temperature_sequences = new char*[num_selection_temperature_sequences];
+      for (int i=0;i<num_selection_temperature_sequences;i++) {
+	selection_temperature_sequences[i] = new char[n];
+      }
+      for(int i_sequence = 0; i_sequence < num_selection_temperature_sequences; i_sequence++) {
+	selection_temperature_sequences_file >> temp_sequence;
+	strcpy(selection_temperature_sequences[i_sequence],temp_sequence);
+      }
+      selection_temperature_sequences_file.close();
+
+      // read in residues in selection temperature residues file
+      int temp_res_index;
+      ifstream selection_temperature_residues_file(selection_temperature_residues_file_name);
+      selection_temperature_residues_file >> num_selection_temperature_residues;
+      selection_temperature_residues = new int[num_selection_temperature_residues];
+      for(int i=0; i<num_selection_temperature_residues;i++) {
+	selection_temperature_residues_file >> temp_res_index;
+	selection_temperature_residues[i] = temp_res_index;
+      }
+      selection_temperature_residues_file.close();
+    }
+    if (selection_temperature_output_contact_list_flag) {
+      selection_temperature_contact_list_file = fopen(selection_temperature_output_contact_list_file_name, "w");
+    }
+  }
+
+  if (monte_carlo_seq_opt_flag) {
+    mcso_seq_output_file = fopen(mcso_seq_output_file_name, "w");
+    mcso_energy_output_file = fopen(mcso_energy_output_file_name, "w");
+  }
+
+  // if optimization_flag is on, perform appropriate initializations
+  if(optimization_flag) {
+    optimization_file = fopen("optimization_energies.dat","w");    
+    
+    native_optimization_file = fopen("native_optimization_energies.dat","w");
+    
+    optimization_norm_file = fopen("optimization_norms.dat","w");
+    native_optimization_norm_file = fopen("native_optimization_norms.dat","w");
+  }
+  
+  if (burial_optimization_flag) { 
+    burial_optimization_file = fopen("burial_optimization_energies.dat","w");
+    native_burial_optimization_file = fopen("native_burial_optimization_energies.dat","w");	
+    burial_optimization_norm_file = fopen("burial_optimization_norm.dat","w");
+  }
+
+  if (debyehuckel_optimization_flag) { 
+    debyehuckel_optimization_file = fopen("debyehuckel_optimization_energies.dat","w");
+    debyehuckel_native_optimization_file = fopen("debyehuckel_native_optimization_energies.dat","w");	
+    debyehuckel_optimization_norm_file = fopen("debyehuckel_optimization_norm.dat","w");
+    debyehuckel_native_optimization_norm_file = fopen("debyehuckel_native_optimization_norm.dat","w");
+  }
+
+  // if optimization_flag is on, perform appropriate initializations
+  if(average_sequence_optimization_flag) {
+    average_sequence_optimization_file = fopen("average_sequence_optimization_energies.dat","w");    
+    average_sequence_optimization_norm_file = fopen("average_sequence_optimization_norms.dat","w");
+    ifstream in_average_sequence(average_sequence_input_file_name);
+    for(i=0;i<n;i++) {
+      for(j=0;j<20;j++) {
+	in_average_sequence >> average_sequence[i][j];
+      }
+    }
+    in_average_sequence.close();
+  }
+
+  // if Mutate_Sequence flag is on, perform the appropriate initializations
+  if (mutate_sequence_flag) {
+    // read in sequences in selection temperature sequences file
+    char temp_sequence[1000];
+    ifstream mutate_sequence_sequences_file(mutate_sequence_sequences_file_name);
+    mutate_sequence_sequences_file >> mutate_sequence_number_of_sequences;
+    mutate_sequence_sequences = new char*[mutate_sequence_number_of_sequences];
+    for (int i=0;i<mutate_sequence_number_of_sequences;i++) {
+      mutate_sequence_sequences[i] = new char[n];
+    }
+    for(int i_sequence = 0; i_sequence < mutate_sequence_number_of_sequences; i_sequence++) {
+      mutate_sequence_sequences_file >> temp_sequence;
+      strcpy(mutate_sequence_sequences[i_sequence],temp_sequence);
+    }
+    mutate_sequence_sequences_file.close();
+    
+    mutate_sequence_sequence_index = 0;
+  }
+  
   // Allocate FM the table
   if (frag_mem_tb_flag) {
     if (fm_gamma->maxSep()!=-1)
@@ -550,38 +931,44 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     if (comm->me==0) print_log("Computing FM table...\n");
     compute_fragment_memory_table();
   }
-  
-  // Allocate VFM the table
-  if (vec_frag_mem_tb_flag) {
-  	if (fm_gamma->maxSep()!=-1)
-      tb_nbrs = fm_gamma->maxSep()-fm_gamma->minSep()+1;
-    else
-      tb_nbrs = n - fm_gamma->minSep();
-  	
-  	vfm_table = new TBV*[n*tb_nbrs];
-  	
-  	for (i=0; i<n*tb_nbrs; ++i) {
-      vfm_table[i] = NULL;
-    }
-  	
-  	if (comm->me==0) print_log("Computing VFM table...\n");
-    compute_vector_fragment_memory_table();
+
+  // If using Debye_Huckel potential, read charges from file
+  // Skip if DebyeHuckel optimization is on, because it uses a residue type based potential
+  // instead of residue index based potential (so that sequence shuffling can be used)
+  if (huckel_flag && !debyehuckel_optimization_flag) {
+    int residue_number, total_residues; 
+    double charge_value;
+    double total_charge =0;
+    ifstream input_charge("charge_on_residues.dat");
+    if (!input_charge) error->all(FLERR,"File charge_on_residues.dat doesn't exist");
+    input_charge >> total_residues;
+    
+    //fprintf(screen, "check charge data \n");
+    fprintf(screen, "Number of Charge input = %5d \n", total_residues);
+    for(int ires = 0; ires<total_residues; ires++)
+      {
+	input_charge >> residue_number >> charge_value;
+	int res_min_one = residue_number -1;
+	charge_on_residue[res_min_one] = charge_value;
+	total_charge = total_charge + charge_value;
+	//fprintf(screen, "residue=%5d, charge on residue =%8.6f\n", residue_number, charge_value);
+	//fprintf(screen, "residue=%5d, charge on residue =%8.6f\n", res_min_one, charge_on_residue[res_min_one]);
+      }
+    input_charge.close();
+    fprintf(screen, "Total Charge on the System = %8.4f\n", total_charge ); 
   }
   
   sStep=0, eStep=0;
   ifstream in_rs("record_steps");
   in_rs >> sStep >> eStep;
   in_rs.close();
-  
-  // Debug
-//  tmpmax = 0.0;
-//  tmpmax2 = 0.0;
+
 }
 
 void FixBackbone::final_log_output()
 {
   double time, tmp;
-  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "SSB"};
+  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "Membrane", "SSB", "DH"};
   int me,nprocs;
 
   MPI_Comm_rank(world,&me);
@@ -597,12 +984,6 @@ void FixBackbone::final_log_output()
     }
   }
   fprintf(dout, "\n");
-  
-  // Debug
-/*  printf("\n\ntmpmax=%f\n", tmpmax);
-  printf("iresmax=%d imax=%d jmax=%d steptmp=%d\n\n", iresmax, imax, jmax, steptmp);
-  printf("\n\ntmpmax2=%f\n", tmpmax2);
-  printf("iresmax2=%d jresmax2=%d steptmp2=%d\n\n", iresmax2, jresmax2, steptmp2);*/
 }
 
 /* ---------------------------------------------------------------------- */
@@ -637,7 +1018,9 @@ FixBackbone::~FixBackbone()
     delete [] xh;
     delete [] se;
 
-    delete p_ap;
+    if (p_ap_flag) {
+      delete p_ap;
+    }
     delete R;
 		
     if (amh_go_flag) {
@@ -650,8 +1033,25 @@ FixBackbone::~FixBackbone()
 			
       delete m_amh_go;
       delete amh_go_gamma;
-    }
+      if (frustration_censoring_flag == 1) {
+        for (int i=0;i<n;i++) {
+          delete [] frustration_censoring_map[i];
+        }
+        delete [] frustration_censoring_map;
+      }
     
+      if (frustration_censoring_flag == 2) {
+        for (int i=0;i<n;i++) {
+          delete [] r_nativeCACA[i];
+          delete [] r_nativeCBCB[i];
+          delete [] r_nativeCACB[i];
+        }
+        delete [] r_nativeCACA;
+        delete [] r_nativeCBCB;
+        delete [] r_nativeCACB;
+      }
+    }
+
     if (frag_mem_flag || frag_mem_tb_flag) {
       delete fm_gamma;
 			
@@ -671,15 +1071,82 @@ FixBackbone::~FixBackbone()
     }
     delete [] fm_table;
   }
-  
-  if (vec_frag_mem_tb_flag) {
-    for (int i=0; i<n*tb_nbrs; ++i) {
-      if (vfm_table[i])
-	delete [] vfm_table[i];
+
+  // if the fragment frustratometer was on, close the fragment frustration file
+  if (frag_frust_flag) {
+    fclose(fragment_frustration_file);
+    fclose(fragment_frustration_gap_file);
+    fclose(fragment_frustration_variance_file);
+    fclose(fragment_frustration_decoy_data);
+    fclose(fragment_frustration_native_data);
+    for (int i=0;i<n;++i) memory->sfree(decoy_mem_map[i]);
+    delete [] decoy_mem_map;
+    delete [] ilen_decoy_map;
+    for (int i=0;i<n_decoy_mems;i++) delete decoy_mems[i];
+    if (n_decoy_mems>0) memory->sfree(decoy_mems);
+    if (frag_frust_read_flag) {
+      delete [] frag_frust_read_mean;
+      delete [] frag_frust_read_variance;
     }
-    delete [] vfm_table;
   }
-	
+
+  // if the tertiary frustratometer was on, write the end of the vmd script and close the files
+  if (tert_frust_flag) {
+    fclose(tert_frust_output_file);
+    fclose(tert_frust_vmd_script);
+  }
+
+  // if the nmer frustratometer was on, write the end of the vmd script and close the files
+  if (nmer_frust_flag) {
+    fclose(nmer_frust_output_file);
+    fclose(nmer_frust_vmd_script);
+    if(nmer_frust_trap_flag) {
+      fclose(nmer_frust_trap_file);
+    }
+  }
+
+  // if the selection temperature was being output, close the file
+  if (selection_temperature_flag) {
+    if (selection_temperature_output_interaction_energies_flag) {
+      fclose(selection_temperature_file);
+    }
+    if (selection_temperature_evaluate_sequence_energies_flag) {
+      fclose(selection_temperature_sequence_energies_output_file);
+    }
+    if (selection_temperature_output_contact_list_flag) {
+      fclose(selection_temperature_contact_list_file);
+    }
+  }
+  
+  // if the mcso sequences and energies were being output, close the files
+  if (monte_carlo_seq_opt_flag) {
+    fclose(mcso_seq_output_file);
+    fclose(mcso_energy_output_file);
+  }
+
+  // if the optimization block was on, close the files
+  if (optimization_flag) {
+    fclose(optimization_file);
+    fclose(native_optimization_file);	
+    fclose(optimization_norm_file);
+    fclose(native_optimization_norm_file);
+  }
+  if (burial_optimization_flag) {
+    fclose(burial_optimization_file);
+    fclose(native_burial_optimization_file);
+    fclose(burial_optimization_norm_file);
+  }
+  if (debyehuckel_optimization_flag) {
+    fclose(debyehuckel_optimization_file);
+    fclose(debyehuckel_native_optimization_file);
+    fclose(debyehuckel_optimization_norm_file);
+    fclose(debyehuckel_native_optimization_norm_file);
+  }
+
+  if (huckel_flag) {
+    delete[] charge_on_residue;
+  }
+  
   fclose(efile);
 }
 
@@ -695,6 +1162,7 @@ void FixBackbone::allocate()
   res_info = new int[n];
   chain_no = new int[n];
   se = new char[n+2];
+  // Add dynamic allocation of other seq arrays
 
   xca = new double*[n];
   xcb = new double*[n];
@@ -702,14 +1170,26 @@ void FixBackbone::allocate()
   xn = new double*[n];
   xcp = new double*[n];
   xh = new double*[n];
-	
-  water_par = WPV(water_kappa, water_kappa_sigma, treshold, n_wells, well_flag, well_r_min, well_r_max);
-  helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold, n_helix_wells, helix_well_flag, helix_well_r_min, helix_well_r_max);
 
-  p_ap = new cP_AP<double, FixBackbone>(n, n, &ntimestep, this);
+  if (huckel_flag) {
+    charge_on_residue = new double[n];
+  }
+
+  if (water_flag) {
+    water_par = WPV(water_kappa, water_kappa_sigma, treshold, n_wells, well_flag, well_r_min, well_r_max);
+    well = new cWell<double, FixBackbone>(n, n, n_wells, water_par, &ntimestep, this);
+  }
+
+  if (helix_flag) {
+    helix_par = WPV(helix_kappa, helix_kappa_sigma, helix_treshold, n_helix_wells, helix_well_flag, helix_well_r_min, helix_well_r_max);
+    helix_well = new cWell<double, FixBackbone>(n, n, n_helix_wells, helix_par, &ntimestep, this);
+  }
+
+  if (p_ap_flag) {
+    p_ap = new cP_AP<double, FixBackbone>(n, n, &ntimestep, this);
+  }
+
   R = new cR<double, FixBackbone>(n, n, &ntimestep, this);
-  well = new cWell<double, FixBackbone>(n, n, n_wells, water_par, &ntimestep, this);
-  helix_well = new cWell<double, FixBackbone>(n, n, n_helix_wells, helix_par, &ntimestep, this);
 
   for (i = 0; i < n; ++i) {
     // Ca, Cb and O coordinates
@@ -721,6 +1201,10 @@ void FixBackbone::allocate()
     xn[i] = new double [3];
     xcp[i] = new double [3];
     xh[i] = new double [3];
+    
+    if (huckel_flag) {
+      charge_on_residue[i] = 0.0;
+    }
   }
 
   for (i = 0; i < 12; ++i) {
@@ -744,6 +1228,29 @@ void FixBackbone::allocate()
       amh_go_force[i] = new double[3];
     }
     amh_go_norm = new double[nch];
+
+    // if frustration censoring is on, allocate the frustration_censoring_map table
+    if (frustration_censoring_flag == 1){
+      frustration_censoring_map = new int*[n];
+      for (int i=0;i<n;i++) {
+        frustration_censoring_map[i] = new int[n];
+        for (int j=0;j<n;j++) {
+          frustration_censoring_map[i][j] = 0;
+        }
+      }
+    }
+  
+    //if DCA-Go mode is on, allocate the r_native matrices
+    if (frustration_censoring_flag == 2){
+      r_nativeCACA = new double*[n];
+      r_nativeCBCB = new double*[n];
+      r_nativeCACB = new double*[n];
+      for (int i=0;i<n;i++) {
+        r_nativeCACA[i] = new double[n];
+        r_nativeCBCB[i] = new double[n];
+        r_nativeCACB[i] = new double[n];
+      }
+    }
   }
 	
   allocated = true;
@@ -778,13 +1285,10 @@ inline void FixBackbone::Construct_Computational_Arrays()
   int *mol_tag = atom->molecule;
   int *res_tag = avec->residue;
 
-	
   int i;
   for (i=0; i<n; ++i){
   	res_no_l[i] =-1;
   }
-
-//  printf("proc: %d, n: %d\n", comm->me, n);
 
   // Creating index arrays for Alpha_Carbons, Beta_Atoms and Oxygens
   nn = 0;
@@ -830,8 +1334,6 @@ inline void FixBackbone::Construct_Computational_Arrays()
     last = amin;
     nn++;
   }
-
-//  printf("proc: %d, nn: %d\n", comm->me, nn);
 
   for (i = 0; i < nn; ++i) {
     chain_no[i] = -1;
@@ -879,16 +1381,6 @@ inline void FixBackbone::Construct_Computational_Arrays()
       error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 004)");
     }
   }
-
-/*  for (i = 0; i < nn; ++i) {
-    printf("proc: %d Ca: %d Cb: %d O: %d Res#: %d Chain# %d ResI: %d\n", comm->me, alpha_carbons[i], beta_atoms[i], oxygens[i], res_no[i], chain_no[i], res_info[i]);
-  }*/
-	
-  /*	if (ntimestep==0) {
-	for (i = 0; i < nn; ++i) {
-	fprintf(dout, "%d %d %d %d %d %d\n", i, res_no[i], res_info[i], alpha_carbons[i], beta_atoms[i], oxygens[i]);
-	}
-	}*/
 }
 
 /*inline void FixBackbone::Construct_Computational_Arrays()
@@ -1121,7 +1613,7 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
   int file_state, nstr;
   int tpos, fpos, len;
   double weight;
-  char ln[100], *line, *str[10];
+  char ln[500], *line, *str[10];
   FILE *file;
   Fragment_Memory **mems_array = NULL;
   
@@ -1157,7 +1649,7 @@ Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
         
       n_mems++;
       mems_array = (Fragment_Memory **) memory->srealloc(mems_array,n_mems*sizeof(Fragment_Memory *),"modify:mems_array");
-      mems_array[n_mems-1] = new Fragment_Memory(tpos, fpos, len, weight, str[0], (vec_frag_mem_flag || vec_frag_mem_tb_flag));
+      mems_array[n_mems-1] = new Fragment_Memory(tpos, fpos, len, weight, str[0], vec_frag_mem_flag);
       
       if (mems_array[n_mems-1]->error!=Fragment_Memory::ERR_NONE) {
         if (screen) fprintf(screen, "Error reading %s file!\n", str[0]);
@@ -1210,47 +1702,41 @@ void FixBackbone::timerEnd(int which)
 void FixBackbone::compute_chain_potential(int i)
 {	
   double dx[3], r, dr, force;
+
   int i_resno = res_no[i]-1;
   int ip1, im1; 
   int im1_resno;
+
   // N(i) - Cb(i)
   int *res_tag = avec->residue;
   if (!isFirst(i) && se[i_resno]!='G') {
     im1 = res_no_l[i_resno-1];
     im1_resno = res_no[im1]-1;
     if (im1!=-1 && (res_info[im1]==LOCAL || res_info[im1]==GHOST)){
-		dx[0] = xn[i][0] - xcb[i][0];
-		dx[1] = xn[i][1] - xcb[i][1];
-		dx[2] = xn[i][2] - xcb[i][2];
-		r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
-		dr = r - r_ncb0;
-		force = 2*epsilon*k_chain[0]*dr/r;
-		
-		energy[ET_CHAIN] += epsilon*k_chain[0]*dr*dr;
-	
-		f[alpha_carbons[im1]][0] -= an*dx[0]*force;
-		f[alpha_carbons[im1]][1] -= an*dx[1]*force;
-		f[alpha_carbons[im1]][2] -= an*dx[2]*force;
-				
-		f[oxygens[im1]][0] -= cn*dx[0]*force;
-		f[oxygens[im1]][1] -= cn*dx[1]*force;
-		f[oxygens[im1]][2] -= cn*dx[2]*force;
-		
-		f[alpha_carbons[i]][0] -= bn*dx[0]*force;
-		f[alpha_carbons[i]][1] -= bn*dx[1]*force;
-		f[alpha_carbons[i]][2] -= bn*dx[2]*force;	
-		
-		f[beta_atoms[i]][0] -= -dx[0]*force;
-		f[beta_atoms[i]][1] -= -dx[1]*force;
-		f[beta_atoms[i]][2] -= -dx[2]*force;
-		/*
-		if(ntimestep==1){
-			fprintf(dout,"%d %d %d %d ", i_resno, res_tag[alpha_carbons[i]]-1, res_tag[oxygens[i]]-1,  res_tag[beta_atoms[i]]-1);
-			for(int k=0; k<3; ++k){
-				fprintf(dout,"%.9f %.9f ", f[alpha_carbons[i]][k]+bn*dx[k]*force, f[alpha_carbons[i]][k]);
-			}
-			fprintf(dout,"%.9f %.9f %.9f\n", f[oxygens[i]][0], f[beta_atoms[i]][0]-dx[0]*force, f[beta_atoms[i]][0]);
-		}*/
+      dx[0] = xn[i][0] - xcb[i][0];
+      dx[1] = xn[i][1] - xcb[i][1];
+      dx[2] = xn[i][2] - xcb[i][2];
+      r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+      dr = r - r_ncb0;
+      force = 2*epsilon*k_chain[0]*dr/r;
+
+      energy[ET_CHAIN] += epsilon*k_chain[0]*dr*dr;
+
+      f[alpha_carbons[im1]][0] -= an*dx[0]*force;
+      f[alpha_carbons[im1]][1] -= an*dx[1]*force;
+      f[alpha_carbons[im1]][2] -= an*dx[2]*force;
+
+      f[oxygens[im1]][0] -= cn*dx[0]*force;
+      f[oxygens[im1]][1] -= cn*dx[1]*force;
+      f[oxygens[im1]][2] -= cn*dx[2]*force;
+
+      f[alpha_carbons[i]][0] -= bn*dx[0]*force;
+      f[alpha_carbons[i]][1] -= bn*dx[1]*force;
+      f[alpha_carbons[i]][2] -= bn*dx[2]*force;
+
+      f[beta_atoms[i]][0] -= -dx[0]*force;
+      f[beta_atoms[i]][1] -= -dx[1]*force;
+      f[beta_atoms[i]][2] -= -dx[2]*force;
     }
   }
 	
@@ -1596,7 +2082,7 @@ void FixBackbone::compute_rama_potential(int i)
   int jStart, nEnd;
   int j, ia, l;
 
-  int i_resno   = res_no[i]-1;
+  int i_resno = res_no[i]-1;
   int im1 = res_no_l[i_resno-1];
   int ip1 = res_no_l[i_resno+1];		
 	
@@ -2290,7 +2776,6 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 void FixBackbone::compute_P_AP_potential(int i, int j)
 {
   double K, force[2], dx[2][3];
-  //	double nu_P_AP[100][100], prd_nu_P_AP[100][100];
   bool i_AP_med, i_AP_long, i_P;
 
   int i_resno = res_no[i]-1;
@@ -2300,8 +2785,6 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   i_AP_med = i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
   i_AP_long = i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n;
   i_P = i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
-
-  //	if (ntimestep==0) fprintf(dout, "(%d %d) (%d %d) %d %d %d\n", i, j, i_resno, j_resno, i_AP_med, i_AP_long, i_P);
 
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {

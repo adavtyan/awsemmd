@@ -6,7 +6,9 @@ http://papoian.chem.umd.edu/
 
 Solvent Separated Barrier Potential was contributed by Nick Schafer
 
-Last Update: 03/23/2011
+Membrane Potential was contributed by Leonardo Boechi and Bobby Kim
+
+Last Update: 12/20/2017
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
@@ -48,6 +50,7 @@ public:
   double epsilon;
   
   // Backbone parameters
+  int z_res[2000];
   double k_chain[3], k_shake, k_chi, k_rama;
   double k_excluded_C, k_excluded_O;
   double r_ncb0, r_cpcb0, r_ncp0, chi0;
@@ -103,6 +106,10 @@ public:
   double **amh_go_force;
   int *amh_go_force_map;
   double *amh_go_norm;
+  int **frustration_censoring_map;
+  double **r_nativeCACA;
+  double **r_nativeCBCB;
+  double **r_nativeCACB;
   
   // Fragment Memory parameters
   double k_frag_mem;
@@ -112,7 +119,42 @@ public:
   char frag_mems_file[100];
   char fm_gamma_file[100];
   double fm_sigma_exp;
-  
+
+  // Fragment Frustratometer parameters
+  int n_decoy_mems, **decoy_mem_map, *ilen_decoy_map;
+  Fragment_Memory **decoy_mems;
+  char decoy_mems_file[100];
+  int num_decoy_calcs;
+  double **decoy_energy;
+  int frag_frust_output_freq;
+  char frag_frust_mode[100];
+  int frag_frust_read_flag, frag_frust_shuffle_flag;
+  double *frag_frust_read_mean, *frag_frust_read_variance;
+  double frag_frust_well_width, frag_frust_seqsep_gamma;
+  int frag_frust_seqsep_flag;
+  bool frag_frust_normalizeInteraction; 
+
+  // Tertiary Frustratometer parameters
+  double tert_frust_cutoff;
+  int tert_frust_ndecoys, tert_frust_output_freq;
+  char tert_frust_mode[100];
+  double *tert_frust_decoy_energies;
+  double *decoy_ixn_stats;
+  bool already_computed_configurational_decoys;
+
+  // nmer frustratometer parameters
+  int nmer_frust_size, nmer_frust_ndecoys, nmer_frust_output_freq;
+  int nmer_contacts_cutoff;
+  double nmer_frust_cutoff, nmer_frust_min_frust_threshold, nmer_frust_high_frust_threshold;
+  double *nmer_frust_decoy_energies;
+  double *nmer_decoy_ixn_stats;  
+  char *nmer_seq_i, *nmer_seq_j, *nmer_seq_k;
+  char *nmer_ss_i, *nmer_ss_j, *nmer_ss_k;
+  bool nmer_output_neutral_flag;
+  bool nmer_frust_trap_flag, nmer_frust_draw_trap_flag;
+  double nmer_frust_trap_num_sigma, nmer_frust_ss_frac;
+  char nmer_frust_mode[100];
+
   // Table Fragment Memory parameters
   TBV **fm_table;
   int tb_size, tb_nbrs;
@@ -124,18 +166,82 @@ public:
   double frag_table_well_width;
   int fm_energy_debug_flag;
 
-  
-  // Table Vector Fragment Memory
-  TBV **vfm_table;
-  int vfm_tb_size;
-  double vfm_tb_vmin, vfm_tb_vmax, vfm_tb_dv;
-
   // Solvent separated barrier
   double k_solventb1, k_solventb2;
   double ssb_kappa, ssb_rmin1, ssb_rmax1, ssb_rmin2, ssb_rmax2;
   int ssb_ij_sep;
   bool ssb_rad_cor;
   double ssb_rshift[20];
+
+  // Electrostatic Interaction from Huckel Method 
+  double k_PlusPlus, k_MinusMinus, k_PlusMinus;
+  double k_screening;
+  double screening_length;
+  double dielectric_constant, ion_concentration;
+  double *charge_on_residue; 
+  bool huckel_flag; //flag to turn on DebyeHuckel
+  int debye_huckel_min_sep; // minimum sequence separation for DH interaction
+
+  // Amylometer variables
+  char amylometer_sequence_file[100];  
+  int amylometer_nmer_size;
+  int** nmer_array;
+  int amylometer_mode;
+  int number_of_nmers;
+  char amylometer_structure_file[100];
+  double amylometer_contact_cutoff;
+
+  // Membrane potential
+  double k_overall_memb;
+  double memb_dens_offset;
+  double k_bin;
+  double memb_xo[3];
+  int    memb_pore_type;
+  double memb_len;
+  double rho0_max;
+  double rho0_distor;
+  double g_memb[3][4];
+
+  // Selection Temperature
+  char selection_temperature_file_name[100];
+  int selection_temperature_output_frequency;
+  char selection_temperature_sequences_file_name[100];
+  char selection_temperature_residues_file_name[100];
+  char selection_temperature_sequence_energies_output_file_name[100];
+  char selection_temperature_output_contact_list_file_name[100];
+  char **selection_temperature_sequences;
+  int num_selection_temperature_sequences;
+  int num_selection_temperature_residues;
+  int *selection_temperature_residues;
+  bool selection_temperature_output_interaction_energies_flag;
+  bool selection_temperature_output_contact_list_flag;
+  bool selection_temperature_evaluate_sequence_energies_flag;
+  double selection_temperature_rij_cutoff;
+  int selection_temperature_min_seq_sep;
+
+  // Monte Carlo Sequence Optimization
+  double mcso_start_temp, mcso_end_temp;
+  int mcso_num_steps;
+  char mcso_se[1000];
+  char mcso_seq_output_file_name[100];
+  char mcso_energy_output_file_name[100];
+  static const double k_b = 0.001987;
+
+  // Optimization block parameters
+  int optimization_output_freq;
+
+  // Burial Optimization block parameters
+  int burial_optimization_output_freq;
+
+  // DebyeHuckel Optimization block parameters
+  int debyehuckel_optimization_output_freq;
+  char shuffler_mode[100];
+
+  // Mutate Sequence parameters
+  char mutate_sequence_sequences_file_name[100];
+  int mutate_sequence_number_of_sequences;
+  char **mutate_sequence_sequences;
+  int mutate_sequence_sequence_index;
 
   // Standart lammaps interface
   int igroup2, group2bit;
@@ -161,8 +267,22 @@ public:
   bool abc_flag, chain_flag, shake_flag, chi_flag, rama_flag, rama_p_flag, excluded_flag, p_excluded_flag, r6_excluded_flag;
   bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
   bool phosph_flag;
-  bool frag_mem_tb_flag, vec_frag_mem_flag, vec_frag_mem_tb_flag;
-  
+  bool vec_frag_mem_flag;
+  bool amylometer_flag;
+  bool frag_mem_tb_flag;
+  bool memb_flag;
+  bool frag_frust_flag;
+  bool tert_frust_flag;
+  bool nmer_frust_flag;
+  bool selection_temperature_flag;
+  int frustration_censoring_flag;
+  bool optimization_flag;
+  bool burial_optimization_flag;
+  bool debyehuckel_optimization_flag;
+  bool shuffler_flag;
+  bool mutate_sequence_flag;
+  bool monte_carlo_seq_opt_flag;
+
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
@@ -170,13 +290,13 @@ public:
   char *se; // Protein sequance
   int nch, ch_len[100], ch_pos[100];
   
-  double energy[15], energy_all[15];
+  double energy[17], energy_all[17];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
-                    ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_SSB, nEnergyTerms};
+		   ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_MEMB, ET_SSB, ET_DH, nEnergyTerms};
   
-  double ctime[15], previous_time;
+  double ctime[17], previous_time;
   enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
-  					TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_SSB, TIME_N};
+		   TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_MEMB, TIME_SSB, TIME_DH, TIME_N};
   
  private:
   void compute_backbone();
@@ -194,13 +314,74 @@ public:
   void compute_helix_potential(int i, int j);
   void compute_amh_go_model();
   void compute_fragment_memory_potential(int i);
+  void compute_decoy_memory_potential(int i, int decoy_calc);
+  void randomize_decoys();
+  void compute_generated_decoy_energies();
+  void compute_fragment_frustration();
   void compute_solvent_barrier(int i, int j);
   void compute_fragment_memory_table();
+  void output_fragment_memory_table();
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
   void compute_vector_fragment_memory_potential(int i);
-  void compute_vector_fragment_memory_table();
-  void table_vector_fragment_memory(int i, int j);
+  void compute_amylometer();
+  void read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size, int amylometer_mode);
+  void compute_membrane_potential(int i);
+  void compute_DebyeHuckel_Interaction(int i, int j);
+
+  // Tertiary Frustratometer Functions
+  void compute_tert_frust();
+  double compute_native_ixn(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  void compute_decoy_ixns(int i_resno_orig, int j_resno_orig, double rij_orig, double rho_i_orig, double rho_j_orig);
+  double compute_water_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  double compute_burial_energy(int i_resno, int ires_type, double rho_i);
+  double compute_electrostatic_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type);
+  int get_random_residue_index();
+  double get_residue_distance(int i_resno, int j_resno);
+  double get_residue_density(int i);
+  int get_residue_type(int i);
+  double compute_frustration_index(double native_energy, double *decoy_stats);
+  double compute_array_mean(double *array, int arraysize);
+  double compute_array_std(double *array, int arraysize);
+  void compute_tert_frust_singleresidue();
+  double compute_singleresidue_native_ixn(int i_resno, int ires_type, double rho_i, int i_chno, double cutoff, bool nmercalc);
+  void compute_singleresidue_decoy_ixns(int i_resno, double rho_i, int i_chno);
+  // nmer frustratometer functions
+  void compute_nmer_frust();
+  void compute_singlenmer_frust();
+  int compute_nmer_contacts(int i, int j);
+  void get_nmer_seq(int i, char *nmer_seq, int backward);
+  void get_nmer_secondary_structure(int i, char *nmer_secondary_structure);
+  double compute_nmer_native_ixn(int i, int j);
+  double compute_singlenmer_native_ixn(int i);
+  void compute_nmer_decoy_ixns(int i, int j);
+  void compute_singlenmer_decoy_ixns(int i);
+  int compute_nmer_traps(int i, int j, int atomselect, double threshold_energy, char *nmer_seq_1, char *nmer_seq_2);
+  int get_nmer_ss_dist(char *nmer_ss_j, char *nmer_ss_k);
+
+  // Selection Temperature functions
+  void output_selection_temperature_data();
+
+  // Monte Carlo Sequence Optimization functions
+  void compute_mcso();
+  double compute_total_burial_energy();
+  double compute_total_contact_energy();
+
+  // Optimziation functions
+  void compute_optimization();
+  void shuffler();
+  double compute_direct_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  double compute_proteinmed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+  double compute_watermed_energy(double rij, int i_resno, int j_resno, int ires_type, int jres_type, double rho_i, double rho_j);
+
+  // Mutate_Sequence functions
+  void mutate_sequence();
+  
+  // Burial Optimization functions
+  void compute_burial_optimization();
+
+  // DebyeHuckel Optimization functions
+  void compute_debyehuckel_optimization();
 
   void allocate();
   inline void Construct_Computational_Arrays();
@@ -237,23 +418,61 @@ public:
   
   WPV water_par;
   WPV helix_par;
+
+  class AtomVecAWSEM *avec;
   
   FILE *efile;
-  
+  FILE *fmenergiesfile;
+
   FILE *dout;
   int sStep, eStep;
   void print_forces(int coord=0);
+
+  // Fragment Frustration files
+  FILE *fragment_frustration_file;
+  FILE *fragment_frustration_gap_file;
+  FILE *fragment_frustration_variance_file;
+  FILE *fragment_frustration_decoy_data;
+  FILE *fragment_frustration_native_data;
+
+  // Tertiary Frustration files
+  FILE *tert_frust_output_file;
+  FILE *tert_frust_vmd_script;
+
+  // nmer frustration files
+  FILE *nmer_frust_output_file;
+  FILE *nmer_frust_vmd_script;
+  FILE *nmer_frust_trap_file;
+
+  // Selection temperature file
+  FILE *selection_temperature_file;
+  FILE *selection_temperature_sequence_energies_output_file;
+  FILE *selection_temperature_contact_list_file;
+
+  // Monte Carlo Sequence Optimization files
+  FILE *mcso_seq_output_file;
+  FILE *mcso_energy_output_file;
+
+  // Optimization file
+  FILE *optimization_file;
+  FILE *native_optimization_file;
+  FILE *optimization_norm_file;
+  FILE *native_optimization_norm_file;
   
-  class AtomVecAWSEM *avec;
+  // Burial Optimization file
+  FILE *burial_optimization_file;
+  FILE *native_burial_optimization_file;
+  FILE *burial_optimization_norm_file;
 
-/*  double tmpforce1[1000][3];
-  double tmpforce2[1000][3];
-  double tmpmax;
-  double tmpmax2;
-  int iresmax, imax, jmax, steptmp;
-  int iresmax2, steptmp2, jresmax2;*/
-};
+  // DebyeHuckel Optimization file
+  FILE *debyehuckel_optimization_file;
+  FILE *debyehuckel_native_optimization_file;
+  FILE *debyehuckel_optimization_norm_file;
+  FILE *debyehuckel_native_optimization_norm_file;
 
+  // Mutate Sequences files
+  FILE *mutate_sequences_file;
+  };
 }
 
 #endif

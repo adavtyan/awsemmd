@@ -50,7 +50,7 @@ public:
   double epsilon;
   
   // Backbone parameters
-  int z_res[2000];
+  int *z_res;
   double k_chain[3], k_shake, k_chi, k_rama;
   double k_excluded_C, k_excluded_O;
   double r_ncb0, r_cpcb0, r_ncp0, chi0;
@@ -222,7 +222,7 @@ public:
   // Monte Carlo Sequence Optimization
   double mcso_start_temp, mcso_end_temp;
   int mcso_num_steps;
-  char mcso_se[1000];
+  char *mcso_se;
   char mcso_seq_output_file_name[100];
   char mcso_energy_output_file_name[100];
   static const double k_b = 0.001987;

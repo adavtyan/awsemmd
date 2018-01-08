@@ -1017,6 +1017,8 @@ FixBackbone::~FixBackbone()
     delete [] xcp;
     delete [] xh;
     delete [] se;
+    delete [] mcso_se; 
+    delete [] z_res;
 
     if (p_ap_flag) {
       delete p_ap;
@@ -1162,6 +1164,8 @@ void FixBackbone::allocate()
   res_info = new int[n];
   chain_no = new int[n];
   se = new char[n+2];
+  mcso_se = new char[n+2]; 
+  z_res = new int[n+2];
   // Add dynamic allocation of other seq arrays
 
   xca = new double*[n];

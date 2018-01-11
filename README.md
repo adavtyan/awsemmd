@@ -9,3 +9,6 @@ To cite AWSEM and for a complete description of the forcefield please refer to t
 
 Aram Davtyan, Nicholas P. Schafer, Weihua Zheng, Cecilia Clementi, Peter G. Wolynes, and Garegin A. Papoian, "<b>AWSEM-MD: Protein Structure Prediction Using Coarse-Grained Physical Potentials and Bioinformatically Based Local Structure Biasing</b>", The Journal of Physical Chemistry B 2012 116 (29), 8494-8503<br>
 <a href='http://http://pubs.acs.org/doi/abs/10.1021/jp212541y'>http://http://pubs.acs.org/doi/abs/10.1021/jp212541y</a>
+
+Please refer to the follwoing link for AWSEM-MD instalation and project setup:
+https://github.com/adavtyan/awsemmd/wiki

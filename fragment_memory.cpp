@@ -36,21 +36,21 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
   int i, j, nAtoms, ires, iatom, nca=0, ncb=0;
   double x, y, z, **xca, **xcb;
   char buff[101], resty[4], atomty[5];
-  
+
   FILE * file;
-  
+
   FILE * dout;
   dout = fopen("debug.info","w");
 
   error = ERR_NONE;
-  
+
   pos = p;
   len = l;
   mpos = p + len/2 + len%2;
   fpos = pf;
   weight = w;
   vfm_flag = vec_fm_flag;
-  
+
   se = new char[len];
   rf[0] = new double*[len];
   rf[1] = new double*[len];
@@ -64,69 +64,117 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
     xca[i] = new double[3];
     xcb[i] = new double[3];
   }
-  
+
   for (i=0;i<len;++i) {
     xca[i][0] = xca[i][1] = xca[i][2] = 0.0;
     xcb[i][0] = xcb[i][1] = xcb[i][2] = 0.0;
   }
-  
+
   nca = ncb = 0;
 //  fprintf(dout, "%s\n", fname);
   file = fopen(fname,"r");
   if (!file) { error = ERR_FILE; return; }
   fgets(buff, 100, file);
   fscanf(file, "%d",&nAtoms);
+
+  // -------------------------------------------------------------------------
+  // Commented by HaoWu
+  // This will assign coordinates of wrong chain when reading multi-chain gro file
+  // Not applicable with AMH-Go model
+
+  // for (i=0;i<nAtoms;++i) {
+  //   fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
+  //   if (ires>fpos && ires<=fpos+len) {
+  //     ires -= fpos + 1;
+  //     x *= 10; y *= 10; z *= 10;
+  //     if (strcmp(atomty,"CA")==0) {
+  //       if (ires>=len || nca>=len) { error = ERR_ATOM_COUNT; return; }
+  //       se[ires] = ThreeLetterToOne(resty);
+  //       if (se[ires]=='-') { error = ERR_RES; return; }
+  //       xca[ires][0] = x;
+  //       xca[ires][1] = y;
+  //       xca[ires][2] = z;
+  //       nca++;
+  //     }
+  //     if (strcmp(atomty,"CB")==0) {
+  //       if (ires>=len || ncb>=len) { error = ERR_ATOM_COUNT; return; }
+  //       xcb[ires][0] = x;
+  //       xcb[ires][1] = y;
+  //       xcb[ires][2] = z;
+  //       ncb++;
+  //     }
+  //   }
+  // }
+  // -------------------------------------------------------------------------
+
+  // HaoWu copy from BinZhang's version, reads multi-chain gro file correctly
+  int count=-1;
+  int old_ires=-9999;
   for (i=0;i<nAtoms;++i) {
     fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
-    if (ires>fpos && ires<=fpos+len) {
-      ires -= fpos + 1;
+    //if (ires>fpos && ires<=fpos+len) {
+    if(count>=len){fprintf(stderr, "nca=%d, count=%d, ires=%d, fpos=%d\n", nca, count, ires, fpos); break;} //faster than reading the whole file
+    if (ires>fpos) {
+      if(ires!=old_ires){
+    ++count;
+    old_ires=ires;
+    if(count>=len){
+        //fprintf(stderr, "nca=%d, count=%d, ires=%d, fpos=%d\n", nca, count, ires, fpos);
+        break; //faster than reading the whole file
+    }
+      }
+      //ires -= fpos + 1; //use count instead of ires
       x *= 10; y *= 10; z *= 10;
       if (strcmp(atomty,"CA")==0) {
-        if (ires>=len || nca>=len) { error = ERR_ATOM_COUNT; return; }
-        se[ires] = ThreeLetterToOne(resty);
-        if (se[ires]=='-') { error = ERR_RES; return; }
-        xca[ires][0] = x;
-        xca[ires][1] = y;
-        xca[ires][2] = z;
+        if (count>=len || nca>=len) { error = ERR_ATOM_COUNT; fprintf(stderr, "CA atoms are problematic!\n"); return; }
+        se[count] = ThreeLetterToOne(resty);
+        if (se[count]=='-') { error = ERR_RES; return; }
+        xca[count][0] = x;
+        xca[count][1] = y;
+        xca[count][2] = z;
         nca++;
       }
       if (strcmp(atomty,"CB")==0) {
-        if (ires>=len || ncb>=len) { error = ERR_ATOM_COUNT; return; }
-        xcb[ires][0] = x;
-        xcb[ires][1] = y;
-        xcb[ires][2] = z;
+        if (count>=len || ncb>=len) { error = ERR_ATOM_COUNT; fprintf(stderr, "CB atoms are problematic!\n"); return; }
+        xcb[count][0] = x;
+        xcb[count][1] = y;
+        xcb[count][2] = z;
         ncb++;
       }
     }
   }
+
   fclose(file);
-  
+
   if (nca!=len) {
-  	fprintf(dout, "File: %s\n", fname);
-  	fprintf(dout, "nca=%d\n", nca);
-  	fprintf(dout, "len=%d\n", len);
+      fprintf(dout, "File: %s\n", fname);
+      fprintf(dout, "nca=%d\n", nca);
+      fprintf(dout, "len=%d\n", len);
   }
-  
+
   if (nca!=len) { error = ERR_ATOM_COUNT; return; }
-  
+
   for (i=0;i<len;++i) {
+
     for (j=0;j<len;++j) {
+
       rf[0][i][j] = ( i<j ? R(xca[i],xca[j]) : ( i>j ? R(xcb[i],xcb[j]) : 0.0 ) );
       rf[1][i][j] = R(xca[i],xcb[j]);
-      
+
       if (vfm_flag)
-      	vmf[i][j] = VM(xca[i],xcb[i],xca[j],xcb[j]); // Multiplication (normalized) of CA-CB vectors between residue i and j
+          vmf[i][j] = VM(xca[i],xcb[i],xca[j],xcb[j]); // Multiplication (normalized) of CA-CB vectors between residue i and j
     }
   }
-  
+
   for (i=0;i<len;++i) {
     delete [] xca[i];
     delete [] xcb[i];
   }
   delete [] xca;
   delete [] xcb;
-  
+
   fclose(dout);
+
 }
 
 Fragment_Memory::~Fragment_Memory()
@@ -237,20 +285,20 @@ Gamma_Array::Gamma_Array(char *fname)
   double gm;
   FILE *file;
   fpos_t pos;
-  
+
   error = ERR_NONE;
-  
+
   frag_resty = false;
   nres_cl = 0;
 
   file = fopen(fname,"r");
   if (!file) { error = ERR_FILE; return; }
-  
+
   iline = 0;
   while ( fgets ( line, sizeof line, file ) != NULL ) {
     if (line[0]=='#') continue;
     if (isEmptyString(line)) continue;
-    
+
     if (iline==0) {
       ns = 0;
       st=strtok (line," \t");
@@ -272,7 +320,7 @@ Gamma_Array::Gamma_Array(char *fname)
       while ( st!=NULL ) {
         strcpy(buf[nbuf], st);
         nbuf++;
-        
+
         st=strtok (NULL," \t\n");
       }
       if (nbuf!=4 && nbuf!=6) { error = ERR_GAMMA; return; }
@@ -297,7 +345,7 @@ Gamma_Array::Gamma_Array(char *fname)
   }
 
   if (nres_cl==0) { error = ERR_GAMMA; return; }
-  
+
   if (!frag_resty) ngamma = nseq_cl*nres_cl*nres_cl;
   else ngamma = nseq_cl*nres_cl*nres_cl*nres_cl*nres_cl;
 
@@ -308,7 +356,7 @@ Gamma_Array::Gamma_Array(char *fname)
   while ( fgets ( line, sizeof line, file ) != NULL ) {
     if (line[0]=='#') continue;
     if (isEmptyString(line)) continue;
-    
+
     if (!frag_resty) {
       iresty = strtok(line," \t\n");
       jresty = strtok(NULL," \t\n");
@@ -324,10 +372,10 @@ Gamma_Array::Gamma_Array(char *fname)
       gm = atof(strtok(NULL," \t\n"));
       assign(iresty, jresty, ifresty, ifresty, cl, gm);
     }
-    
+
     if (error!=ERR_NONE) return;
   }
-  
+
   fclose(file);
 }
 
@@ -341,29 +389,29 @@ Gamma_Array::~Gamma_Array()
 double Gamma_Array::getGamma(int ires, int jres)
 {
   if (nres_cl!=1) { error = ERR_CALL; return 0.0; }
-  
+
   int dij = abs(ires-jres);
   if (dij<i_sep[0] || (i_sep[nseq_cl]!=-1 && dij>i_sep[nseq_cl])) return 0.0;
-  
+
   int seq_cl;
   for (seq_cl=1;seq_cl<nseq_cl && dij>=i_sep[seq_cl];seq_cl++) {}
-  
+
   return gamma[seq_cl-1];
 }
 
 double Gamma_Array::getGamma(int ires_type, int jres_type, int ires, int jres)
 {
   if (frag_resty || ires_type>=20 || jres_type>=20) { error = ERR_CALL; return 0.0; }
- 
+
   int dij = abs(ires-jres);
   if (dij<i_sep[0] || (i_sep[nseq_cl]!=-1 && dij>i_sep[nseq_cl])) return 0.0;
 
   int seq_cl, ires_cl, jres_cl, ig;
-  
+
   for (seq_cl=1;seq_cl<nseq_cl && dij>=i_sep[seq_cl];seq_cl++) {}
-  
+
   if (nres_cl==1) return gamma[seq_cl-1];
-  
+
   if (nres_cl==20) {
     ires_cl = ires_type;
     jres_cl = jres_type;
@@ -371,25 +419,25 @@ double Gamma_Array::getGamma(int ires_type, int jres_type, int ires, int jres)
     ires_cl = four_letter_map[ires_type]-1;
     jres_cl = four_letter_map[jres_type]-1;
   }
-  
+
   ig = (seq_cl==1 ? 0 : (seq_cl-1)*nres_cl*nres_cl) + ires_cl*nres_cl + jres_cl;
-  
+
   return gamma[ig];
 }
 
 double Gamma_Array::getGamma(int ires_type, int jres_type, int ifres_type, int jfres_type, int ires, int jres)
 {
   if (!frag_resty || ires_type>=20 || jres_type>=20 || ifres_type>=20 || jfres_type>=20) { error = ERR_CALL; return 0.0; }
-  
+
   int dij = abs(ires-jres);
   if (dij<i_sep[0] || (i_sep[nseq_cl]!=-1 && dij>i_sep[nseq_cl])) return 0.0;
-  
+
   int seq_cl, ires_cl, jres_cl, ifres_cl, jfres_cl, ig;
-  
+
   for (seq_cl=1;seq_cl<nseq_cl && dij>=i_sep[seq_cl];seq_cl++) {}
-  
+
   if (nres_cl==1) return gamma[seq_cl-1];
-  
+
   if (nres_cl==4) {
     ires_cl = four_letter_map[ires_type]-1;
     jres_cl = four_letter_map[jres_type]-1;
@@ -401,9 +449,9 @@ double Gamma_Array::getGamma(int ires_type, int jres_type, int ifres_type, int j
     ifres_cl = ifres_type;
     jfres_cl = jfres_type;
   }
-  
+
   ig = (seq_cl==1 ? 0 : (seq_cl-1)*nres_cl*nres_cl*nres_cl*nres_cl) + ires_cl*nres_cl*nres_cl*nres_cl + jres_cl*nres_cl*nres_cl + ifres_cl*nres_cl + jfres_cl;
-  
+
   return gamma[ig];
 }
 
@@ -414,24 +462,24 @@ int Gamma_Array::get_index_array(char *resty, int *a)
   if (strcmp(resty,"ALL")==0) {
     for (i=0;i<nres_cl;++i) a[i]=i;
     return nres_cl;
-  
+
   } else if (strlen(resty)==1) {
     res_code = resty[0] - 'A';
     if (fm_se_map[res_code]==0 && resty[0]!='A') { error = ERR_GAMMA; return -1; }
     if (nres_cl<20) { error = ERR_ASSIGN; return -1; }
-    
+
     a[0] = fm_se_map[res_code];
     return 1;
 
   } else if (strlen(resty)==3) {
     if (nres_cl<4) { error = ERR_ASSIGN; return -1; }
-    
+
     if (strcmp(resty,"SHL")==0) ifour_res_cl = SHL;
     else if (strcmp(resty,"AHL")==0) ifour_res_cl = AHL;
     else if (strcmp(resty,"HPB")==0) ifour_res_cl = HPB;
     else if (strcmp(resty,"BAS")==0) ifour_res_cl = BAS;
     else { error = ERR_GAMMA; return -1; }
-    
+
     if (nres_cl==4) {
       a[0] = ifour_res_cl-1;
       return 1;
@@ -441,7 +489,7 @@ int Gamma_Array::get_index_array(char *resty, int *a)
         if (four_letter_map[i]==ifour_res_cl) { a[n]=i; n++; }
       return n;
     }
-    
+
   } else { error = ERR_GAMMA; return -1; }
 }
 
@@ -449,20 +497,20 @@ void Gamma_Array::assign(char* iresty, char* jresty, int cl, double gm)
 {
   if (frag_resty) { error = ERR_ASSIGN; return; }
   if (cl>nseq_cl) { error = ERR_G_CLASS; return; }
-  
+
   int i, j, in, jn, ig;
   int is[20], js[20];
-  
+
   in = get_index_array(iresty, is);
   jn = get_index_array(jresty, js);
   if (error!=ERR_NONE) return;
-  
+
   for (i=0;i<in;++i) {
     for (j=0;j<jn;++j) {
       // gamma[iT][jT]
       ig = (cl-1)*nres_cl*nres_cl + is[i]*nres_cl + js[j];
       gamma[ig] = gm;
-      
+
       // gamma[jT][iT]
       if (is[i]!=js[j]) {
         ig = (cl-1)*nres_cl*nres_cl + js[j]*nres_cl + is[i];
@@ -476,16 +524,16 @@ void Gamma_Array::assign(char* iresty, char* jresty, char* ifresty, char* jfrest
 {
   if (!frag_resty) { error = ERR_ASSIGN; return; }
   if (cl>nseq_cl) { error = ERR_ASSIGN; return; }
-  
+
   int i, j, k, l, in, jn, kn, ln, ig;
   int is[20], js[20], ks[20], ls[20];
-  
+
   in = get_index_array(iresty, is);
   jn = get_index_array(jresty, js);
   kn = get_index_array(ifresty, ks);
   ln = get_index_array(jfresty, ls);
   if (error!=ERR_NONE) return;
-  
+
   for (i=0;i<in;++i) {
     for (j=0;j<jn;++j) {
       for (k=0;k<kn;++k) {
@@ -493,19 +541,19 @@ void Gamma_Array::assign(char* iresty, char* jresty, char* ifresty, char* jfrest
           // gamma[iT][jT][iF][jF]
           ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl + ks[k]*nres_cl + ls[l];
           gamma[ig] = gm;
-          
+
           // gamma[jT][iT][iF][jF]
           if (is[i]!=js[j]) {
             ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl + ks[k]*nres_cl + ls[l];
             gamma[ig] = gm;
           }
-          
+
           // gamma[iT][jT][jF][iF]
           if (ks[k]!=ls[l]) {
             ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl + ls[l]*nres_cl + ks[k];
             gamma[ig] = gm;
           }
-          
+
           // gamma[jT][iT][jF][iF]
           if (is[i]!=js[j] && ks[k]!=ls[l]) {
             ig = (cl-1)*nres_cl*nres_cl*nres_cl*nres_cl + js[j]*nres_cl*nres_cl*nres_cl + is[i]*nres_cl*nres_cl + ls[l]*nres_cl + ks[k];
@@ -520,9 +568,9 @@ void Gamma_Array::assign(char* iresty, char* jresty, char* ifresty, char* jfrest
 bool Gamma_Array::isEmptyString(char *str)
 {
   int len = strlen(str);
-  
+
   if (len==0) return true;
-  
+
   for (int i=0;i<len;++i) {
     if (str[i]!=' ' && str[i]!='\t' && str[i]!='\n') return false;
   }

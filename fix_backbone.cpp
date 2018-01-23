@@ -2785,10 +2785,19 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
 
-  // Need to change
-  i_AP_med = i_resno<n-(i_med_min+2*i_diff_P_AP) && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
-  i_AP_long = i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n;
-  i_P = i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
+  int i_chno = chain_no[i]-1;
+  int j_chno = chain_no[j]-1;
+
+  // This needs to be updated for parallel computations
+
+  //i_AP_med = i_resno<n-(i_med_min+2*i_diff_P_AP)   && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
+  i_AP_med   = i_chno==j_chno &&  i_resno<n-(i_med_min+2*i_diff_P_AP)  && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP)    && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
+
+  //i_AP_long= i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n;
+  i_AP_long  = (i_chno==j_chno && i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j-i_diff_P_AP]-1)==j_chno);
+
+  //i_P      = i_resno<n-(i_med_max+1+i_diff_P_AP)   && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
+  i_P = (i_chno==(chain_no[j+i_diff_P_AP]-1) && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (i_chno!=j_chno && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j+i_diff_P_AP]-1)==j_chno);
 
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
@@ -3425,23 +3434,6 @@ void FixBackbone::compute_vector_fragment_memory_potential(int i)
 	    f[beta_atoms[j]][0] += forcej[0];
 	    f[beta_atoms[j]][1] += forcej[1];
 	    f[beta_atoms[j]][2] += forcej[2];
-	    
-	    //Debug
-/*	    tmpforce1[alpha_carbons[i]][0] += -forcei[0];
-	    tmpforce1[alpha_carbons[i]][1] += -forcei[1];
-	    tmpforce1[alpha_carbons[i]][2] += -forcei[2];
-	    
-	    tmpforce1[beta_atoms[i]][0] += forcei[0];
-	    tmpforce1[beta_atoms[i]][1] += forcei[1];
-	    tmpforce1[beta_atoms[i]][2] += forcei[2];
-	    
-	    tmpforce1[alpha_carbons[j]][0] += -forcej[0];
-	    tmpforce1[alpha_carbons[j]][1] += -forcej[1];
-	    tmpforce1[alpha_carbons[j]][2] += -forcej[2];
-	    
-	    tmpforce1[beta_atoms[j]][0] += forcej[0];
-	    tmpforce1[beta_atoms[j]][1] += forcej[1];
-	    tmpforce1[beta_atoms[j]][2] += forcej[2];*/
 	  }
     }
   }
@@ -6340,7 +6332,7 @@ void FixBackbone::compute_backbone()
   ntimestep = update->ntimestep;
 
   //if(atom->nlocal==0) return;
-    force_flag = 0;
+  force_flag = 0;
   if(atom->nlocal==0){
         for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
         for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
@@ -6353,8 +6345,10 @@ void FixBackbone::compute_backbone()
         return;
   }
 
-  if (comm->nprocs>1 || ntimestep==0)
+  if (comm->nprocs>1 || ntimestep==0 || firsttimestep) {
+    firsttimestep = false;
     Construct_Computational_Arrays();
+  }
 
   x = atom->x;
   f = atom->f;
@@ -6450,17 +6444,7 @@ void FixBackbone::compute_backbone()
     }
 
   }
-/*  if(nn<=0){
-    	fprintf(stderr, "nn = %d rank = %d\n", nn, comm->me);    	
-  	error->all(FLERR,"In compute_backbone, nn <=0 on one processor!");
-  }*/
   if (nn>0) xcp[nn-1][0] = xcp[nn-1][1] = xcp[nn-1][2] = 0.0;
-
- // Debug  
-/* for (i=0;i<atom->nlocal;i++) {
- 	tmpforce1[i][0] = tmpforce1[i][1] = tmpforce1[i][2] = 0.0;
- 	tmpforce2[i][0] = tmpforce2[i][1] = tmpforce2[i][2] = 0.0;
- }*/
 
 #ifdef DEBUGFORCES
 
@@ -6732,6 +6716,7 @@ void FixBackbone::compute_backbone()
     fprintf(dout, "\n\n");
 
 #else
+
   for (i=0;i<nn;i++) {
     i_resno = res_no[i]-1;
     i_chno = chain_no[i]-1;

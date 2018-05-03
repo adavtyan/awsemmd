@@ -20,6 +20,7 @@ Last Update: 12/01/2010
 #include "comm.h"
 #include "force.h"
 #include "update.h"
+#include "neighbor.h"
 #include "neigh_list.h"
 #include "memory.h"
 #include "error.h"

@@ -102,10 +102,17 @@
 
 NOTE: helix_cutoff can be 7.0 instead fo 15.0
 
+#[AMH-Go]
+kamhgo
+pvalue
+cutoffdistance
+frustration_censoring_flag (if 1, must have frustration_censored_contacts.dat containing pairs of censored contacts)
+
 [AMH-Go]-
 1.0
 1
 8.0
+0
 
 NOTE: If you use AMH-Go you need to make sure that neigbour list cutoff and skin distance are set right
 
@@ -161,3 +168,87 @@ phosphorylated residue index (or indices)
 1.2
 1
 17
+
+#[DebyeHuckel]
+k_PlusPlus, k_MinusMinus, k_PlusMinus (electrostatic scaling factors)
+k_screening (1=screening on, 0=screening off)
+screening_length (in Angstroms)
+debye_huckel_min_sep (minimum sequence separation for DH interaction)
+
+[DebyeHuckel]-
+1.0 1.0 1.0
+1.0
+10.0
+10
+
+#[Tertiary_Frustratometer]
+9.5 (CB-CB cutoff)
+1000 (Num. decoys)
+1    (Output freq.)
+mutational (configurational or mutational or singleresidue)
+
+[Tertiary_Frustratometer]-
+9.5
+1000
+1
+mutational
+
+#[Nmer_Frustratometer]
+6 (nmer_frust_size)
+9.5 (nmer_frust_cutoff)
+10 (nmer_contacts_cutoff)
+1000 (nmer_frust_ndecoys)
+1 (nmer_frust_output_freq)
+1.7 -1 0 (nmer_frust_min_frust_threshold nmer_frust_high_frust_threshold nmer_output_neutral_flag)
+0 0 1 0.6 (nmer_frust_trap_flag nmer_frust_draw_trap_flag nmer_frust_trap_num_sigma nmer_frust_ss_frac)
+singlenmer (mode: pairwise or singlenmer)
+
+[Nmer_Frustratometer]-
+6 
+9.5 
+10 
+1000 
+1 
+1.7 -1 0 
+0 0 1 0.6 
+singlenmer
+
+#[Amylometer]
+sequence.txt - file containing sequences
+6            - nmer size
+2 (*.gro 6.0)- 1=homogeneous mode, 2=heterogeneous mode; if 2, then give gro file
+               for native structure information and a cutoff for contacts in Angstroms
+
+# Homo amylometer
+[Amylometer]-
+SEQUENCEFILE
+6
+1
+
+# Hetero amylometer
+[Amylometer]-
+SEQUENCEFILE
+6
+2 test.gro 6.0
+
+#[Membrane]
+scaling factor
+kappa
+center of the membrane-pore (x, y, z)
+pore type (only 0)
+lenght of the membrane
+pore size
+distortion of the pore (from 0 to 100)
+gamma values
+
+[Membrane]-
+2
+0.5
+0 0 0
+0
+30
+5
+0
+1 1 1 1
+1 1 1 1
+1 1 1 1

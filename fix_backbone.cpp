@@ -313,7 +313,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       memb_flag = 1;
       print_log("Membrane flag on\n");
       in >> k_overall_memb;
-      in >> memb_dens_offset;
       in >> k_bin;
       in >> memb_xo[0] >> memb_xo[1] >> memb_xo[2];
       in >> memb_pore_type;

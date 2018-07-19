@@ -91,9 +91,9 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=4 and len(sys.argv)!=5 and len(sys.argv)!=6:
-	print "\nCalcQValue.py PDB_Id Input_file Output_file [sigma_exp] [-i]\n"
+	print sys.argv[0], "PDB_Id Input_file(dump) Output_file [sigma_exp] [-i]\n"
 	print
-	print "\t\t-i\tcalculate individual q values for each chain"
+	print "\t\t-i\tcalculate q values for each chain and for their interfaces"
 	print
 	exit()
 
@@ -146,17 +146,23 @@ def computeQ():
 	N = len(ca_atoms)
 	for ia in range(0, N):
 		for ja in range(ia+3, N):
-			if (splitq and pdb_chain_id[ia]==pdb_chain_id[ja]) or not splitq:
-				r = vabs(vector(ca_atoms[ia], ca_atoms[ja]))
-				rn = vabs(vector(ca_atoms_pdb[ia], ca_atoms_pdb[ja]))
-				dr = r - rn
-				if splitq: index = pdb_chain_id[ia]
-				else: index = 1
-				if not Q.has_key(index):
-					Q[index] = 0.0
-					norm[index] = 0
-				Q[index] = Q[index] + exp(-dr*dr/(2*sigma_sq[ja-ia]))
-				norm[index] = norm[index] + 1
+			r = vabs(vector(ca_atoms[ia], ca_atoms[ja]))
+			rn = vabs(vector(ca_atoms_pdb[ia], ca_atoms_pdb[ja]))
+			dr = r - rn
+
+			if splitq:
+				if pdb_chain_id[ia]==pdb_chain_id[ja]:
+					index = pdb_chain_id[ia]
+				else:
+					index = pdb_chain_id[ia]+":"+pdb_chain_id[ja]
+			else:
+				index = "ALL"
+
+			if not Q.has_key(index):
+				Q[index] = 0.0
+				norm[index] = 0
+			Q[index] = Q[index] + exp(-dr*dr/(2*sigma_sq[ja-ia]))
+			norm[index] = norm[index] + 1
 	for key in Q:
 		Q[key] = Q[key]/norm[key]
 	return Q
@@ -164,9 +170,9 @@ def computeQ():
 s = p.get_structure(struct_id, pdb_file)
 chains = s[0].get_list()
 #chain = chains[0]
-ichain = 0
+ichain = 'A'
 for chain in chains:
-	ichain = ichain + 1
+	ichain = chain.get_id()
 	for res in chain:
 		is_regular_res = res.has_id('CA') and res.has_id('O')
 		res_id = res.get_id()[0]
@@ -178,6 +184,7 @@ for i in range(0, len(ca_atoms_pdb)+1):
 	sigma.append( (1+i)**sigma_exp )
 	sigma_sq.append(sigma[-1]*sigma[-1])
 
+b_first = True
 lfile = open(lammps_file)
 for l in lfile:
 	l = l.strip()
@@ -187,6 +194,11 @@ for l in lfile:
 		if item == "TIMESTEP":
 			if len(ca_atoms)>0:
 				q = computeQ()
+				if b_first:
+					out.write('#')
+					for key in q: out.write(" "+key)
+					out.write('\n')
+					b_first = False
 				for key in q:
 					out.write(str(round(q[key],3)))
 					out.write(' ')

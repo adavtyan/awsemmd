@@ -90,7 +90,7 @@ class Atom:
 		f.write(self.desc)
 		f.write('\n')
 
-if len(sys.argv)!=5 and len(sys.argv)!=4:
+if len(sys.argv)!=4 and len(sys.argv)!=5 and len(sys.argv)!=6:
 	print "\nCalcPdbQ.py PDB_Id1 PDB_Id2 Output_file [sigma_exp] [-i]\n"
 	print
 	print "\t\t-i\tcalculate individual q values for each chain"

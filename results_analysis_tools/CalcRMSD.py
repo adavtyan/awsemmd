@@ -94,7 +94,7 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=5 and len(sys.argv)!=4:
-	print "\nCalcQValue.py PDB_Id Input_file(lammpstrj) Output_file(rmsd)\n"
+	print "\CalcRMSD.py PDB_Id Input_file(lammpstrj) Output_file(rmsd)\n"
 	exit()
 
 struct_id = sys.argv[1]

@@ -322,10 +322,11 @@ for line in matchlines:
 	else:
 		Missing_pdb[pdbID] = 1
 		Missing_count += 1
-for line in homoOut:
-  entries=line.split()
-  print "HOMOLOGS:::"
-  print entries
+if brain_damage == 1:
+  for line in homoOut:
+    entries=line.split()
+    print "HOMOLOGS:::"
+    print entries
 print "memories per position that is fewer than expected:"  
 for i in count:
   if count[i] < N_mem:

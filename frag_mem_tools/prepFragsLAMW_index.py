@@ -57,7 +57,7 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 
 		                is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 				res_id = res.get_id()[0]
-		                if not (res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L' or res_id=='H_CAS') and is_regular_res :
+		                if not (res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L' or res_id=='H_CAS') or not is_regular_res :
 					print 'Discard Fragment: Non-regular residue:', res.get_id()[0], 'at position', res_index,  'in pdb:', pdbID
 					return False
 				res_name = res.get_resname()

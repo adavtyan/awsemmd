@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
-# Modified by Weihua Zheng, Peter Wolynes Group Apr., 2011
-# Modified by Aram Davtyan, Aug 2018
-# Use BioPython to calculate RMSD from the ref. structure.
+# Created by Aram Davtyan, Aug 2018
+# Use BioPython to calculate RMSD from the ref. structure for selected reisudes.
 # Only C-alpha atoms are used.
 
 # ----------------------------------------------------------------------
@@ -15,10 +14,8 @@
 # ----------------------------------------------------------------------
 
 import sys
-
-##
 import numpy
-##
+import re
 
 from VectorAlgebra import *
 
@@ -94,8 +91,9 @@ class Atom:
 		f.write(self.desc)
 		f.write('\n')
 
-if len(sys.argv)!=4:
-	print "\nCalcRMSD.py PDB_Id Input_file(lammpstrj) Output_file(rmsd)\n"
+if len(sys.argv)!=5 and len(sys.argv)!=4:
+	print "\nCalcRMSD_for_Selection.py PDB_Id Input_file(lammpstrj) Output_file(rmsd) [Selection_string]\n"
+	print "Selection string examples: \"A1:100\", \"A11:50;B1:30\"\n"
 	exit()
 
 struct_id = sys.argv[1]
@@ -106,8 +104,13 @@ else:
         pdb_file = struct_id + ".pdb"
 
 lammps_file = sys.argv[2]
-
 output_file = sys.argv[3]
+
+sel = False
+sel_str = ""
+if len(sys.argv)>4:
+	sel_str = sys.argv[4]
+	sel = True
 
 n_atoms = 0
 i_atom = 0
@@ -117,6 +120,22 @@ ca_atoms_pdb = []
 ca_atoms = []
 box = []
 A = []
+residue_ranges = {}
+include_res_map = []
+
+# Create selected residue dir map
+if sel:
+	find_res = re.findall("([a-zA-Z])([0-9]+):([0-9]+)",sel_str)
+	for ir in find_res:
+		ch = ir[0]
+		i1 = int(ir[1])
+		il = int(ir[2])
+
+		if not residue_ranges.has_key(ch): residue_ranges[ch] = []
+
+		for i in range(i1, il+1):
+			residue_ranges[ch].append(i)
+
 
 out = open(output_file, 'w')
 
@@ -135,12 +154,19 @@ def computeRMSD():
 		exit()
 	l = len(ca_atoms)
 
-	fixed_coord  = numpy.zeros((l, 3))
-	moving_coord = numpy.zeros((l, 3))
+	fixed_coord  = []
+	moving_coord = []
 
-	for i in range(0, l):
-		fixed_coord[i]  = numpy.array ([ca_atoms_pdb[i][0], ca_atoms_pdb[i][1], ca_atoms_pdb[i][2]])
-		moving_coord[i] = numpy.array ([ca_atoms[i][0], ca_atoms[i][1], ca_atoms[i][2]])
+	for i in range(l):
+		if include_res_map[i]==1:
+			fixed_coord.append([ca_atoms_pdb[i][0], ca_atoms_pdb[i][1], ca_atoms_pdb[i][2]])
+			moving_coord.append([ca_atoms[i][0], ca_atoms[i][1], ca_atoms[i][2]])
+
+	if len(fixed_coord)==0: return 0
+
+	fixed_coord = numpy.array(fixed_coord)
+	moving_coord = numpy.array(moving_coord)
+
 	sup = SVDSuperimposer()
 	sup.set(fixed_coord, moving_coord)
 	sup.run()
@@ -150,11 +176,23 @@ def computeRMSD():
 s = p.get_structure(struct_id, pdb_file)
 chains = s[0].get_list()
 for chain in chains:
+	chain_id = chain.get_id()
+	if chain_id=="": chain_id = "A"
 	for res in chain:
 		is_regular_res = res.has_id('CA') and res.has_id('O')
-		res_id = res.get_id()[0]
-        	if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L') and is_regular_res:
+		res_id0 = res.get_id()[0]
+		res_id = res.get_id()[1]
+        	if (res_id0==' ' or res_id0=='H_MSE' or res_id0=='H_M3L') and is_regular_res:
 			ca_atoms_pdb.append(res['CA'].get_coord())
+
+			# Fill include_res_map
+			if not sel:
+				inc = 1
+			else:
+				inc = 0
+				if residue_ranges.has_key(chain_id) and res_id in residue_ranges[chain_id]: inc = 1
+
+			include_res_map.append(inc)
 
 lfile = open(lammps_file)
 for l in lfile:
@@ -164,8 +202,9 @@ for l in lfile:
 	else:
 		if item == "TIMESTEP":
 			if len(ca_atoms)>0:
-				rmsd = computeRMSD()
-				out.write(str(round(rmsd,3)))
+				q = computeRMSD()
+				#q = computeQ()
+				out.write(str(round(q,3)))
 				out.write(' ')
 				n_atoms = len(ca_atoms)
 			step = int(l)
@@ -195,8 +234,9 @@ for l in lfile:
 lfile.close()
 
 if len(ca_atoms)>0:
-	rmsd = computeRMSD()
-	out.write(str(round(rmsd,3)))
+	q = computeRMSD()
+	#q = computeQ()
+	out.write(str(round(q,3)))
 	out.write(' ')
 	n_atoms = len(ca_atoms)
 

@@ -1,0 +1,13 @@
+A common pipeline to run AWSEM-IDP simulation (take PaaA2 as example):
+
+1. Create initial files for AWSEM simulation using a pre-existing structure of the target IDP (5AAA-1.pdb).
+
+2. Run unfolding simulation (unfold.in) to obtain a random initial configuration.
+
+3. Run annealing simulation (annealing.in) to decrease the temperature to desired value (e.g. room temperature).
+
+4. Run equilibration simulation (equil.in) at desired temperature to reach equilibrated state.
+
+5. Run constT simulation (constT.in) to obtain final ensemble.
+
+Most parameters are subject to change (some parameters in fix_backbone_coeff.data, fragment memory, Rg potential, thermostat, temperature, run timesteps, etc), depending on the specific protein and related scientific questions. Always visualize the obtained trajectories (with BuildAllAtomsFromLammps_seq.py) to check their sanity before further data analysis.

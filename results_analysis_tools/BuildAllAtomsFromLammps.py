@@ -398,7 +398,7 @@ def buildAllAtoms(build_terminal_atoms=True, build_bonds=False):
 				bonds.append([Cp_index, O_index])
 			bonds.append([Ca_index, Cb_index])
 			if Cp_index!=-1 and N1_index!=-1:
-				bonds.append([Ca_index, N1_index])
+				bonds.append([Cp_index, N1_index])
 
 def print_atom_array():
 	out.write("ITEM: TIMESTEP\n")
@@ -423,14 +423,15 @@ def print_pdb():
 def print_psf():
 	space8 = "        "
 	psfout = open(psf_file,'w')
-	psfout.write("PSF\n\n\t2 !NTITLE\n\n")
+	psfout.write("PSF\n\n\t0 !NTITLE\n\n")
 	psfout.write((space8+str(len(atoms3)))[-8:]+" !NATOM\n")
-	for ia in atoms2:
-		psfout.write((space8+str(ia.No))[-8:]+" PROT 1")
-		psfout.write("    R00")
-		psfout.write("  "+ia.ty)
-		psfout.write("       1")
-		psfout.write("          0            1           0\n")
+	for ia in atoms3:
+		psfout.write((space8+str(ia.no))[-8:]+" PROT ")
+		psfout.write((str(ia.res_no)+space8)[:5])
+		psfout.write(ia.res)
+		psfout.write("  "+(ia.ty+space8)[:5])
+		psfout.write((ia.atm+"   ")[:3])
+		psfout.write("           0             1           0\n")
 	psfout.write("\n")
 	psfout.write((space8+str(len(bonds)))[-8:]+" !NBOND")
 	for i in range(0, len(bonds)):

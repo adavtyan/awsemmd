@@ -287,7 +287,7 @@ public:
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
   
   char *se; // Protein sequance
-  int nch, ch_len[100], ch_pos[100];
+  int nch, ch_len[1000], ch_pos[1000];
   
   double energy[17], energy_all[17];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 

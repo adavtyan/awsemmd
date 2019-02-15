@@ -34,14 +34,11 @@
 using std::ifstream;
 
 #define delta 0.00001
-#define DEBUGFORCES
+#define pap_delta 1e-12
 #define vfm_small 0.0001
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
-
-//double fm_f[100][2][3], tfm_f[100][2][3];
-//double err=0.0, err_max=0.0, err_max2=0.0;
 
 /* ---------------------------------------------------------------------- */
 
@@ -72,7 +69,7 @@ void itoa(int a, char *buf, int s)
   buf[i]='\0';
 }
 
-inline void FixBackbone::print_log(char *line)
+inline void FixBackbone::print_log(const char *line)
 {
   if (screen) fprintf(screen, line);
   if (logfile) fprintf(logfile, line);
@@ -961,7 +958,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   ifstream in_rs("record_steps");
   in_rs >> sStep >> eStep;
   in_rs.close();
-
 }
 
 void FixBackbone::final_log_output()
@@ -1291,6 +1287,8 @@ inline void FixBackbone::Construct_Computational_Arrays()
   int i;
   for (i=0; i<n; ++i){
   	res_no_l[i] =-1;
+        res_info[i] = OFF;
+	chain_no[i] = -1;
   }
 
   // Creating index arrays for Alpha_Carbons, Beta_Atoms and Oxygens
@@ -1333,31 +1331,33 @@ inline void FixBackbone::Construct_Computational_Arrays()
     beta_atoms[nn] = jm[1];
     oxygens[nn] = jm[2];
     res_no[nn] = amin;
-    res_no_l[res_no[nn]-1]=nn; //local i=res_no_l[i_resno]; 
+    res_no_l[res_no[nn]-1]=nn; //local i=res_no_l[i_resno];
+
+    if (alpha_carbons[nn]!=-1) chain_no[nn] = mol_tag[alpha_carbons[nn]];
+    else if (beta_atoms[nn]!=-1) chain_no[nn] = mol_tag[beta_atoms[nn]];
+    else if (oxygens[nn]!=-1) chain_no[nn] = mol_tag[oxygens[nn]];
+
+    if (chain_no[nn]<=0 || chain_no[nn]>nch)
+	error->all(FLERR,"Chain tag is out of range");
+			
+    // Making sure chain tags match for same residue atoms
+    if ( (beta_atoms[nn]!=-1 && chain_no[nn]!=mol_tag[beta_atoms[nn]]) ||
+         (oxygens[nn]!=-1 && chain_no[nn]!=mol_tag[oxygens[nn]]) ) {
+      error->all(FLERR,"Atoms in a residue have different chain tag");
+    }
+
+    // Checking for correct residue numbering
+    if ( res_no[nn]<ch_pos[chain_no[nn]-1] || res_no[nn]>ch_pos[chain_no[nn]-1]+ch_len[chain_no[nn]-1]-1 )
+	error->all(FLERR,"Residue tag is out of range");
+
     last = amin;
     nn++;
   }
 
   for (i = 0; i < nn; ++i) {
-    chain_no[i] = -1;
-	
     // Checking sequance and marking residues
     if (alpha_carbons[i]!=-1) {
 			
-      // Making sure chain tags match for same residue atoms
-      if ( (beta_atoms[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[beta_atoms[i]]) ||
-	   (oxygens[i]!=-1 && mol_tag[alpha_carbons[i]]!=mol_tag[oxygens[i]]) ) {
-	error->all(FLERR,"Atoms in a residue have different chain tag");
-      }			
-      chain_no[i] = mol_tag[alpha_carbons[i]];
-			
-      if (chain_no[i]<=0 || chain_no[i]>nch)
-	error->all(FLERR,"Chain tag is out of range");
-			
-      // Checking for correct residue numbering
-      if ( res_no[i]<ch_pos[chain_no[i]-1] || res_no[i]>ch_pos[chain_no[i]-1]+ch_len[chain_no[i]-1]-1 )
-	error->all(FLERR,"Residue tag is out of range");
-
       if (alpha_carbons[i]<nlocal) {
 	if (beta_atoms[i]==-1 || oxygens[i]==-1) {
 	  error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 001)");
@@ -1368,7 +1368,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
 	res_info[i] = LOCAL;
       } else {
 	if ( i>0 && !isFirst(i) && res_info[i-1]==LOCAL ) res_info[i] = GHOST;
-	else if (i<nn-1 && !isLast(i) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
+	else if (i<nn-1 && !isLast(i) && !isFirst(i+1) && alpha_carbons[i+1]<nlocal && alpha_carbons[i+1]!=-1) {
 	  if (oxygens[i]==-1) {
 	    error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 003)");
 	  }
@@ -1379,8 +1379,8 @@ inline void FixBackbone::Construct_Computational_Arrays()
       }
 			
     } else res_info[i] = OFF;
-		
-    if (i>0 && res_info[i-1]==LOCAL && res_info[i]==OFF) {
+
+    if (res_info[i]==OFF && i>0 && !isLast(i-1) && res_info[i-1]==LOCAL) {
       error->all(FLERR,"Missing neighbor atoms in fix backbone (Code 004)");
     }
   }
@@ -1496,7 +1496,6 @@ void FixBackbone::init()
   neighbor->requests[irequest]->half = 0;
   neighbor->requests[irequest]->full = 1;
   //  neighbor->requests[irequest]->occasional = 0;
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2454,7 +2453,6 @@ inline double FixBackbone::anti_one(int res)
 
 inline double FixBackbone::get_water_gamma(int i_resno, int j_resno, int i_well, int ires_type, int jres_type, int water_prot_flag)
 {
-   
   if (!phosph_flag) {
     return water_gamma[i_well][ires_type][jres_type][water_prot_flag];
   } 
@@ -2501,15 +2499,16 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 	
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
+
+  int i_ch_start = ch_pos[i_chno];
+  int j_ch_start = ch_pos[j_chno];
+  int i_ch_end = ch_pos[i_chno]+ch_len[i_chno]-1;
+  int j_ch_end = ch_pos[j_chno]+ch_len[j_chno]-1;
 	
   if ( isLast(j) || se[j_resno+1]=='P' ) i_repulsive = false;
   if ( isFirst(i) || isLast(j) || se[i_resno]=='P' ) i_AP = false;
-  if ( i_resno==(ch_pos[i_chno]+ch_len[i_chno]-1)-2 || isLast(j) || se[i_resno+2]=='P' ) i_P = false;
+  if ( i_resno>=i_ch_end-2 || isLast(j) || se[i_resno+2]=='P' ) i_P = false;
 	
-  /*	if ( j_resno==n-1 || se[j_resno+1]=='P' ) i_repulsive = false;
-	if ( i_resno==0 || j_resno==n-1 || se[i_resno]=='P' ) i_AP = false;
-	if ( i_resno==n-2 || j_resno==n-1 || se[i_resno+2]=='P' ) i_P = false;*/
-
   for (k=0;k<2;++k) {
     if (i_AP) {
       theta_seq_anti_HB[k]=0.5*anti_HB(se[i_resno], se[j_resno], k);
@@ -2640,7 +2639,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     }
   }
 
-  if (i-2 > 0 && !isFirst(i-1) && !isFirst(i-2) && i+2 < nn && !isLast(i+1) && hb_class!=2) {
+  if (i_resno-2>=i_ch_start-1 && i_resno+2<i_ch_end && hb_class!=2) {
     dxnu[0][0] = xca[i+2][0]-xca[i-2][0];
     dxnu[0][1] = xca[i+2][1]-xca[i-2][1];
     dxnu[0][2] = xca[i+2][2]-xca[i-2][2];
@@ -2653,7 +2652,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     prdnu[0] = 0.5*pref[0]*(1-pow(th,2))/r_nu[0];
   } else nu[0] = 1.0;
 
-  if (j-2 > 0 && !isFirst(j-1) && !isFirst(j-2) && j+2 < nn && !isLast(j+1) && hb_class!=2) {
+  if (j_resno-2>=j_ch_start-1 && j_resno+2<j_ch_end && hb_class!=2) {
     dxnu[1][0] = xca[j+2][0]-xca[j-2][0];
     dxnu[1][1] = xca[j+2][1]-xca[j-2][1];
     dxnu[1][2] = xca[j+2][2]-xca[j-2][2];
@@ -2681,7 +2680,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 
   energy[ET_DSSP] +=  epsilon*VTotal;
 
-  if (i-2 > 0 && !isFirst(i-1) && !isFirst(i-2) && i+2 < nn && !isLast(i+1) && hb_class!=2) {
+  if (i_resno-2>=i_ch_start-1 && i_resno+2<i_ch_end && hb_class!=2) {
     force = k_dssp*epsilon*theta_sum*prdnu[0]*nu[1];
     f[alpha_carbons[i-2]][0] -= -force*dxnu[0][0];
     f[alpha_carbons[i-2]][1] -= -force*dxnu[0][1];
@@ -2692,7 +2691,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     f[alpha_carbons[i+2]][2] -= force*dxnu[0][2];
   }
 
-  if (j-2 > 0 && !isFirst(j-1) && !isFirst(j-2) && j+2 < nn && !isLast(j+1) && hb_class!=2) {
+  if (j_resno-2>=j_ch_start-1 && j_resno+2<j_ch_end && hb_class!=2) {
     force = k_dssp*epsilon*theta_sum*nu[0]*prdnu[1];
     f[alpha_carbons[j-2]][0] -= -force*dxnu[1][0];
     f[alpha_carbons[j-2]][1] -= -force*dxnu[1][1];
@@ -2778,6 +2777,8 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 
 void FixBackbone::compute_P_AP_potential(int i, int j)
 {
+  if (p_ap->nu(i, j)<pap_delta) return;
+
   double K, force[2], dx[2][3];
   bool i_AP_med, i_AP_long, i_P;
 
@@ -2787,16 +2788,14 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   int i_chno = chain_no[i]-1;
   int j_chno = chain_no[j]-1;
 
-  // This needs to be updated for parallel computations
+  int i_ch_end = ch_pos[i_chno]+ch_len[i_chno]-1;
+  int j_ch_end = ch_pos[j_chno]+ch_len[j_chno]-1;
 
-  //i_AP_med = i_resno<n-(i_med_min+2*i_diff_P_AP)   && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP) && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
-  i_AP_med   = i_chno==j_chno &&  i_resno<n-(i_med_min+2*i_diff_P_AP)  && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP)    && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,n-1);
+  i_AP_med   = i_chno==j_chno &&  i_resno<i_ch_end-(i_med_min+2*i_diff_P_AP)  && j_resno>=i_resno+(i_med_min+2*i_diff_P_AP)    && j_resno<=MIN(i_resno+i_med_max+2*i_diff_P_AP,i_ch_end-1);
 
-  //i_AP_long= i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n;
-  i_AP_long  = (i_chno==j_chno && i_resno<n-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<n) || (i_chno!=j_chno && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j-i_diff_P_AP]-1)==j_chno);
+  i_AP_long  = (i_chno==j_chno && i_resno<i_ch_end-(i_med_max+2*i_diff_P_AP+1) && j_resno>=i_resno+(i_med_max+2*i_diff_P_AP+1) && j_resno<j_ch_end) || (i_chno!=j_chno && i+i_diff_P_AP<nn && j-i_diff_P_AP>=0 && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j-i_diff_P_AP]-1)==j_chno);
 
-  //i_P      = i_resno<n-(i_med_max+1+i_diff_P_AP)   && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP;
-  i_P = (i_chno==(chain_no[j+i_diff_P_AP]-1) && i_resno<n-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<n-i_diff_P_AP) || (i_chno!=j_chno && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j+i_diff_P_AP]-1)==j_chno);
+  i_P = (i_chno==j_chno && i_resno<i_ch_end-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<i_ch_end-i_diff_P_AP) || (i_chno!=j_chno && i+i_diff_P_AP<nn && j+i_diff_P_AP<nn && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j+i_diff_P_AP]-1)==j_chno);
 
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
@@ -6526,7 +6525,8 @@ void FixBackbone::compute_backbone()
 
   for (i=0;i<nn;i++) {
     for (j=0;j<nn;j++) {
-      if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+      //if (i<n-i_med_min && j>=i+i_med_min && p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+      if (i<n-i_med_min && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
     }
   }
@@ -6741,9 +6741,9 @@ void FixBackbone::compute_backbone()
       		
       if (dssp_hdrgn_flag && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
-				
-      // Need to change
-      if (p_ap_flag && i<n-i_med_min && j>=i+i_med_min && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+
+      //if (p_ap_flag && i<n-i_med_min && j>=i+i_med_min && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
+      if (p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
 
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)

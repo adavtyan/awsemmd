@@ -287,7 +287,7 @@ public:
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
   
   char *se; // Protein sequance
-  int nch, ch_len[100], ch_pos[100];
+  int nch, ch_len[1000], ch_pos[1000];
   
   double energy[17], energy_all[17];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
@@ -399,7 +399,7 @@ public:
   inline double get_water_gamma(int i_resno, int j_resno, int i_well, int ires_type, int jres_type, int local_dens);
   inline double get_burial_gamma(int i_resno, int irestype, int local_dens);
   
-  inline void print_log(char *line);
+  inline void print_log(const char *line);
   void final_log_output();
   Fragment_Memory **read_mems(char *mems_file, int &n_mems);
   bool isEmptyString(char *str);

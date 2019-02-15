@@ -44,7 +44,11 @@ from Bio.PDB.PDBParser import PDBParser
 p = PDBParser(PERMISSIVE=1)
 
 struct_id = sys.argv[1]
-filename = struct_id + ".pdb"
+if struct_id.lower().endswith(".pdb"):
+  filename = struct_id
+  struct_id = struct_id[:-4]
+else:
+  filename = struct_id + ".pdb"
 
 splite = False
 for av in sys.argv:

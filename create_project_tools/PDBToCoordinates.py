@@ -128,7 +128,6 @@ def three2one(prot):
 if len(sys.argv)==1:
     print "\nReadingPDBFile.py PDB_Id Output_file [-s]\n"
     print "-s\tSplit into files for each chain"
-#    sys.argv.append("1BG8")
     exit()
 
 from Bio.PDB.PDBParser import PDBParser
@@ -136,7 +135,11 @@ from Bio.PDB.PDBParser import PDBParser
 p = PDBParser(PERMISSIVE=1)
 
 struct_id = sys.argv[1]
-filename = struct_id + ".pdb"
+if struct_id.lower().endswith(".pdb"):
+  filename = struct_id
+  struct_id = struct_id[:-4]
+else:
+  filename = struct_id + ".pdb"
 
 splite = False
 for av in sys.argv:

@@ -26,16 +26,20 @@ atom_style	awsemmd
 
 ``pair_coeff
 
-velocity	all create 300.0 2349852
+velocity	all create 300.0 2349852 rot yes dist gaussian
 
 ``groups
-fix		  1 all nvt temp 300.0 300.0 100.0
-fix		  ``main_fix
+fix		1 all nvt temp 300.0 300.0 100.0
+fix		``main_fix
+fix		3 all momentum 100 linear 1 1 1 angular
 
 thermo		1000
 dump		1 all atom 1000 dump.lammpstrj
 
 dump_modify	1 sort id
 
+restart		10000 restart
+
 reset_timestep	0
+minimize	0.0 1.0e-8 1000 100000
 run		10000

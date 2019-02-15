@@ -81,7 +81,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 7) error->all(FLERR,"Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
-  fmenergiesfile = fopen("fmenergies.log", "w");
 
   char buff[5];
   char forcefile[20]="";
@@ -110,6 +109,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   shuffler_flag = 0;
   mutate_sequence_flag = 0;
   monte_carlo_seq_opt_flag = 0;
+  fm_use_table_flag = fm_read_table_flag = 0;
+  n_frag_mems = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -286,7 +287,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> tb_rmin >> tb_rmax >> tb_dr;
       tb_size = (int)((tb_rmax-tb_rmin)/tb_dr)+2;
       in >> frag_table_well_width;
-      in >> fm_energy_debug_flag;
+      in >> fm_use_table_flag;
       in >> fm_sigma_exp;      
     } else if (strcmp(varsection, "[Vector_Fragment_Memory]")==0) {
       vec_frag_mem_flag = 1;
@@ -665,9 +666,11 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     compute_amhgo_normalization();
   }
 	
-	
+
+  if (fm_use_table_flag && file_exists("fm_table.energy") && file_exists("fm_table.force")) fm_read_table_flag = 1;
+  else fm_read_table_flag = 0;
+
   if (frag_mem_flag || frag_mem_tb_flag) {
-    if (comm->me==0) print_log("Reading fragments...\n");
 		
     fm_gamma = new Gamma_Array(fm_gamma_file);
     if (fm_gamma->error==fm_gamma->ERR_FILE) error->all(FLERR,"Fragment_Memory: Cannot read gamma file");
@@ -675,34 +678,38 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     if (fm_gamma->error==fm_gamma->ERR_GAMMA) error->all(FLERR,"Fragment_Memory: Incorrect entery in gamma file");
     if (fm_gamma->error==fm_gamma->ERR_G_CLASS) error->all(FLERR,"Fragment_Memory: Wrong sequance separation class tag");
     if (fm_gamma->error==fm_gamma->ERR_ASSIGN) error->all(FLERR,"Fragment_Memory: Cannot build gamma array");
+
+    if (frag_mem_flag || (frag_mem_tb_flag && !fm_read_table_flag) ) {
+
+      // read frag_mems_file and create a list of the fragments
+      if (comm->me==0) print_log("Reading fragments...\n");
+      frag_mems = read_mems(frag_mems_file, n_frag_mems);
 		
-    // read frag_mems_file and create a list of the fragments
-    frag_mems = read_mems(frag_mems_file, n_frag_mems);
-		
-    // allocate frag_mem_map and ilen_fm_map
-    ilen_fm_map = new int[n]; // Number of fragments for residue i
-    frag_mem_map = new int*[n]; // Memory Fragments map
-    for (i=0;i<n;++i) {
-      ilen_fm_map[i] = 0;
-      frag_mem_map[i] = NULL;
-    }
-		
-    // Fill Fragment Memory map
-    int k, pos, len, min_sep;
-    min_sep = fm_gamma->minSep();
-    for (k=0;k<n_frag_mems;++k) {
-      pos = frag_mems[k]->pos;
-      len = frag_mems[k]->len;
-      
-      if (pos+len>n) {
-	fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
-	error->all(FLERR,"Fragment_Memory: Incorrectly defined memory fragment");
+      // allocate frag_mem_map and ilen_fm_map
+      ilen_fm_map = new int[n]; // Number of fragments for residue i
+      frag_mem_map = new int*[n]; // Memory Fragments map
+      for (i=0;i<n;++i) {
+        ilen_fm_map[i] = 0;
+        frag_mem_map[i] = NULL;
       }
+		
+      // Fill Fragment Memory map
+      int k, pos, len, min_sep;
+      min_sep = fm_gamma->minSep();
+      for (k=0;k<n_frag_mems;++k) {
+        pos = frag_mems[k]->pos;
+        len = frag_mems[k]->len;
       
-      for (i=pos; i<pos+len-min_sep; ++i) {
-	ilen_fm_map[i]++;
-	frag_mem_map[i] = (int *) memory->srealloc(frag_mem_map[i],ilen_fm_map[i]*sizeof(int),"modify:frag_mem_map");
-	frag_mem_map[i][ilen_fm_map[i]-1] = k;
+        if (pos+len>n) {
+          fprintf(stderr, "pos %d len %d n %d\n", pos, len, n); 
+          error->all(FLERR,"Fragment_Memory: Incorrectly defined memory fragment");
+        }
+      
+        for (i=pos; i<pos+len-min_sep; ++i) {
+          ilen_fm_map[i]++;
+          frag_mem_map[i] = (int *) memory->srealloc(frag_mem_map[i],ilen_fm_map[i]*sizeof(int),"modify:frag_mem_map");
+          frag_mem_map[i][ilen_fm_map[i]-1] = k;
+        }
       }
     }
   }
@@ -923,9 +930,14 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
     for (i=0; i<4*n*tb_nbrs; ++i) {
       fm_table[i] = NULL;
     }
-	
-    if (comm->me==0) print_log("Computing FM table...\n");
-    compute_fragment_memory_table();
+
+    if (fm_read_table_flag) {
+      if (comm->me==0) print_log("Reading pre-computed FM table...\n");
+      read_fragment_memory_table();
+    } else {
+      if (comm->me==0) print_log("Computing FM table...\n");
+      compute_fragment_memory_table();
+    }
   }
 
   // If using Debye_Huckel potential, read charges from file
@@ -1053,11 +1065,13 @@ FixBackbone::~FixBackbone()
       delete fm_gamma;
 			
       for (int i=0;i<n_frag_mems;i++) delete frag_mems[i];
-      if (n_frag_mems>0) memory->sfree(frag_mems);
+      if (n_frag_mems>0) {
+        memory->sfree(frag_mems);
 			
-      for (int i=0;i<n;++i) memory->sfree(frag_mem_map[i]);
-      delete [] frag_mem_map;
-      delete [] ilen_fm_map;
+        for (int i=0;i<n;++i) memory->sfree(frag_mem_map[i]);
+        delete [] frag_mem_map;
+        delete [] ilen_fm_map;
+      }
     }
   }
 	
@@ -1609,6 +1623,11 @@ char *FixBackbone::trim(char *s)
 {     
   return rtrim(ltrim(s));  
 } 
+
+inline bool FixBackbone::file_exists (const char *name) {
+    ifstream f(name);
+    return f.good();
+}
 
 Fragment_Memory **FixBackbone::read_mems(char *mems_file, int &n_mems)
 {
@@ -3536,6 +3555,65 @@ void FixBackbone::compute_fragment_memory_potential(int i)
   }
 }
 
+void FixBackbone::read_fragment_memory_table()
+{
+  int itb,ir,ntb_tot;
+  double val;
+
+  ntb_tot = 4*n*tb_nbrs;
+
+  // Reading Fragmnet Memory Tabale energies
+
+  ifstream infmeng("fm_table.energy");
+  if (!infmeng) error->all(FLERR,"Fragment memory table files not found!");
+
+  ir = 0;
+  itb = 0;
+  while (!infmeng.eof()) {
+    infmeng >> val;
+    if (infmeng.eof()) break;
+
+    if (ir!=0 && ir%tb_size==0) {
+      ir = 0;
+      itb++;
+    }
+
+    if (itb>=ntb_tot) error->all(FLERR,"Fragment memory table file format error!");
+
+    if (!fm_table[itb]) fm_table[itb] = new TBV[tb_size];
+
+    fm_table[itb][ir].energy = val;
+    ir++;
+  }
+  infmeng.close();
+  if (itb!=ntb_tot-1 && ir!=tb_size) error->all(FLERR,"Fragment memory table file format error!");
+
+
+  // Reading Fragmnet Memory Tabale forces
+
+  ifstream infmforce("fm_table.force");
+  if (!infmforce) error->all(FLERR,"Fragment memory table files not found!");
+
+  ir = 0;
+  itb = 0;
+  while (!infmforce.eof()) {
+    infmforce >> val;
+    if (infmforce.eof()) break;
+
+    if (ir!=0 && ir%tb_size==0) {
+      ir = 0;
+      itb++;
+    }
+
+    if (itb>=ntb_tot) error->all(FLERR,"Fragment memory table file format error!");
+
+    fm_table[itb][ir].force = val;
+    ir++;
+  }
+  infmforce.close();
+  if (itb!=ntb_tot-1 && ir!=tb_size) error->all(FLERR,"Fragment memory table file format error!");
+}
+
 void FixBackbone::compute_fragment_memory_table()
 {
   int i, j, js, je, ir, i_fm, k, itb, iatom[4], jatom[4], iatom_type[4], jatom_type[4];
@@ -3624,9 +3702,7 @@ void FixBackbone::compute_fragment_memory_table()
       }
     }
   }
-  if(fm_energy_debug_flag) {
-    output_fragment_memory_table();
-  }
+  if (fm_use_table_flag) output_fragment_memory_table();
 }
 
 void FixBackbone::table_fragment_memory(int i, int j)
@@ -5356,11 +5432,23 @@ void FixBackbone::compute_nmer_decoy_ixns(int i_start, int j_start)
   nmer_decoy_ixn_stats[1] = compute_array_std(nmer_frust_decoy_energies, nmer_frust_ndecoys);
 }
 
-// this routine outputs the contents of fm_table (only the energies) to a file called fmenergies.log
+// this routine outputs the contents of fm_table to files called fm_table.energy and fm_table.force
 void FixBackbone::output_fragment_memory_table()
 {
   int itb,ir; // loop variables
-  double energyvalue;
+  double energyvalue, forcevalue;
+
+  FILE *fmenergiesfile;
+  FILE *fmforcesfile;
+
+  if (comm->me==0) print_log("Saving FM table for future use...\n");
+
+  fmenergiesfile = fopen("fm_table.energy", "w");
+  fmforcesfile = fopen("fm_table.force", "w");
+
+  if (fmenergiesfile==NULL || fmforcesfile==NULL) {
+    error->all(FLERR,"Fragment memory table files not found!");
+  }
 
   // loop over all interactions
   for (itb=0; itb<4*n*tb_nbrs; itb++) {
@@ -5368,20 +5456,26 @@ void FixBackbone::output_fragment_memory_table()
     for (ir=0; ir<tb_size; ir++) {
       // don't try to read out the energies if it was never allocated because of the exception for glycines
       // instead, output a row of zeroes so that the row indices remain meaningful
-      if (fm_table[itb] == NULL)
-	{
-	  energyvalue = 0.0;
-	}
-      else
-	{
-	  energyvalue = fm_table[itb][ir].energy;
-	}
+      if (fm_table[itb] == NULL) {
+        energyvalue = 0.0;
+        forcevalue = 0.0;
+      } else {
+        energyvalue = fm_table[itb][ir].energy;
+        forcevalue = fm_table[itb][ir].force;
+      }
+      if (isinf(energyvalue)) energyvalue = 0.0;
+      if (isinf(forcevalue)) forcevalue = 0.0;
       // output fm_table energies to file for debugging/visualization
-      fprintf(fmenergiesfile,"%.4f ",energyvalue);
+      fprintf(fmenergiesfile,"%.12f ",energyvalue);
+      fprintf(fmforcesfile,"%.12f ",forcevalue);
     }
     // put every interaction on a new line of the file
     fprintf(fmenergiesfile,"\n");
+    fprintf(fmforcesfile,"\n");
   }
+
+  fclose(fmenergiesfile);
+  fclose(fmforcesfile);
 }
 
 void FixBackbone::compute_membrane_potential(int i)

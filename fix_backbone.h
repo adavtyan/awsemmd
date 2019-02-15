@@ -159,12 +159,12 @@ public:
   TBV **fm_table;
   int tb_size, tb_nbrs;
   double tb_rmin, tb_rmax, tb_dr;
+  int fm_use_table_flag, fm_read_table_flag;
   
   // Vector Fragment Memory
   double k_vec_frag_mem;
   double vfm_sigma, vfm_sigma_sq;
   double frag_table_well_width;
-  int fm_energy_debug_flag;
 
   // Solvent separated barrier
   double k_solventb1, k_solventb2;
@@ -319,6 +319,7 @@ public:
   void compute_fragment_frustration();
   void compute_solvent_barrier(int i, int j);
   void compute_fragment_memory_table();
+  void read_fragment_memory_table();
   void output_fragment_memory_table();
   void table_fragment_memory(int i, int j);
   void compute_amhgo_normalization();
@@ -406,6 +407,7 @@ public:
   char *ltrim(char *s);
   char *rtrim(char *s);
   char *trim(char *s);
+  inline bool file_exists (const char *name);
   
   void timerBegin();
   void timerEnd(int which);
@@ -421,7 +423,6 @@ public:
   class AtomVecAWSEM *avec;
   
   FILE *efile;
-  FILE *fmenergiesfile;
 
   FILE *dout;
   int sStep, eStep;

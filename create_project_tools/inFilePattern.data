@@ -9,7 +9,7 @@ dimension	3
 boundary s s s
 #boundary p p p
 
-neighbor	10 bin
+neighbor	20 bin
 neigh_modify	delay 5
 
 atom_modify sort 0 0.0

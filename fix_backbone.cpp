@@ -6500,39 +6500,35 @@ void FixBackbone::compute_backbone()
 		
     i_resno=res_no[i]-1;
     int im1 = res_no_l[i_resno-1];
-    if (im1!=-1 && i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST))	{
+    if (im1!=-1 && i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[im1]==LOCAL || res_info[im1]==GHOST)) {
 /*      if (im1==-1){
         printf("proc: %d i: %d i_resno: %d im1: %d isF: %d resI: %d\n", comm->me, i, i_resno, im1, isFirst(i), res_info[i]);
         fprintf(stderr,"Warning: In compute_backbone(), likely the bond was stretched for too long, im1=%d on processor %d, Exit!\n", im1, comm->me);
       	//error->all(FLERR,"In compute_backbone, im1==-1!");
       }	*/
-      if (res_info[im1]==LOCAL || res_info[im1]==GHOST){
-	      xn[i][0] = an*xca[im1][0] + bn*xca[i][0] + cn*xo[im1][0];
-	      xn[i][1] = an*xca[im1][1] + bn*xca[i][1] + cn*xo[im1][1];
-	      xn[i][2] = an*xca[im1][2] + bn*xca[i][2] + cn*xo[im1][2];
+      xn[i][0] = an*xca[im1][0] + bn*xca[i][0] + cn*xo[im1][0];
+      xn[i][1] = an*xca[im1][1] + bn*xca[i][1] + cn*xo[im1][1];
+      xn[i][2] = an*xca[im1][2] + bn*xca[i][2] + cn*xo[im1][2];
 
-	      xh[i][0] = ah*xca[im1][0] + bh*xca[i][0] + ch*xo[im1][0];
-	      xh[i][1] = ah*xca[im1][1] + bh*xca[i][1] + ch*xo[im1][1];
-	      xh[i][2] = ah*xca[im1][2] + bh*xca[i][2] + ch*xo[im1][2];
-      }
+      xh[i][0] = ah*xca[im1][0] + bh*xca[i][0] + ch*xo[im1][0];
+      xh[i][1] = ah*xca[im1][1] + bh*xca[i][1] + ch*xo[im1][1];
+      xh[i][2] = ah*xca[im1][2] + bh*xca[i][2] + ch*xo[im1][2];
     } else {
       xn[i][0] = xn[i][1] = xn[i][2] = 0.0;
       xh[i][0] = xh[i][1] = xh[i][2] = 0.0;
     }
 		
-    if (im1!=-1 && i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST)) {
+    if (im1!=-1 && i_resno>0 && !isFirst(i) && (res_info[i]==LOCAL || res_info[i]==GHOST) && (res_info[im1]==LOCAL || res_info[im1]==GHOST)) {
 /*      if (im1==-1){        
         printf("proc: %d i: %d i_resno: %d im1: %d isF: %d resI: %d\n", comm->me, i, i_resno, im1, isFirst(i), res_info[i]);
 	fprintf(stderr,"Warning: In compute_backbone(), likely the bond was stretched for too long, im1=%d on processor %d, Exit!\n", im1, comm->me);
       	//error->all(FLERR,"In compute_backbone, im1==-1!");
       }	*/
-      if ( (res_info[im1]==LOCAL || res_info[im1]==GHOST) ) {
 	xcp[im1][0] = ap*xca[im1][0] + bp*xca[i][0] + cp*xo[im1][0];
 	xcp[im1][1] = ap*xca[im1][1] + bp*xca[i][1] + cp*xo[im1][1];
 	xcp[im1][2] = ap*xca[im1][2] + bp*xca[i][2] + cp*xo[im1][2];
-      } else {
+    } else if (im1!=-1) {
 	xcp[im1][0] = xcp[im1][1] = xcp[im1][2] = 0.0;
-      }
     }
 
   }
@@ -6603,7 +6599,7 @@ void FixBackbone::compute_backbone()
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
-      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
+      if (!isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && dssp_hdrgn_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && j>0 && (res_info[j-1]==LOCAL || res_info[j-1]==GHOST) && se[j_resno]!='P')
 	//			if (!isLast(i) && !isFirst(j) && abs(j_resno-i_resno)>2 && dssp_hdrgn_flag && res_info[i]==LOCAL && res_info[j]==LOCAL && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
     }
@@ -6833,7 +6829,7 @@ void FixBackbone::compute_backbone()
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
       		
-      if (dssp_hdrgn_flag && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && se[j_resno]!='P')
+      if (dssp_hdrgn_flag && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && j>0 && (res_info[j-1]==LOCAL || res_info[j-1]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
 
       //if (p_ap_flag && i<n-i_med_min && j>=i+i_med_min && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))

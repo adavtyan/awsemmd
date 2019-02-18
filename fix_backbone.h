@@ -39,7 +39,11 @@ class FixBackbone : public Fix {
   void pre_force(int);
   void pre_force_respa(int, int, int);
   void setup_pre_force(int);
+  void setup_pre_force_respa(int,int);
   void min_pre_force(int);
+  void post_neighbor();
+  void setup_post_neighbor();
+  void min_post_neighbor();
   double compute_scalar();
   double compute_vector(int);
   void init_list(int, class NeighList *);

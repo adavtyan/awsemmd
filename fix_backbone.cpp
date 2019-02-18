@@ -53,7 +53,7 @@ char one_letter_code[] = {'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L',
 // 3) BAS: Basic (ARG HIS LYS) or (R, H, K) or {1, 8, 11}
 // 4) HPB: Hydrophobic (CYS, ILE, LEU, MET, PHE, TRP, TYR, VAL) or (C, I, L, M, F, W, Y, V)  or {4, 9, 10, 12, 13, 17, 18, 19}
 int bb_four_letter_map[] = {1, 3, 2, 2, 4, 2, 2, 1, 3, 4, 4, 3, 4, 4, 1, 1, 1, 4, 4, 4};
-bool firsttimestep = true;
+//bool firsttimestep = true;
 
 void itoa(int a, char *buf, int s)
 {
@@ -1491,6 +1491,8 @@ int FixBackbone::setmask()
   mask |= THERMO_ENERGY;
   mask |= PRE_FORCE_RESPA;
   mask |= MIN_PRE_FORCE;
+  mask |= POST_NEIGHBOR;
+  mask |= MIN_POST_NEIGHBOR;
   return mask;
 }
 
@@ -1544,9 +1546,42 @@ void FixBackbone::min_setup(int vflag)
 void FixBackbone::setup_pre_force(int vflag)
 {
   Construct_Computational_Arrays();
-  pre_force(vflag);
+
+  if (water_flag) well->reset();
+  if (helix_flag) helix_well->reset();
+  if (p_ap_flag) p_ap->reset();
+  R->reset();
+
+  //pre_force(vflag);
 }
 
+/* ---------------------------------------------------------------------- */
+
+void FixAdapt::setup_pre_force_respa(int vflag, int ilevel)
+{
+  if (ilevel == nlevels_respa-1) setup_pre_force(vflag);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixBackbone::post_neighbor()
+{
+  Construct_Computational_Arrays();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixBackbone::setup_post_neighbor()
+{
+  post_neighbor();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixBackbone::min_post_neighbor()
+{
+  post_neighbor();
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -6437,10 +6472,10 @@ void FixBackbone::compute_backbone()
         return;
   }
 
-  if (comm->nprocs>1 || ntimestep==0 || firsttimestep) {
+/*  if (comm->nprocs>1 || ntimestep==0 || firsttimestep) {
     firsttimestep = false;
     Construct_Computational_Arrays();
-  }
+  }*/
 
   x = atom->x;
   f = atom->f;

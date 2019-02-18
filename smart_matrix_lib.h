@@ -62,6 +62,7 @@ public:
 	inline T &nu(int i, int j);
 	inline T &prd_nu(int i, int j);
 	void compute(int i, int j);
+	void reset();
 private:
 	int n, m;
 	T **v_nu;
@@ -69,7 +70,7 @@ private:
 	int **g;
 	int *ind;
 	U *lc;
-	int drmax, drmin;
+	double drmax, drmin;
 };
 
 template <typename T, typename U>
@@ -80,8 +81,8 @@ cP_AP<T, U>::cP_AP(int nn, int mm, int *indicator, U *lclass)
 	ind = indicator;
 	lc = lclass;
 
-	drmax = lc->P_AP_cut + int(8.0*2.302585/lc->P_AP_pref) + 1;
-	drmin = lc->P_AP_cut - int(8.0*2.302585/lc->P_AP_pref) - 1;
+	drmax = lc->P_AP_cut + double(int(8.0*2.302585/lc->P_AP_pref) + 1);
+	drmin = lc->P_AP_cut - double(int(8.0*2.302585/lc->P_AP_pref) - 1);
 
 	v_nu = new T*[n];
 	v_prd_nu = new T*[n];
@@ -91,6 +92,14 @@ cP_AP<T, U>::cP_AP(int nn, int mm, int *indicator, U *lclass)
 		v_nu[i] = new T[m];
 		v_prd_nu[i] = new T[m];
 		g[i] = new int[m];
+		for (int j=0;j<m;++j) g[i][j] = -1;
+	}
+}
+
+template <typename T, typename U>
+void cP_AP<T, U>::reset()
+{
+	for (int i=0;i<n;++i) {
 		for (int j=0;j<m;++j) g[i][j] = -1;
 	}
 }
@@ -171,6 +180,8 @@ public:
 	
 	inline T &rNO(int i, int j);
 	inline T &rHO(int i, int j);
+
+	void reset();
 private:
 	int n, m;
 	T **v_rNO;
@@ -199,6 +210,14 @@ cR<T, U>::cR(int nn, int mm, int *indicator, U *lclass)
 		v_rHO[i] = new T[m];
 		gNO[i] = new int[m];
 		gHO[i] = new int[m];
+		for (int j=0;j<m;++j) { gNO[i][j] = -1; gHO[i][j] = -1; }
+	}
+}
+
+template <typename T, typename U>
+void cR<T, U>::reset()
+{
+	for (int i=0;i<n;++i) {
 		for (int j=0;j<m;++j) { gNO[i][j] = -1; gHO[i][j] = -1; }
 	}
 }
@@ -270,6 +289,7 @@ public:
 	void compute_ro(int i);
 	WPV par;
 
+	void reset();
 private:
 	int n, m, nw;
 	T ***v_theta;
@@ -320,7 +340,7 @@ cWell<T, U>::cWell(int nn, int mm, int ww, const WPV &p, int *indicator, U *lcla
 	v_prd_theta = new T**[nw];
 	gTheta = new int**[nw];
 
-	for (int k=0;k<nw;++k) {		
+	for (int k=0;k<nw;++k) {
 		v_theta[k] = new T*[n];
 		v_prd_theta[k] = new T*[n];
 		gTheta[k] = new int*[n];
@@ -333,6 +353,25 @@ cWell<T, U>::cWell(int nn, int mm, int ww, const WPV &p, int *indicator, U *lcla
 		}
 	}
 }
+
+template <typename T, typename U>
+void cWell<T, U>::reset()
+{
+	for (int i=0;i<n;++i) {
+		gH[i] = -1;
+		gRo[i] = -1;
+		for (int j=0;j<m;++j) {
+			gSigma[i][j] = -1;
+		}
+	}
+
+
+	for (int k=0;k<nw;++k) {
+		for (int i=0;i<n;++i) {
+			for (int j=0;j<m;++j) gTheta[k][i][j] = -1;
+		}
+	}
+} 
 
 template <typename T, typename U>
 cWell<T, U>::~cWell()

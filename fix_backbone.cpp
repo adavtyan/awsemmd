@@ -1557,7 +1557,7 @@ void FixBackbone::setup_pre_force(int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-void FixAdapt::setup_pre_force_respa(int vflag, int ilevel)
+void FixBackbone::setup_pre_force_respa(int vflag, int ilevel)
 {
   if (ilevel == nlevels_respa-1) setup_pre_force(vflag);
 }

@@ -82,6 +82,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 	
   efile = fopen("energy.log", "w");
 
+#ifdef DEBUGFORCES
   char buff[5];
   char forcefile[20]="";
   itoa(comm->me+1,buff,10);
@@ -89,6 +90,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (comm->nprocs>1) strcat(forcefile, buff);
   strcat(forcefile, ".dat");
   dout = fopen(forcefile, "w");
+#endif
 	
   char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tMembrane\tSSB     \tElectro.\tVTotal\n";
   fprintf(efile, "%s", eheader);
@@ -981,6 +983,7 @@ void FixBackbone::final_log_output()
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
 
+#ifdef DEBUGFORCES
   fprintf(dout, "\n");
   for (int i=0;i<TIME_N;++i) {
     time = ctime[i];
@@ -991,6 +994,7 @@ void FixBackbone::final_log_output()
     }
   }
   fprintf(dout, "\n");
+#endif
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1557,7 +1561,7 @@ void FixBackbone::setup_pre_force(int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-void FixAdapt::setup_pre_force_respa(int vflag, int ilevel)
+void FixBackbone::setup_pre_force_respa(int vflag, int ilevel)
 {
   if (ilevel == nlevels_respa-1) setup_pre_force(vflag);
 }
@@ -2539,7 +2543,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 {
   if (R->rNO(i,j)>dssp_hdrgn_cut) return;
 
-  bool i_repulsive = true, i_AP = true, i_P = true, i_theta[4] = {true, true, true, true};
+  bool i_repulsive = true, i_AP = true, i_P = true, i_theta[4] = {true, true, true, true}, missing = false;
   double lambda[4], R_NO[4], R_HO[4], theta[4], nu[2], th;
   double r_nu[2], prdnu[2], prd_theta[4][2], V[4], VTotal;
   double dxnu[2][3], xNO[4][3], xHO[4][3];
@@ -2562,6 +2566,14 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
   if ( isLast(j) || se[j_resno+1]=='P' ) i_repulsive = false;
   if ( isFirst(i) || isLast(j) || se[i_resno]=='P' ) i_AP = false;
   if ( i_resno>=i_ch_end-2 || isLast(j) || se[i_resno+2]=='P' ) i_P = false;
+
+  // Check for missing atoms
+  missing = false;
+  if (oxygens[i]==-1 || alpha_carbons[j-1]==-1 || oxygens[j-1]==-1) missing = true;
+  if (i_repulsive && (alpha_carbons[j+1]==-1 || oxygens[j]==-1) ) missing = true;
+  if (i_AP && (alpha_carbons[i-1]==-1 || oxygens[i-1]==-1 || oxygens[j]==-1) ) missing = true;
+  if (i_P && (alpha_carbons[i+1]==-1 || alpha_carbons[i+2]==-1 || oxygens[i+1]==-1 || oxygens[j]==-1) ) missing = true;
+  if (missing) error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
 	
   for (k=0;k<2;++k) {
     if (i_AP) {
@@ -2693,7 +2705,11 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     }
   }
 
+  missing = false;
   if (i_resno-2>=i_ch_start-1 && i_resno+2<i_ch_end && hb_class!=2) {
+    // Check for missing atoms
+    if (alpha_carbons[i-2]==-1 || alpha_carbons[i+2]==-1) missing = true;
+
     dxnu[0][0] = xca[i+2][0]-xca[i-2][0];
     dxnu[0][1] = xca[i+2][1]-xca[i-2][1];
     dxnu[0][2] = xca[i+2][2]-xca[i-2][2];
@@ -2707,6 +2723,9 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
   } else nu[0] = 1.0;
 
   if (j_resno-2>=j_ch_start-1 && j_resno+2<j_ch_end && hb_class!=2) {
+    // Check for missing atoms
+    if (alpha_carbons[j-2]==-1 || alpha_carbons[j+2]==-1) missing = true;
+
     dxnu[1][0] = xca[j+2][0]-xca[j-2][0];
     dxnu[1][1] = xca[j+2][1]-xca[j-2][1];
     dxnu[1][2] = xca[j+2][2]-xca[j-2][2];
@@ -2719,6 +2738,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     prdnu[1] = 0.5*pref[1]*(1-pow(th,2))/r_nu[1];
   } else nu[1] = 1.0;
 
+  if (missing) error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
 	
   theta_sum = lambda[0]*theta[0] 
     + lambda[1]*theta[0]*theta[1] 
@@ -2834,7 +2854,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   if (p_ap->nu(i, j)<pap_delta) return;
 
   double K, force[2], dx[2][3];
-  bool i_AP_med, i_AP_long, i_P;
+  bool i_AP_med, i_AP_long, i_P, missing;
 
   int i_resno = res_no[i]-1;
   int j_resno = res_no[j]-1;
@@ -2851,6 +2871,12 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
 
   i_P = (i_chno==j_chno && i_resno<i_ch_end-(i_med_max+1+i_diff_P_AP) && j_resno>=i_resno+(i_med_max+1) && j_resno<i_ch_end-i_diff_P_AP) || (i_chno!=j_chno && i+i_diff_P_AP<nn && j+i_diff_P_AP<nn && (chain_no[i+i_diff_P_AP]-1)==i_chno && (chain_no[j+i_diff_P_AP]-1)==j_chno);
 
+  // Check for missing atoms
+  missing = false;
+  if ( (i_AP_med || i_AP_long) && (alpha_carbons[i+i_diff_P_AP]==-1 || alpha_carbons[j-i_diff_P_AP]==-1) ) missing = true;
+  if ( i_P && (alpha_carbons[i+i_diff_P_AP]==-1 || alpha_carbons[j+i_diff_P_AP]==-1) ) missing = true;
+  if (missing) error->all(FLERR,"P_AP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+	
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1]*k_betapred_P_AP : 0.0);

@@ -217,7 +217,6 @@ SEQUENCEFILE
 
 #[Membrane]
 scaling factor
-local density offset
 kappa
 center of the membrane-pore (x, y, z)
 pore type (only 0)

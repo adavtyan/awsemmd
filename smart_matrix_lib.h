@@ -332,8 +332,8 @@ cWell<T, U>::cWell(int nn, int mm, int ww, const WPV &p, int *indicator, U *lcla
 	rmax_theta_sq = new T[nw];
 
 	for (k=0;k<nw;++k) {
-		rmin_theta[k] = par.well_r_min[k] - 0.5*16.0*log(10)/par.kappa;
-		rmax_theta[k] = par.well_r_max[k] + 0.5*16.0*log(10)/par.kappa;
+		rmin_theta[k] = par.well_r_min[k] - 0.5*16.0*log(10.0)/par.kappa;
+		rmax_theta[k] = par.well_r_max[k] + 0.5*16.0*log(10.0)/par.kappa;
 		rmin_theta_sq[k] = rmin_theta[k]*rmin_theta[k];
 		rmax_theta_sq[k] = rmax_theta[k]*rmax_theta[k];
 	}

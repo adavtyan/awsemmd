@@ -19,9 +19,7 @@ ap = 0.4436538
 bp = 0.2352006
 cp = 0.3211455
 
-aH = -0.946747
-bH = 2.50352
-cH = -0.620388
+rh = 1.54
 
 atom_type = {'1' : 'C', '2' : 'N', '3' : 'O', '4' : 'C', '5' : 'H', '6' : 'C'}
 atom_desc = {'1' : 'C-Alpha', '2' : 'N', '3' : 'O', '4' : 'C-Beta', '5' : 'H-Beta', '6' : 'C-Prime'}
@@ -201,9 +199,14 @@ for ch in chains:
               xyz_CB = res['CB'].get_coord()
             else:
                 xyz_H = [0.0, 0.0, 0.0]
-                xyz_H[0] = aH*xyz_N[0] + bH*xyz_CA[0] + cH*xyz_C[0]
-                xyz_H[1] = aH*xyz_N[1] + bH*xyz_CA[1] + cH*xyz_C[1]
-                xyz_H[2] = aH*xyz_N[2] + bH*xyz_CA[2] + cH*xyz_C[2]
+                v1 = vector(xyz_N, xyz_CA)
+                v2 = vector(xyz_CA, xyz_C)
+                v3 = vcross_product(v1, v2)
+                vm = vabs(v3)
+                vh = vproduct(v3, rh/vm)
+                xyz_H[0] = xyz_CA[0] + vh[0]
+                xyz_H[1] = xyz_CA[1] + vh[1]
+                xyz_H[2] = xyz_CA[2] + vh[2]
             
             iatom = iatom + 1
             atom = Atom(iatom, ichain, 'N', xyz_N[0], xyz_N[1], xyz_N[2], 'N')

@@ -2975,6 +2975,8 @@ void FixBackbone::compute_water_potential(int i, int j)
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
   else { xj = xcb[j]; jatom  = beta_atoms[j]; if(jatom==-1)return; }
 	
+  if (iatom==-1 || jatom==-1) error->all(FLERR,"Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
   dx[2] = xi[2] - xj[2];
@@ -3019,6 +3021,8 @@ void FixBackbone::compute_water_potential(int i, int j)
 	else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
 	//else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)continue;}
 				
+        if (katom==-1) error->all(FLERR,"Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+
 	k_resno = res_no[k]-1;
 	k_chno = chain_no[k]-1;
 				
@@ -3070,6 +3074,8 @@ void FixBackbone::compute_burial_potential(int i)
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
   
+  if (iatom==-1) error->all(FLERR,"Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+
   t[0][0] = tanh( burial_kappa*(well->ro(i) - burial_ro_min[0]) );
   t[0][1] = tanh( burial_kappa*(burial_ro_max[0] - well->ro(i)) );
   t[1][0] = tanh( burial_kappa*(well->ro(i) - burial_ro_min[1]) );
@@ -3097,7 +3103,10 @@ void FixBackbone::compute_burial_potential(int i)
     
     if (abs(k_resno-i_resno)>1 || i_chno!=k_chno) {
       if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-      else { xk = xcb[k]; katom  = beta_atoms[k]; }
+      //else { xk = xcb[k]; katom  = beta_atoms[k]; }
+      else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
+
+      if (katom==-1) error->all(FLERR,"Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
 
       dx[0] = xi[0] - xk[0];
       dx[1] = xi[1] - xk[1];
@@ -3136,6 +3145,9 @@ void FixBackbone::compute_helix_potential(int i, int j)
   int j_chno = chain_no[j]-1;
   if(i_chno!=j_chno)return;
 
+  if (oxygens[i]==-1 || alpha_carbons[j]==-1 || alpha_carbons[j-1]==-1 || oxygens[j-1]==-1) printf("Helix1: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  if (oxygens[i]==-1 || alpha_carbons[j]==-1 || alpha_carbons[j-1]==-1 || oxygens[j-1]==-1) error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+
   int ires_type = se_map[se[i_resno]-'A'];
   int jres_type = se_map[se[j_resno]-'A'];
 
@@ -3163,8 +3175,11 @@ void FixBackbone::compute_helix_potential(int i, int j)
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
-  else { xj = xcb[j]; jatom  = beta_atoms[j]; }
+  //else { xj = xcb[j]; jatom  = beta_atoms[j]; }
+  else { xj = xcb[j]; jatom  = beta_atoms[j]; if(jatom==-1)return; }
 	
+  if (iatom==-1 || jatom==-1) error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
   dx[2] = xi[2] - xj[2];
@@ -3200,8 +3215,11 @@ void FixBackbone::compute_helix_potential(int i, int j)
     k_chno = chain_no[k]-1;
     
     if (se[res_no[k]-1]=='G') { xk = xca[k]; katom = alpha_carbons[k]; }
-    else { xk = xcb[k]; katom  = beta_atoms[k]; }
-		
+    //else { xk = xcb[k]; katom  = beta_atoms[k]; }
+    else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
+
+    if (katom==-1) error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+
     if (abs(k_resno-i_resno)>1 || k_chno!=i_chno) {
       dx[0] = xi[0] - xk[0];
       dx[1] = xi[1] - xk[1];
@@ -6917,7 +6935,7 @@ void FixBackbone::compute_backbone()
     	
     //    if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
     if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff && 
-	i_chno==chain_no[i+helix_i_diff]-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff-1 && res_info[i]==LOCAL)
+	i_chno==chain_no[i+helix_i_diff]-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff-1 && res_info[i]==LOCAL && (res_info[i+helix_i_diff]==LOCAL || res_info[i+helix_i_diff]==GHOST) && (res_info[i+helix_i_diff-1]==LOCAL || res_info[i+helix_i_diff-1]==GHOST) )
       compute_helix_potential(i, i+helix_i_diff);
 			
     if (frag_mem_flag && res_info[i]==LOCAL)

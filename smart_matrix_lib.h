@@ -1,6 +1,7 @@
 /* ----------------------------------------------------------------------
 Copyright (2010) Aram Davtyan and Garegin Papoian
 
+A
 Papoian's Group, University of Maryland at Collage Park
 http://papoian.chem.umd.edu/
 
@@ -44,10 +45,10 @@ typedef struct TBV {
   TBV() : energy(0.0), force(0.0) {}
   TBV(double ee, double ff): energy(ee), force(ff) {}
   TBV &operator = (const TBV &x) {
-    energy=x.energy;
-    force=x.force;
+  energy=x.energy;
+  force=x.force;
   
-    return *this;
+  return *this;
   }
 } _TBV;
 
@@ -71,6 +72,7 @@ private:
 	int *ind;
 	U *lc;
 	double drmax, drmin;
+	double drmax_sq, drmin_sq;
 };
 
 template <typename T, typename U>
@@ -83,6 +85,9 @@ cP_AP<T, U>::cP_AP(int nn, int mm, int *indicator, U *lclass)
 
 	drmax = lc->P_AP_cut + double(int(8.0*2.302585/lc->P_AP_pref) + 1);
 	drmin = lc->P_AP_cut - double(int(8.0*2.302585/lc->P_AP_pref) - 1);
+
+	drmax_sq = drmax*drmax;
+	drmin_sq = drmin*drmin;
 
 	v_nu = new T*[n];
 	v_prd_nu = new T*[n];
@@ -145,23 +150,25 @@ inline T &cP_AP<T, U>::prd_nu(int i, int j)
 template <typename T, typename U>
 void cP_AP<T, U>::compute(int i, int j)
 {
-	T dx[3], dr, th;
+	T dx[3], dr, drsq, th;
 
 	dx[0] = lc->xca[i][0] - lc->xca[j][0];
 	dx[1] = lc->xca[i][1] - lc->xca[j][1];
 	dx[2] = lc->xca[i][2] - lc->xca[j][2];
 	
-	dr = sqrt(pow(dx[0],2) + pow(dx[1],2) + pow(dx[2],2));
+	drsq = pow(dx[0],2) + pow(dx[1],2) + pow(dx[2],2);
 
-	if (dr>drmax) {
+	if (drsq>drmax_sq) {
 		v_nu[i][j] = 0.0;
 
 		v_prd_nu[i][j] = 0.0;
-	} else if(dr<drmin) {
+	} else if(drsq<drmin_sq) {
 		v_nu[i][j] = 1.0;
 
 		v_prd_nu[i][j] = 0.0;
 	} else {
+		dr = sqrt(drsq);
+
 		th = tanh(lc->P_AP_pref*(lc->P_AP_cut - dr));
 
 		v_nu[i][j] = 0.5*(1+th);
@@ -304,17 +311,32 @@ private:
 	int *gRo;
 	int *ind;
 	U *lc;
+	T *rmin_theta, *rmax_theta;
+	T *rmin_theta_sq, *rmax_theta_sq;
 };
 
 template <typename T, typename U>
 cWell<T, U>::cWell(int nn, int mm, int ww, const WPV &p, int *indicator, U *lclass)
 {
+	int i,j,k;
 	n = nn;
 	m = mm;
 	nw = ww;
 	ind = indicator;
 	par = p;
 	lc = lclass;
+
+	rmin_theta = new T[nw];
+	rmax_theta = new T[nw];
+	rmin_theta_sq = new T[nw];
+	rmax_theta_sq = new T[nw];
+
+	for (k=0;k<nw;++k) {
+		rmin_theta[k] = par.well_r_min[k] - 0.5*16.0*log(10)/par.kappa;
+		rmax_theta[k] = par.well_r_max[k] + 0.5*16.0*log(10)/par.kappa;
+		rmin_theta_sq[k] = rmin_theta[k]*rmin_theta[k];
+		rmax_theta_sq[k] = rmax_theta[k]*rmax_theta[k];
+	}
 
 	v_sigma = new T*[n];
 	v_H = new T[n];
@@ -324,14 +346,14 @@ cWell<T, U>::cWell(int nn, int mm, int ww, const WPV &p, int *indicator, U *lcla
 	gH = new int[n];
 	gRo = new int[n];
 
-	for (int i=0;i<n;++i) {
+	for (i=0;i<n;++i) {
 		gH[i] = -1;
 		gRo[i] = -1;
 		
 		v_sigma[i] = new T[m];
 		gSigma[i] = new int[m];
 
-		for (int j=0;j<m;++j) {
+		for (j=0;j<m;++j) {
 			gSigma[i][j] = -1;
 		}
 	}
@@ -340,16 +362,16 @@ cWell<T, U>::cWell(int nn, int mm, int ww, const WPV &p, int *indicator, U *lcla
 	v_prd_theta = new T**[nw];
 	gTheta = new int**[nw];
 
-	for (int k=0;k<nw;++k) {
+	for (k=0;k<nw;++k) {
 		v_theta[k] = new T*[n];
 		v_prd_theta[k] = new T*[n];
 		gTheta[k] = new int*[n];
 
-		for (int i=0;i<n;++i) {
+		for (i=0;i<n;++i) {
 			v_theta[k][i] = new T[m];
 			v_prd_theta[k][i] = new T[m];
 			gTheta[k][i] = new int[m];
-			for (int j=0;j<m;++j) gTheta[k][i][j] = -1;
+			for (j=0;j<m;++j) gTheta[k][i][j] = -1;
 		}
 	}
 }
@@ -480,7 +502,7 @@ inline T &cWell<T, U>::ro(int i)
 template <typename T, typename U>
 void cWell<T, U>::compute_theta(int i, int j, int i_well)
 {
-	T dx[3], rij, t_min, t_max;
+	T dx[3], rij, rij_sq, t_min, t_max;
 	T *xi, *xj;
 	
 	int i_resno = lc->res_no[i]-1;
@@ -495,14 +517,21 @@ void cWell<T, U>::compute_theta(int i, int j, int i_well)
 	dx[1] = xi[1] - xj[1];
 	dx[2] = xi[2] - xj[2];
 	
-	rij = sqrt(pow(dx[0],2) + pow(dx[1],2) + pow(dx[2],2));
+	rij_sq = pow(dx[0],2) + pow(dx[1],2) + pow(dx[2],2);
+
+	if (rij_sq<rmin_theta_sq[i_well] || rij_sq>rmax_theta_sq[i_well]) {
+		v_theta[i_well][i][j] = v_theta[i_well][j][i] = 0.0;
+		v_prd_theta[i_well][i][j] = v_prd_theta[i_well][j][i] = 0.0;
+	} else {
+		rij = sqrt(rij_sq);
 	
-	t_min = tanh( par.kappa*(rij - par.well_r_min[i_well]) );
-	t_max = tanh( par.kappa*(par.well_r_max[i_well] - rij) );
-	v_theta[i_well][i][j] = 0.25*(1.0 + t_min)*(1.0 + t_max);
-	v_theta[i_well][j][i] = v_theta[i_well][i][j];
-	v_prd_theta[i_well][i][j] = par.kappa*v_theta[i_well][i][j]*(t_max - t_min)/rij;
-	v_prd_theta[i_well][j][i] = v_prd_theta[i_well][i][j];
+		t_min = tanh( par.kappa*(rij - par.well_r_min[i_well]) );
+		t_max = tanh( par.kappa*(par.well_r_max[i_well] - rij) );
+		v_theta[i_well][i][j] = 0.25*(1.0 + t_min)*(1.0 + t_max);
+		v_theta[i_well][j][i] = v_theta[i_well][i][j];
+		v_prd_theta[i_well][i][j] = par.kappa*v_theta[i_well][i][j]*(t_max - t_min)/rij;
+		v_prd_theta[i_well][j][i] = v_prd_theta[i_well][i][j];
+	}
 }
 
 template <typename T, typename U>

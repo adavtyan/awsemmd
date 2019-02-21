@@ -83,7 +83,7 @@ cP_AP<T, U>::cP_AP(int nn, int mm, int *indicator, U *lclass)
 	lc = lclass;
 
 	drmax = lc->P_AP_cut + double(int(8.0*2.302585/lc->P_AP_pref) + 1);
-	drmin = lc->P_AP_cut - double(int(8.0*2.302585/lc->P_AP_pref) - 1);
+	drmin = lc->P_AP_cut - double(int(8.0*2.302585/lc->P_AP_pref) + 1);
 
 	drmax_sq = drmax*drmax;
 	drmin_sq = drmin*drmin;

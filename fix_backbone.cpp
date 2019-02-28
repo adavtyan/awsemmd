@@ -7074,10 +7074,12 @@ void FixBackbone::compute_backbone()
       MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
       force_flag = 1;
     }
-	
-    fprintf(efile, "%d ", ntimestep);
-    for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%8.6f", energy_all[i]);
-    fprintf(efile, "\t%8.6f\n", energy_all[ET_TOTAL]);
+
+    if (comm->me==0) {
+      fprintf(efile, "%d ", ntimestep);
+      for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%8.6f", energy_all[i]);
+      fprintf(efile, "\t%8.6f\n", energy_all[ET_TOTAL]);
+    }
   }
 }
 

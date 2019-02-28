@@ -3261,7 +3261,7 @@ void FixBackbone::compute_amhgo_normalization()
   // Eastwood and Wolynes 2000 "Role of explicitly..."
   // a = 1/(8N) \sum_i abs(\sum_(j in native contact) gamma_ij)^p
 	
-  int i, j, ich, res0, resn, iatom, jatom;
+  int i, j, ich, jch, ires0, iresn, jres0, jresn, iatom, jatom;
   int ires_type, jres_type;
   double amhgo_gamma, rnative;
   double normi;
@@ -3269,17 +3269,21 @@ void FixBackbone::compute_amhgo_normalization()
   // Loop over chains
   amh_go_norm[0] = 0.0; //BinZhang
   for (ich=0;ich<nch;++ich) {
-    res0 = ch_pos[ich]-1;
-    resn = ch_pos[ich]+ch_len[ich]-1;
+    ires0 = ch_pos[ich]-1;
+    iresn = ch_pos[ich]+ch_len[ich]-1;
 	
     // Double loop over all residue pairs
-    for (i=res0;i<resn;++i) {
+    for (i=ires0;i<iresn;++i) {
       ires_type = se_map[se[i]-'A'];
 			
       for (iatom=Fragment_Memory::FM_CA; iatom<=Fragment_Memory::FM_CB - (se[i]=='G' ? 1 : 0); ++iatom) {
 	normi = 0.0;
+
+       for (jch=0;jch<nch;++jch) {
+        jres0 = ch_pos[jch]-1;
+        jresn = ch_pos[jch]+ch_len[jch]-1;
 				
-	for (j=res0;j<resn;++j) {
+	for (j=jres0;j<jresn;++j) {
 	  jres_type = se_map[se[j]-'A'];
 					
 	  for (jatom=Fragment_Memory::FM_CA; jatom<=Fragment_Memory::FM_CB - (se[j]=='G' ? 1 : 0); ++jatom) {
@@ -3307,12 +3311,13 @@ void FixBackbone::compute_amhgo_normalization()
 	}
 	//amh_go_norm[ich] += pow(fabs(normi), amh_go_p);
 	amh_go_norm[0] += pow(fabs(normi), amh_go_p); //BinZhang; do not use per chain normalization
+       }
       }
     }
     //amh_go_norm[ich] /= 8*resn;
   }	
-  amh_go_norm[0] /= 8*resn;     // BinZhang
-  fprintf(screen, "amhgo: %d, %12.6f,\n", resn, amh_go_norm[0]);
+  amh_go_norm[0] /= 8*iresn;     // BinZhang
+  fprintf(screen, "amhgo: %d, %12.6f,\n", iresn, amh_go_norm[0]);
 }
 
 void FixBackbone::compute_amh_go_model()
@@ -3375,7 +3380,9 @@ void FixBackbone::compute_amh_go_model()
         // atom j is either C-Alpha or C-Bata
         // BinZhang; Use AmhGo for interchain as well
         //if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && abs(ires-jres)>=amh_go_gamma->minSep() && imol==jmol ) {
-        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && abs(ires-jres)>=amh_go_gamma->minSep() ) {
+        //if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && abs(ires-jres)>=amh_go_gamma->minSep() ) {
+        // Aram: Do not check for minSep between chains
+        if ( (mask[j]&groupbit || (mask[j]&group2bit && se[jres-1]!='G') ) && (abs(ires-jres)>=amh_go_gamma->minSep() || imol!=jmol) ) {
           xj[0] = x[j][0];
           xj[1] = x[j][1];
           xj[2] = x[j][2];
@@ -3445,6 +3452,7 @@ void FixBackbone::compute_amh_go_model()
       
       //E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[imol-1];
       E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[0];
+      //printf("i=%d ires=%d imol=%d Ei=%f A=%f norm=%f E=%f\n", i, ires, imol, Ei, -0.5*epsilon*k_amh_go, amh_go_norm[0], E);
     }
   }
   

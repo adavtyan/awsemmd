@@ -79,6 +79,7 @@ ylo = -200.0
 yhi = 200.0
 zlo = -200.0
 zhi = 200.0
+edge = 10.0
 masses = [12.0, 14.0, 16.0, 12.0, 1.0]
 if cg and not go:
 	masses = [27.0, 14.0, 28.0, 60.0, 2.0]
@@ -199,6 +200,30 @@ for l in inp:
             atoms.append( Atom(n_atoms, chain_no, n_res, atom_type, 0.0, float(l[3]), float(l[4]), float(l[5])) )
             groups[group_id - 1].append(str(n_atoms))
 inp.close()
+
+# Adjust box boundaries
+
+xmin = ymin = zmin = -200.0
+xmax = ymax = zmax = 200.0
+if len(atoms)>0:
+  xmin = xmax = atoms[0].x
+  ymin = ymax = atoms[0].y
+  zmin = zmax = atoms[0].z
+
+for ia in atoms:
+  if ia.x<xmin: xmin = ia.x
+  elif ia.x>xmax: xmax = ia.x
+  if ia.y<ymin: ymin = ia.y
+  elif ia.y>ymax: ymax = ia.y
+  if ia.z<zmin: zmin = ia.z
+  elif ia.z>zmax: zmax = ia.z
+
+xlo = xmin - edge
+ylo = ymin - edge
+zlo = zmin - edge
+xhi = xmax + edge
+yhi = ymax + edge
+zhi = zmax + edge
 
 if go:
 	n_atoms = len(atoms)

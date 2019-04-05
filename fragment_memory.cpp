@@ -39,9 +39,6 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
 
   FILE * file;
 
-  FILE * dout;
-  dout = fopen("debug.info","w");
-
   error = ERR_NONE;
 
   pos = p;
@@ -71,7 +68,6 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
   }
 
   nca = ncb = 0;
-//  fprintf(dout, "%s\n", fname);
   file = fopen(fname,"r");
   if (!file) { error = ERR_FILE; return; }
   fgets(buff, 100, file);
@@ -147,9 +143,13 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
   fclose(file);
 
   if (nca!=len) {
+      printf("Warning: Length mismatch for file %s! nca=%d len=%d\n", fname, nca, len);
+      FILE * dout;
+      dout = fopen("debug.info","w");
       fprintf(dout, "File: %s\n", fname);
       fprintf(dout, "nca=%d\n", nca);
       fprintf(dout, "len=%d\n", len);
+      fclose(dout);
   }
 
   if (nca!=len) { error = ERR_ATOM_COUNT; return; }
@@ -172,9 +172,6 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
   }
   delete [] xca;
   delete [] xcb;
-
-  fclose(dout);
-
 }
 
 Fragment_Memory::~Fragment_Memory()

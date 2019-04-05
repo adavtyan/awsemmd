@@ -81,6 +81,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 7) error->all(FLERR,"Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
+  tfile = fopen("timer.log", "w");
 
 #ifdef DEBUGFORCES
   char buff[5];
@@ -90,8 +91,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (comm->nprocs>1) strcat(forcefile, buff);
   strcat(forcefile, ".dat");
   dout = fopen(forcefile, "w");
-#endif
-	
+#endif 
+
   char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tMembrane\tSSB     \tElectro.\tVTotal\n";
   fprintf(efile, "%s", eheader);
 
@@ -976,16 +977,29 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 
 void FixBackbone::final_log_output()
 {
-  double time, tmp;
-  char txt_timer[][11] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "Membrane", "SSB", "DH"};
+  int i;
   int me,nprocs;
+  double time, tmp;
+
+  char txt_timer[][15] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "Membrane", "SSB", "DH", "Frust_Analysis", "Total"};
 
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
 
+  for (i=0;i<TIME_N-1;++i) ctime[TIME_TOTAL] += ctime[i];
+
+  for (i=0;i<TIME_N;++i) {
+    time = ctime[i];
+    MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
+    time = tmp/nprocs;
+    if (me == 0) {
+      fprintf(tfile, "%s time = %g\n", txt_timer[i], time);
+    }
+  }
+
 #ifdef DEBUGFORCES
   fprintf(dout, "\n");
-  for (int i=0;i<TIME_N;++i) {
+  for (i=0;i<TIME_N;++i) {
     time = ctime[i];
     MPI_Allreduce(&time,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
     time = tmp/nprocs;
@@ -1163,6 +1177,7 @@ FixBackbone::~FixBackbone()
   }
   
   fclose(efile);
+  fclose(tfile);
 }
 
 void FixBackbone::allocate()
@@ -2573,7 +2588,10 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
   if (i_repulsive && (alpha_carbons[j+1]==-1 || oxygens[j]==-1) ) missing = true;
   if (i_AP && (alpha_carbons[i-1]==-1 || oxygens[i-1]==-1 || oxygens[j]==-1) ) missing = true;
   if (i_P && (alpha_carbons[i+1]==-1 || alpha_carbons[i+2]==-1 || oxygens[i+1]==-1 || oxygens[j]==-1) ) missing = true;
-  if (missing) error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  if (missing) {
+    printf("DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
 	
   for (k=0;k<2;++k) {
     if (i_AP) {
@@ -2738,7 +2756,10 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     prdnu[1] = 0.5*pref[1]*(1-pow(th,2))/r_nu[1];
   } else nu[1] = 1.0;
 
-  if (missing) error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  if (missing) {
+    printf("DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
 	
   theta_sum = lambda[0]*theta[0] 
     + lambda[1]*theta[0]*theta[1] 
@@ -2875,8 +2896,11 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   missing = false;
   if ( (i_AP_med || i_AP_long) && (alpha_carbons[i+i_diff_P_AP]==-1 || alpha_carbons[j-i_diff_P_AP]==-1) ) missing = true;
   if ( i_P && (alpha_carbons[i+i_diff_P_AP]==-1 || alpha_carbons[j+i_diff_P_AP]==-1) ) missing = true;
-  if (missing) error->all(FLERR,"P_AP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
-	
+  if (missing) {
+    printf("P_AP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"P_AP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
+
   if (i_AP_med || i_AP_long) {
     if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1]*k_betapred_P_AP : 0.0);
@@ -2975,7 +2999,10 @@ void FixBackbone::compute_water_potential(int i, int j)
   if (se[j_resno]=='G') { xj = xca[j]; jatom = alpha_carbons[j]; }
   else { xj = xcb[j]; jatom  = beta_atoms[j]; if(jatom==-1)return; }
 	
-  if (iatom==-1 || jatom==-1) error->all(FLERR,"Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  if (iatom==-1 || jatom==-1) {
+    printf("Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
 
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
@@ -3021,7 +3048,10 @@ void FixBackbone::compute_water_potential(int i, int j)
 	else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
 	//else { xk = xcb[k]; katom  = beta_atoms[k]; if(katom==-1)continue;}
 				
-        if (katom==-1) error->all(FLERR,"Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+        if (katom==-1) {
+          printf("Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+          error->all(FLERR,"Water: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+        }
 
 	k_resno = res_no[k]-1;
 	k_chno = chain_no[k]-1;
@@ -3074,7 +3104,10 @@ void FixBackbone::compute_burial_potential(int i)
   if (se[i_resno]=='G') { xi = xca[i]; iatom = alpha_carbons[i]; }
   else { xi = xcb[i]; iatom  = beta_atoms[i]; }
   
-  if (iatom==-1) error->all(FLERR,"Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  if (iatom==-1) {
+    printf("Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
 
   t[0][0] = tanh( burial_kappa*(well->ro(i) - burial_ro_min[0]) );
   t[0][1] = tanh( burial_kappa*(burial_ro_max[0] - well->ro(i)) );
@@ -3106,7 +3139,10 @@ void FixBackbone::compute_burial_potential(int i)
       //else { xk = xcb[k]; katom  = beta_atoms[k]; }
       else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
 
-      if (katom==-1) error->all(FLERR,"Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+      if (katom==-1) {
+        printf("Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+        error->all(FLERR,"Burial: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+      }
 
       dx[0] = xi[0] - xk[0];
       dx[1] = xi[1] - xk[1];
@@ -3145,8 +3181,10 @@ void FixBackbone::compute_helix_potential(int i, int j)
   int j_chno = chain_no[j]-1;
   if(i_chno!=j_chno)return;
 
-  if (oxygens[i]==-1 || alpha_carbons[j]==-1 || alpha_carbons[j-1]==-1 || oxygens[j-1]==-1) printf("Helix1: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
-  if (oxygens[i]==-1 || alpha_carbons[j]==-1 || alpha_carbons[j-1]==-1 || oxygens[j-1]==-1) error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  if (oxygens[i]==-1 || alpha_carbons[j]==-1 || alpha_carbons[j-1]==-1 || oxygens[j-1]==-1) {
+    printf("Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
 
   int ires_type = se_map[se[i_resno]-'A'];
   int jres_type = se_map[se[j_resno]-'A'];
@@ -3178,7 +3216,10 @@ void FixBackbone::compute_helix_potential(int i, int j)
   //else { xj = xcb[j]; jatom  = beta_atoms[j]; }
   else { xj = xcb[j]; jatom  = beta_atoms[j]; if(jatom==-1)return; }
 	
-  if (iatom==-1 || jatom==-1) error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  if (iatom==-1 || jatom==-1) {
+    printf("Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
 
   dx[0] = xi[0] - xj[0];
   dx[1] = xi[1] - xj[1];
@@ -3218,7 +3259,10 @@ void FixBackbone::compute_helix_potential(int i, int j)
     //else { xk = xcb[k]; katom  = beta_atoms[k]; }
     else { katom  = beta_atoms[k]; if(katom==-1)continue; xk = xcb[k]; }
 
-    if (katom==-1) error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+    if (katom==-1) {
+      printf("Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+      error->all(FLERR,"Helix: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+    }
 
     if (abs(k_resno-i_resno)>1 || k_chno!=i_chno) {
       dx[0] = xi[0] - xk[0];
@@ -3317,7 +3361,8 @@ void FixBackbone::compute_amhgo_normalization()
     //amh_go_norm[ich] /= 8*resn;
   }	
   amh_go_norm[0] /= 8*iresn;     // BinZhang
-  fprintf(screen, "amhgo: %d, %12.6f,\n", iresn, amh_go_norm[0]);
+  if (comm->me==0)
+    fprintf(screen, "amhgo: %d, %12.6f,\n", iresn, amh_go_norm[0]);
 }
 
 void FixBackbone::compute_amh_go_model()
@@ -3423,7 +3468,7 @@ void FixBackbone::compute_amh_go_model()
               Eij = amhgo_gamma*exp(-drsq/(2*amhgo_sigma_sq));
 			  
               force = Eij*dr/(amhgo_sigma_sq*r);
-			  
+
               amh_go_force[0][0] += force*dx[0];
               amh_go_force[0][1] += force*dx[1];
               amh_go_force[0][2] += force*dx[2];
@@ -3449,7 +3494,7 @@ void FixBackbone::compute_amh_go_model()
         f[amh_go_force_map[k]][1] += factor*amh_go_force[k][1];
         f[amh_go_force_map[k]][2] += factor*amh_go_force[k][2];
       }
-      
+
       //E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[imol-1];
       E += -0.5*epsilon*k_amh_go*pow(Ei, amh_go_p)/amh_go_norm[0];
       //printf("i=%d ires=%d imol=%d Ei=%f A=%f norm=%f E=%f\n", i, ires, imol, Ei, -0.5*epsilon*k_amh_go, amh_go_norm[0], E);
@@ -6896,62 +6941,100 @@ void FixBackbone::compute_backbone()
   for (i=0;i<nn;i++) {
     i_resno = res_no[i]-1;
     i_chno = chain_no[i]-1;
+
+    timerBegin();
     
     if (chain_flag && res_info[i]==LOCAL)
       compute_chain_potential(i);
 
+    timerEnd(TIME_CHAIN);
+
     if (!isFirst(i) && !isLast(i) && chi_flag && res_info[i]==LOCAL && se[i_resno]!='G')
       compute_chi_potential(i);
+
+    timerEnd(TIME_CHI);
 
     if (shake_flag && res_info[i]==LOCAL)
       compute_shake(i);
 
+    timerEnd(TIME_SHAKE);
+
     if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i_resno]!='G')
       compute_rama_potential(i);
+
+    timerEnd(TIME_RAMA);
 
     if (memb_flag && res_info[i]==LOCAL)
       compute_membrane_potential(i);
 
+    timerEnd(TIME_MEMB);
+
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
-      		
+
+      timerBegin();
+
       if (dssp_hdrgn_flag && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && j>0 && (res_info[j-1]==LOCAL || res_info[j-1]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
+
+      timerEnd(TIME_DSSP);
 
       //if (p_ap_flag && i<n-i_med_min && j>=i+i_med_min && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
       if (p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
 
+      timerEnd(TIME_PAP);
+
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
       if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_water_potential(i, j);
-			  
+
+      timerEnd(TIME_WATER);
+
       if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) )
 	table_fragment_memory(i, j);
+
+      timerEnd(TIME_FRAGMEM);
 
       if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_solvent_barrier(i, j);
 
+      timerEnd(TIME_SSB);
+
       //if (huckel_flag && (j > i || i_chno!=j_chno) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
       if (huckel_flag && (j > i) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
         compute_DebyeHuckel_Interaction(i, j);
+
+      timerEnd(TIME_DH);
     }
-		
+
+    timerBegin();
+
     if (burial_flag && res_info[i]==LOCAL)
       compute_burial_potential(i);
     	
+    timerEnd(TIME_BURIAL);
+
     //    if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
     if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff && 
 	i_chno==chain_no[i+helix_i_diff]-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff-1 && res_info[i]==LOCAL && (res_info[i+helix_i_diff]==LOCAL || res_info[i+helix_i_diff]==GHOST) && (res_info[i+helix_i_diff-1]==LOCAL || res_info[i+helix_i_diff-1]==GHOST) )
       compute_helix_potential(i, i+helix_i_diff);
 			
+    timerEnd(TIME_HELIX);
+
     if (frag_mem_flag && res_info[i]==LOCAL)
       compute_fragment_memory_potential(i);
-      
+
+    timerEnd(TIME_FRAGMEM);
+
     if (vec_frag_mem_flag && res_info[i]==LOCAL)
       compute_vector_fragment_memory_potential(i);
+
+    timerEnd(TIME_VFRAGMEM);
   }
+
+  timerBegin();
 
   // if the fragment frustratometer is on and it is time to compute the fragment frustration, do so!
   if (frag_frust_flag && ntimestep % frag_frust_output_freq == 0) {
@@ -7053,8 +7136,13 @@ void FixBackbone::compute_backbone()
   if (mutate_sequence_flag && ntimestep != update->laststep) {
     mutate_sequence();
   }
+
+  timerEnd(TIME_FRUST);
+
   if (amh_go_flag)
     compute_amh_go_model();
+
+  timerEnd(TIME_AMHGO);
 
   if (excluded_flag)
     compute_excluded_volume();
@@ -7064,6 +7152,8 @@ void FixBackbone::compute_backbone()
 
   if (r6_excluded_flag)
     compute_r6_excluded_volume();
+
+  timerEnd(TIME_VEXCLUDED);
 
 #endif
 	

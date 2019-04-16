@@ -81,9 +81,10 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 7) error->all(FLERR,"Illegal fix backbone command");
 	
   efile = fopen("energy.log", "w");
-  tfile = fopen("timer.log", "w");
 
 #ifdef DEBUGFORCES
+  tfile = fopen("timer.log", "w");
+
   char buff[5];
   char forcefile[20]="";
   itoa(comm->me+1,buff,10);
@@ -983,6 +984,7 @@ void FixBackbone::final_log_output()
 
   char txt_timer[][15] = {"Chain", "Shake", "Chi", "Rama", "Vexcluded", "DSSP", "PAP", "Water", "Burial", "Helix", "AHM-Go", "Frag_Mem", "Vec_FM", "Membrane", "SSB", "DH", "Frust_Analysis", "Total"};
 
+#ifdef DEBUGFORCES
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
 
@@ -997,7 +999,6 @@ void FixBackbone::final_log_output()
     }
   }
 
-#ifdef DEBUGFORCES
   fprintf(dout, "\n");
   for (i=0;i<TIME_N;++i) {
     time = ctime[i];
@@ -1177,7 +1178,11 @@ FixBackbone::~FixBackbone()
   }
   
   fclose(efile);
+
+#ifdef DEBUGFORCES
   fclose(tfile);
+  fclose(dout);
+#endif
 }
 
 void FixBackbone::allocate()
@@ -2981,6 +2986,7 @@ void FixBackbone::compute_water_potential(int i, int j)
   double dx[3], sigma_gamma, theta_gamma, force;
   double *xi, *xj, *xk;
   double water_gamma_0, water_gamma_1;
+  double prdHiHj, HiprdHj;
   int iatom, jatom, katom, i_well, k;
   int k_resno, k_chno;
   bool direct_contact;
@@ -3039,8 +3045,11 @@ void FixBackbone::compute_water_potential(int i, int j)
     f[jatom][0] += -force*dx[0];
     f[jatom][1] += -force*dx[1];
     f[jatom][2] += -force*dx[2];
-		
-    if (!direct_contact) {
+
+    prdHiHj = epsilon*k_water*theta_gamma*well->prd_H(i)*well->H(j);
+    HiprdHj = epsilon*k_water*theta_gamma*well->H(i)*well->prd_H(j);
+
+    if (!direct_contact && (fabs(prdHiHj)>1e-12 || fabs(HiprdHj)>1e-12)) {
       for (k=0;k<nn;++k) {
 	if (res_info[k]==OFF) continue;
 
@@ -3061,7 +3070,8 @@ void FixBackbone::compute_water_potential(int i, int j)
 	  dx[1] = xi[1] - xk[1];
 	  dx[2] = xi[2] - xk[2];
 					
-	  force = epsilon*k_water*theta_gamma*well->prd_H(i)*well->H(j)*well->prd_theta(i, k, 0);
+	  //force = epsilon*k_water*theta_gamma*well->prd_H(i)*well->H(j)*well->prd_theta(i, k, 0);
+	  force = prdHiHj*well->prd_theta(i, k, 0);
 					
 	  f[iatom][0] += force*dx[0];
 	  f[iatom][1] += force*dx[1];
@@ -3076,7 +3086,8 @@ void FixBackbone::compute_water_potential(int i, int j)
 	  dx[1] = xj[1] - xk[1];
 	  dx[2] = xj[2] - xk[2];
 	
-	  force = epsilon*k_water*theta_gamma*well->H(i)*well->prd_H(j)*well->prd_theta(j, k, 0);
+	  //force = epsilon*k_water*theta_gamma*well->H(i)*well->prd_H(j)*well->prd_theta(j, k, 0);
+	  force = HiprdHj*well->prd_theta(j, k, 0);
 				
 	  f[jatom][0] += force*dx[0];
 	  f[jatom][1] += force*dx[1];
@@ -6942,99 +6953,61 @@ void FixBackbone::compute_backbone()
     i_resno = res_no[i]-1;
     i_chno = chain_no[i]-1;
 
-    timerBegin();
-    
     if (chain_flag && res_info[i]==LOCAL)
       compute_chain_potential(i);
-
-    timerEnd(TIME_CHAIN);
 
     if (!isFirst(i) && !isLast(i) && chi_flag && res_info[i]==LOCAL && se[i_resno]!='G')
       compute_chi_potential(i);
 
-    timerEnd(TIME_CHI);
-
     if (shake_flag && res_info[i]==LOCAL)
       compute_shake(i);
-
-    timerEnd(TIME_SHAKE);
 
     if (!isFirst(i) && !isLast(i) && rama_flag && res_info[i]==LOCAL && se[i_resno]!='G')
       compute_rama_potential(i);
 
-    timerEnd(TIME_RAMA);
-
     if (memb_flag && res_info[i]==LOCAL)
       compute_membrane_potential(i);
-
-    timerEnd(TIME_MEMB);
 
     for (j=0;j<nn;j++) {
       j_resno = res_no[j]-1;
       j_chno = chain_no[j]-1;
 
-      timerBegin();
-
       if (dssp_hdrgn_flag && !isLast(i) && !isFirst(j) && ( i_chno!=j_chno || abs(j_resno-i_resno)>2 ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && j>0 && (res_info[j-1]==LOCAL || res_info[j-1]==GHOST) && se[j_resno]!='P')
 	compute_dssp_hdrgn(i, j);
-
-      timerEnd(TIME_DSSP);
 
       //if (p_ap_flag && i<n-i_med_min && j>=i+i_med_min && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
       if (p_ap_flag && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_P_AP_potential(i, j);
 
-      timerEnd(TIME_PAP);
-
       //if (water_flag && ( i_chno!=j_chno || j_resno-i_resno>=contact_cutoff ) && res_info[i]==LOCAL)
       if (water_flag && ( (i_chno!=j_chno && j_resno > i_resno ) || ( i_chno == j_chno && j_resno-i_resno>=contact_cutoff) ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_water_potential(i, j);
 
-      timerEnd(TIME_WATER);
-
       if (frag_mem_tb_flag && j_resno-i_resno>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || j_resno-i_resno<=fm_gamma->maxSep()) && chain_no[i]==chain_no[j] && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) )
 	table_fragment_memory(i, j);
-
-      timerEnd(TIME_FRAGMEM);
 
       if (ssb_flag && ( i_chno!=j_chno || j_resno-i_resno>=ssb_ij_sep ) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
 	compute_solvent_barrier(i, j);
 
-      timerEnd(TIME_SSB);
-
       //if (huckel_flag && (j > i || i_chno!=j_chno) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
       if (huckel_flag && (j > i) && res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST))
         compute_DebyeHuckel_Interaction(i, j);
-
-      timerEnd(TIME_DH);
     }
-
-    timerBegin();
 
     if (burial_flag && res_info[i]==LOCAL)
       compute_burial_potential(i);
     	
-    timerEnd(TIME_BURIAL);
-
     //    if (helix_flag && i<nn-helix_i_diff-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff && res_info[i]==LOCAL)
     if (helix_flag && i_resno<(ch_pos[i_chno]+ch_len[i_chno]-1)-helix_i_diff-1 && i<nn-helix_i_diff && 
 	i_chno==chain_no[i+helix_i_diff]-1 && i_resno==res_no[i+helix_i_diff]-helix_i_diff-1 && res_info[i]==LOCAL && (res_info[i+helix_i_diff]==LOCAL || res_info[i+helix_i_diff]==GHOST) && (res_info[i+helix_i_diff-1]==LOCAL || res_info[i+helix_i_diff-1]==GHOST) )
       compute_helix_potential(i, i+helix_i_diff);
 			
-    timerEnd(TIME_HELIX);
-
     if (frag_mem_flag && res_info[i]==LOCAL)
       compute_fragment_memory_potential(i);
 
-    timerEnd(TIME_FRAGMEM);
-
     if (vec_frag_mem_flag && res_info[i]==LOCAL)
       compute_vector_fragment_memory_potential(i);
-
-    timerEnd(TIME_VFRAGMEM);
   }
-
-  timerBegin();
 
   // if the fragment frustratometer is on and it is time to compute the fragment frustration, do so!
   if (frag_frust_flag && ntimestep % frag_frust_output_freq == 0) {
@@ -7137,12 +7110,8 @@ void FixBackbone::compute_backbone()
     mutate_sequence();
   }
 
-  timerEnd(TIME_FRUST);
-
   if (amh_go_flag)
     compute_amh_go_model();
-
-  timerEnd(TIME_AMHGO);
 
   if (excluded_flag)
     compute_excluded_volume();
@@ -7152,8 +7121,6 @@ void FixBackbone::compute_backbone()
 
   if (r6_excluded_flag)
     compute_r6_excluded_volume();
-
-  timerEnd(TIME_VEXCLUDED);
 
 #endif
 	

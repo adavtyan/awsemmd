@@ -2778,7 +2778,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 
   VTotal = V[0] + V[1] + V[2] + V[3];
 
-  energy[ET_DSSP] +=  epsilon*VTotal;
+  energy[ET_DSSP] +=  VTotal;
 
   if (i_resno-2>=i_ch_start-1 && i_resno+2<i_ch_end && hb_class!=2) {
     force = k_dssp*epsilon*theta_sum*prdnu[0]*nu[1];

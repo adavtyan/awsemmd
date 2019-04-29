@@ -106,7 +106,7 @@ if (len(sys.argv)!=3):
         sys.exit(1)
 
 file_prot=open(sys.argv[1],'r')
-file_seq=open(sys.argv[2],'r')
+file_seq=sys.argv[2]
 with open(file_seq) as f:
     seq = "".join(line.strip() for line in f)
 

@@ -20,6 +20,7 @@
 # Example in Linux: python BuildAll_final_version_py3.py DUMP_FILE_temp300.lammpstrj casp.seq --dna --dna_pdb atomistic.pdb
 ####################
 
+from __future__ import print_function
 import argparse
 import math
 import numpy as np

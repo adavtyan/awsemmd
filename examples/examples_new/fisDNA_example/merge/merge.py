@@ -108,9 +108,8 @@ if (len(sys.argv)!=4):
 file_prot=open(sys.argv[1],'r')
 file_DNA=open(sys.argv[2],'r')
 flie_seq=open(sys.argv[3],'r')
-#seq = 'SVSERPPYSYMAMIQFAINSTERKRMTLKDIYTWIEDHFPYFKHIAKPGWKNSIRHNLSLHDMFVRETSANGKVSFWTIHPSANRYLTLDSERPPYSYMAMIQFAINSTERKRMTLKDIYTWIEDHFPYFKHIAKPGWKNSIRHNLSLHDMFVRETSANGKVSFWTIHPSANRYLTLDQVFKPLD'
 with open(sys.argv[3]) as f:
-    seq = " ".join(line.strip() for line in f)
+    seq = "".join(line.strip() for line in f)
 
 count = 0
 for line in file_prot:

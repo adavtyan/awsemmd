@@ -68,10 +68,10 @@ public:
   
   // Hydrogen bonding parameters
   double hbscl[4][9], sigma_NO, sigma_HO, NO_zero, HO_zero;
-  double k_dssp, dssp_hdrgn_cut, pref[2], d_nu0;
+  double k_dssp, dssp_hdrgn_cut, dssp_hdrgn_cut_sq, pref[2], d_nu0;
   
   // P_AP Liquid Crystal potential parameters
-  double k_global_P_AP, k_betapred_P_AP, k_P_AP[3], P_AP_pref, P_AP_cut;
+  double k_global_P_AP, k_betapred_P_AP, k_P_AP[3], P_AP_pref, P_AP_cut, pap_cutoff_sq;
   int i_diff_P_AP, i_med_max, i_med_min;
   
   // Water mediated interactions parameters
@@ -95,9 +95,10 @@ public:
   
   // Helical hydrogen bonding parameters
   double k_helix, helix_gamma_p, helix_gamma_w, h4prob[20];
-  double helix_kappa, helix_kappa_sigma, helix_treshold, helix_cutoff;
+  double helix_kappa, helix_kappa_sigma, helix_treshold, helix_cutoff, helix_cutoff_sq;
   double helix_well_r_min[5], helix_well_r_max[5];
   double helix_sigma_HO, helix_sigma_NO, helix_HO_zero, helix_NO_zero;
+  double helix_sigma_HO_sqinv, helix_sigma_NO_sqinv;
   int helix_well_flag[5], n_helix_wells, helix_i_diff;
   int pro_accepter_flag;
   double h4prob_pro_accepter;
@@ -228,7 +229,7 @@ public:
   char *mcso_se;
   char mcso_seq_output_file_name[100];
   char mcso_energy_output_file_name[100];
-  static constexpr double k_b = 0.001987;
+  static const double k_b = 0.001987;
 
   // Optimization block parameters
   int optimization_output_freq;
@@ -253,7 +254,23 @@ public:
   int nlevels_respa;
   bool allocated;
   class NeighList *list;         // standard neighbor list used by most pairs
-  
+
+  // Pair style computation arrays
+  double *loc_water_ro;
+  double *loc_helix_ro;
+  double *water_ro;
+  double *helix_ro;
+  double **water_xi;
+  double *water_sigma_h;
+  double *water_sigma_h_prd;
+  double *helix_sigma_h;
+  double *helix_sigma_h_prd;
+  double *helix_xi_1;
+  double *helix_xi_2;
+  bool *b_water_sigma_h;
+  bool *b_helix_sigma_h;
+  bool *b_helix_xi;
+ 
   int ntimestep;
   int n, nn; // n is the total number of residues, nn is the local number of residues
   double an, bn, cn, ap, bp, cp, ah, bh, ch;
@@ -297,13 +314,14 @@ public:
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP, 
 		   ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_MEMB, ET_SSB, ET_DH, nEnergyTerms};
   
-  double ctime[20], previous_time;
+  double ctime[30], previous_time;
   enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP, 
 		   TIME_WATER, TIME_BURIAL, TIME_HELIX, TIME_AMHGO, TIME_FRAGMEM, TIME_VFRAGMEM, TIME_MEMB, 
-                   TIME_SSB, TIME_DH, TIME_FRUST, TIME_TOTAL, TIME_N};
+                   TIME_SSB, TIME_DH, TIME_FRUST, TIME_PAIR, TIME_PAIR_DL1, TIME_PAIR_SL, TIME_PAIR_DL2, TIME_PAIR_DL3, TIME_TOTAL, TIME_N};
   
  private:
   void compute_backbone();
+  void compute_pair();
   void compute_chain_potential(int i);
   void compute_shake(int i);
   void compute_chi_potential(int i);
@@ -316,6 +334,7 @@ public:
   void compute_water_potential(int i, int j);
   void compute_burial_potential(int i);
   void compute_helix_potential(int i, int j);
+  void compute_helix_dtheta_pair(int i, int j);
   void compute_amh_go_model();
   void compute_fragment_memory_potential(int i);
   void compute_decoy_memory_potential(int i, int decoy_calc);
@@ -414,13 +433,15 @@ public:
   char *trim(char *s);
   inline bool file_exists (const char *name);
   
-  void timerBegin();
-  void timerEnd(int which);
+  inline void timerBegin();
+  inline void timerEnd(int which);
 
   cP_AP<double, FixBackbone> *p_ap;
   cR<double, FixBackbone> *R;
   cWell<double, FixBackbone> *well;
   cWell<double, FixBackbone> *helix_well;
+  cWell<double, FixBackbone> *wellp;
+  cWell<double, FixBackbone> *helix_wellp;
   
   WPV water_par;
   WPV helix_par;

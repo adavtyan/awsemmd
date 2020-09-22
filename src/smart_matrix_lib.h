@@ -284,16 +284,22 @@ public:
 	
 	inline T &theta(int i, int j, int i_well);
 	inline T &prd_theta(int i, int j, int i_well);
+	inline T &theta_pair(int i, int j, int i_well, T rij);
+	inline T &prd_theta_pair(int i, int j, int i_well, T rij);
 	inline T &sigma(int i, int j);
 	inline T &H(int i);
 	inline T &prd_H(int i);
 	inline T &ro(int i);
 	
 	void compute_theta(int i, int j, int i_well);
+	void compute_theta_pair(int i, int j, int i_well, T rij);
 	void compute_sigma(int i, int j);
 	void compute_H(int i);
 	void compute_ro(int i);
 	WPV par;
+
+	T *rmin_theta, *rmax_theta;
+	T *rmin_theta_sq, *rmax_theta_sq;
 
 	void reset();
 private:
@@ -310,8 +316,6 @@ private:
 	int *gRo;
 	int *ind;
 	U *lc;
-	T *rmin_theta, *rmax_theta;
-	T *rmin_theta_sq, *rmax_theta_sq;
 };
 
 template <typename T, typename U>
@@ -439,6 +443,18 @@ inline T &cWell<T, U>::theta(int i, int j, int i_well)
 }
 
 template <typename T, typename U>
+inline T &cWell<T, U>::theta_pair(int i, int j, int i_well, T rij)
+{
+        if ( (ind && gTheta[i_well][i][j]!=*ind) || (!ind && gTheta[i_well][i][j]!=1) ) {
+                compute_theta_pair(i, j, i_well, rij);
+                if (ind) gTheta[i_well][i][j] = gTheta[i_well][j][i] = *ind;
+                else gTheta[i_well][i][j] = gTheta[i_well][j][i] = 1;
+        }
+
+        return v_theta[i_well][i][j];
+}
+
+template <typename T, typename U>
 inline T &cWell<T, U>::prd_theta(int i, int j, int i_well)
 {
 	if ( (ind && gTheta[i_well][i][j]!=*ind) || (!ind && gTheta[i_well][i][j]!=1) ) {
@@ -448,6 +464,18 @@ inline T &cWell<T, U>::prd_theta(int i, int j, int i_well)
 	}
 
 	return v_prd_theta[i_well][i][j];
+}
+
+template <typename T, typename U>
+inline T &cWell<T, U>::prd_theta_pair(int i, int j, int i_well, T rij)
+{
+        if ( (ind && gTheta[i_well][i][j]!=*ind) || (!ind && gTheta[i_well][i][j]!=1) ) {
+                compute_theta_pair(i, j, i_well, rij);
+                if (ind) gTheta[i_well][i][j] = gTheta[i_well][j][i] = *ind;
+                else gTheta[i_well][i][j] = gTheta[i_well][j][i] = 1;
+        }
+
+        return v_prd_theta[i_well][i][j];
 }
 
 template <typename T, typename U>
@@ -531,6 +559,24 @@ void cWell<T, U>::compute_theta(int i, int j, int i_well)
 		v_prd_theta[i_well][i][j] = par.kappa*v_theta[i_well][i][j]*(t_max - t_min)/rij;
 		v_prd_theta[i_well][j][i] = v_prd_theta[i_well][i][j];
 	}
+}
+
+template <typename T, typename U>
+void cWell<T, U>::compute_theta_pair(int i, int j, int i_well, T rij)
+{
+        T t_min, t_max;
+
+        if (rij<rmin_theta[i_well] || rij>rmax_theta[i_well]) {
+                v_theta[i_well][i][j] = v_theta[i_well][j][i] = 0.0;
+                v_prd_theta[i_well][i][j] = v_prd_theta[i_well][j][i] = 0.0;
+        } else {
+                t_min = tanh( par.kappa*(rij - par.well_r_min[i_well]) );
+                t_max = tanh( par.kappa*(par.well_r_max[i_well] - rij) );
+                v_theta[i_well][i][j] = 0.25*(1.0 + t_min)*(1.0 + t_max);
+                v_theta[i_well][j][i] = v_theta[i_well][i][j];
+                v_prd_theta[i_well][i][j] = par.kappa*v_theta[i_well][i][j]*(t_max - t_min)/rij;
+                v_prd_theta[i_well][j][i] = v_prd_theta[i_well][i][j];
+        }
 }
 
 template <typename T, typename U>

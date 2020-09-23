@@ -3989,6 +3989,11 @@ void FixBackbone::table_fragment_memory(int i, int j)
 
   itb = 4*tb_nbrs*tb_i + 4*tb_j;
   if (!fm_table[itb]) return;
+
+  if (alpha_carbons[i]==-1 || alpha_carbons[j]==-1 || (se[i_resno]!='G' && beta_atoms[i]==-1) || (se[j_resno]!='G' && beta_atoms[j]==-1)) {
+    printf("FM table: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"FM table: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
   
   iatom_type[0] = Fragment_Memory::FM_CA;
   iatom_type[1] = Fragment_Memory::FM_CA;
@@ -7540,11 +7545,13 @@ void FixBackbone::compute_pair()
   timerEnd(TIME_PAIR_DL2);
 
   // loop over neighbors of my atoms
+  // Main loop
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
     ires = avec->residue[i]-1;
     imol = atom->molecule[i];
     ires_type = se_map[se[ires]-'A'];
+    il = res_no_l[ires];
     
     if ( mask[i]&groupbit || mask[i]&group2bit || mask[i]&group3bit ) {
       xi[0] = x[i][0];
@@ -7585,6 +7592,7 @@ void FixBackbone::compute_pair()
         jres = avec->residue[j]-1;
         jmol = atom->molecule[j];
         jres_type = se_map[se[jres]-'A'];
+        jl = res_no_l[jres];
 
         if ( mask[j]&groupbit || mask[j]&group2bit || mask[j]&group3bit ) {
 
@@ -7661,9 +7669,6 @@ void FixBackbone::compute_pair()
 
           if ( mask[i]&group3bit && mask[j]&groupbit && dssp_hdrgn_flag) {
 
-            il = res_no_l[ires];
-            jl = res_no_l[jres];
-
             if ( se[jres]!='P' && !isLast(il) && !isFirst(jl) && ( imol!=jmol || abs(jres-ires)>2 )
                 && res_info[il]==LOCAL && (res_info[jl]==LOCAL || res_info[jl]==GHOST) && jl>0 && (res_info[jl-1]==LOCAL || res_info[jl-1]==GHOST) ) {
               dx[0] = xo[il][0] - xn[jl][0];
@@ -7676,11 +7681,8 @@ void FixBackbone::compute_pair()
             }
           }
 
-          if ( mask[i]&groupbit && mask[j]&groupbit && p_ap_flag) {
-            il = res_no_l[ires];
-            jl = res_no_l[jres];
-
-            if ( res_info[il]==LOCAL && (res_info[jl]==LOCAL || res_info[jl]==GHOST) ) {
+          if ( mask[i]&groupbit && mask[j]&groupbit) {
+//            if ( res_info[il]==LOCAL && (res_info[jl]==LOCAL || res_info[jl]==GHOST) ) {
 
               if (p_ap_flag && rsq < pap_cutoff_sq)
                 if (rsq < pap_cutoff_sq) compute_P_AP_potential(il, jl);
@@ -7693,7 +7695,7 @@ void FixBackbone::compute_pair()
 
               if (huckel_flag && jres > ires)
                 compute_DebyeHuckel_Interaction(il, jl);
-            }
+//            }
           }
 
           if (force!=0.0) {

@@ -67,7 +67,7 @@ public:
   double w[12], sigma[12], phiw[12], phi0[12], psiw[12], psi0[12], *aps[12];
   
   // Hydrogen bonding parameters
-  double hbscl[4][9], sigma_NO, sigma_HO, NO_zero, HO_zero;
+  double hbscl[4][9], sigma_NO, sigma_HO, NO_zero, HO_zero, sigma_NO_sqinv, sigma_HO_sqinv;
   double k_dssp, dssp_hdrgn_cut, dssp_hdrgn_cut_sq, pref[2], d_nu0;
   
   // P_AP Liquid Crystal potential parameters
@@ -229,7 +229,7 @@ public:
   char *mcso_se;
   char mcso_seq_output_file_name[100];
   char mcso_energy_output_file_name[100];
-  const double k_b = 0.001987;
+  static const double k_b = 0.001987;
 
   // Optimization block parameters
   int optimization_output_freq;

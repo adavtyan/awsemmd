@@ -116,6 +116,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   monte_carlo_seq_opt_flag = 0;
   fm_use_table_flag = fm_read_table_flag = 0;
   n_frag_mems = 0;
+  n_rama_par = n_rama_p_par = 0;
 
   epsilon = 1.0; // general energy scale
   p = 2; // for excluded volume
@@ -197,6 +198,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> n_rama_par;
       for (int j=0;j<n_rama_par;j++) {
 	in >> w[j] >> sigma[j] >> phiw[j] >> phi0[j] >> psiw[j] >> psi0[j];
+        phiw[j] *= sigma[j];
+        psiw[j] *= sigma[j];
       }
     } else if (strcmp(varsection, "[Rama_P]")==0) {
       rama_p_flag = 1;
@@ -204,6 +207,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> n_rama_p_par;
       for (int j=0;j<n_rama_p_par;j++) {
 	in >> w[j+i_rp] >> sigma[j+i_rp] >> phiw[j+i_rp] >> phi0[j+i_rp] >> psiw[j+i_rp] >> psi0[j+i_rp];
+        phiw[j+i_rp] *= sigma[j+i_rp];
+        psiw[j+i_rp] *= sigma[j+i_rp];
       }
     } else if (strcmp(varsection, "[SSWeight]")==0) {
       ssweight_flag = 1;
@@ -224,6 +229,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> pref[0] >> pref[1];
       in >> d_nu0;
       dssp_hdrgn_cut_sq = dssp_hdrgn_cut*dssp_hdrgn_cut;
+      sigma_HO_sqinv = 1.0/(sigma_HO*sigma_HO);
+      sigma_NO_sqinv = 1.0/(sigma_NO*sigma_NO);
     } else if (strcmp(varsection, "[P_AP]")==0) {
       p_ap_flag = 1;
       if (comm->me==0) print_log("P_AP flag on\n");
@@ -482,6 +489,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   k_dssp *= epsilon;
   k_global_P_AP *= epsilon;
   k_amh_go *= epsilon;
+
+  for (int j=0;j<n_rama_par;j++) w[j] *= k_rama;
+  for (int j=0;j<n_rama_p_par;j++) w[j+i_rp] *= k_rama;
 
   // Do senity check to make sure that e.g. water potential is on when needed by other function
 	
@@ -2118,7 +2128,7 @@ void FixBackbone::calcDihedralAndSlopes(int i, double& angle, int iAng)
   double adb, bdc, adc, b2, bm, cdbxa;
   double X, Y, X2Y2;
   double dAngle_y, dAngle_x;
-  double h1, h2, h3;
+  double h1, h2, h3, h4;
 	
   if (iAng==PHI) {
     a[0] = xcp[i][0] - xca[i][0];
@@ -2171,41 +2181,56 @@ void FixBackbone::calcDihedralAndSlopes(int i, double& angle, int iAng)
 	
   angle = atan2(Y, X);
 	
-  X2Y2 = (X*X + Y*Y);
-  dAngle_y = X/X2Y2;	
-  dAngle_x = -Y/X2Y2;
-	
+  X2Y2 = 1.0/(X*X + Y*Y);
+  dAngle_y = X*X2Y2;	
+  dAngle_x = -Y*X2Y2;
+
+  b2 *= dAngle_x;
+  adb *= dAngle_x;
+  adc *= dAngle_x;
+  bdc *= dAngle_x;
+  cdbxa *= dAngle_y/bm;
+  bm *= dAngle_y;
+
   for (int l=0;l<3;l++) {
     if (iAng==PHI) {
-      y_slope[iAng][CA0][l] = dAngle_y*( -an*b[l]*cdbxa/bm + bm*( (an-ap)*bxa[l] + an*cxa[l] ) );	
-      y_slope[iAng][CA1][l] = dAngle_y*( (1-bn)*b[l]*cdbxa/bm + bm*( (bn-bp)*bxa[l] + (ap-1)*cxb[l] - (1-bn)*cxa[l] ) );
-      y_slope[iAng][CA2][l] = dAngle_y*bm*bp*cxb[l];
-      y_slope[iAng][O0][l] = dAngle_y*( -cn*b[l]*cdbxa/bm + bm*( (cn-cp)*bxa[l] + cn*cxa[l] ) );	
-      y_slope[iAng][O1][l] = dAngle_y*bm*cp*cxb[l];
+      h1 = cxb[l]*bm;
+      h2 = cxa[l]*bm;
+      h3 = bxa[l]*bm;
+      h4 = b[l]*cdbxa; 
+      y_slope[iAng][CA0][l] = -an*h4 + (an-ap)*h3 + an*h2;
+      y_slope[iAng][CA1][l] = (1.0-bn)*h4 + (bn-bp)*h3 + (ap-1.0)*h1 - (1.0-bn)*h2;
+      y_slope[iAng][CA2][l] = bp*h1;
+      y_slope[iAng][O0][l] = -cn*h4 + (cn-cp)*h3 + cn*h2;
+      y_slope[iAng][O1][l] = cp*h1;
 			
       h1 = b[l]*bdc - c[l]*b2;
-      h2 = a[l]*bdc - 2*b[l]*adc + c[l]*adb;
+      h2 = a[l]*bdc - 2.0*b[l]*adc + c[l]*adb;
       h3 = b[l]*adb - a[l]*b2;
-      x_slope[iAng][CA0][l] = dAngle_x*( -an*h2 + (an-ap)*h3 );
-      x_slope[iAng][CA1][l] = dAngle_x*( (ap-1)*h1 + (1-bn)*h2 + (bn-bp)*h3 );
-      x_slope[iAng][CA2][l] = dAngle_x*bp*h1;
-      x_slope[iAng][O0][l] = dAngle_x*( -cn*h2 + (cn-cp)*h3 );
-      x_slope[iAng][O1][l] = dAngle_x*cp*h1;
+      x_slope[iAng][CA0][l] = -an*h2 + (an-ap)*h3;
+      x_slope[iAng][CA1][l] = (ap-1.0)*h1 + (1.0-bn)*h2 + (bn-bp)*h3;
+      x_slope[iAng][CA2][l] = bp*h1;
+      x_slope[iAng][O0][l] = -cn*h2 + (cn-cp)*h3;
+      x_slope[iAng][O1][l] = cp*h1;
     } else {
-      y_slope[iAng][CA0][l] = -dAngle_y*bm*an*bxa[l];
-      y_slope[iAng][CA1][l] = dAngle_y*( (ap-1)*b[l]*cdbxa/bm + bm*( (1-bn)*bxa[l] + (an-ap)*cxb[l] - (ap-1)*cxa[l] ) );
-      y_slope[iAng][CA2][l] = dAngle_y*( bp*b[l]*cdbxa/bm + bm*( (bn-bp)*cxb[l] - bp*cxa[l] ) );
-      y_slope[iAng][O0][l] = -dAngle_y*bm*cn*bxa[l];
-      y_slope[iAng][O1][l] = dAngle_y*( cp*b[l]*cdbxa/bm + bm*( (cn-cp)*cxb[l] - cp*cxa[l] ) );
+      h1 = bxa[l]*bm;
+      h2 = cxb[l]*bm;
+      h3 = cxa[l]*bm;
+      h4 = b[l]*cdbxa;
+      y_slope[iAng][CA0][l] = -an*h1;
+      y_slope[iAng][CA1][l] = (ap-1.0)*h4 + (1.0-bn)*h1 + (an-ap)*h2 - (ap-1)*h3;
+      y_slope[iAng][CA2][l] = bp*h4 + (bn-bp)*h2 - bp*h3;
+      y_slope[iAng][O0][l] = -cn*h1;
+      y_slope[iAng][O1][l] = cp*h4 + (cn-cp)*h2 - cp*h3;
 			
       h1 = b[l]*bdc - c[l]*b2;
-      h2 = a[l]*bdc - 2*b[l]*adc + c[l]*adb;
+      h2 = a[l]*bdc - 2.0*b[l]*adc + c[l]*adb;
       h3 = b[l]*adb - a[l]*b2;
-      x_slope[iAng][CA0][l] = -dAngle_x*an*h3;
-      x_slope[iAng][CA1][l] = dAngle_x*( (an-ap)*h1 + (ap-1)*h2 + (1-bn)*h3 );
-      x_slope[iAng][CA2][l] = dAngle_x*( (bn-bp)*h1 + bp*h2 );
-      x_slope[iAng][O0][l] = -dAngle_x*cn*h3;
-      x_slope[iAng][O1][l] = dAngle_x*( (cn-cp)*h1 + cp*h2 );
+      x_slope[iAng][CA0][l] = -an*h3;
+      x_slope[iAng][CA1][l] = (an-ap)*h1 + (ap-1.0)*h2 + (1.0-bn)*h3;
+      x_slope[iAng][CA2][l] = (bn-bp)*h1 + bp*h2;
+      x_slope[iAng][O0][l] = -cn*h3;
+      x_slope[iAng][O1][l] = (cn-cp)*h1 + cp*h2;
     }
   }
 }
@@ -2214,6 +2239,7 @@ void FixBackbone::compute_rama_potential(int i)
 {
   double V, phi, psi;
   double force, force1[nAngles];
+  double cos_phi, cos_psi, phiw_cos_phi, psiw_cos_psi;
   int jStart, nEnd;
   int j, ia, l;
 
@@ -2233,29 +2259,67 @@ void FixBackbone::compute_rama_potential(int i)
   }
 
   for (j=jStart;j<nEnd;j++) {
-    V = k_rama*w[j]*exp( -sigma[j]*( phiw[j]*pow(cos(phi + phi0[j]) - 1, 2) + psiw[j]*pow(cos(psi + psi0[j]) - 1, 2) ) );
+    if (ssweight[j] && aps[j][i_resno]==0.0) continue;
 
-    if (ssweight[j]) {
-      if (aps[j][i_resno]==0.0) continue;
-      V *= aps[j][i_resno];
-    }
+    cos_phi = cos(phi + phi0[j]) - 1.0;
+    cos_psi = cos(psi + psi0[j]) - 1.0;
+    phiw_cos_phi = phiw[j]*cos_phi;
+    psiw_cos_psi = psiw[j]*cos_psi;
 
-    force = 2*V*sigma[j];
-    force1[PHI] = force*phiw[j]*(cos(phi + phi0[j]) - 1)*sin(phi + phi0[j]);
-    force1[PSI] = force*psiw[j]*(cos(psi + psi0[j]) - 1)*sin(psi + psi0[j]);
+    //V = k_rama*w[j]*exp( -sigma[j]*( phiw[j]*pow(cos(phi + phi0[j]) - 1.0, 2) + psiw[j]*pow(cos(psi + psi0[j]) - 1.0, 2) ) );
+    V = w[j]*exp( - cos_phi*phiw_cos_phi  - cos_psi*psiw_cos_psi );
+    if (ssweight[j]) V *= aps[j][i_resno];
+
+    //force = 2.0*V*sigma[j];
+    //force1[PHI] = force*phiw[j]*(cos(phi + phi0[j]) - 1.0)*sin(phi + phi0[j]);
+    //force1[PSI] = force*psiw[j]*(cos(psi + psi0[j]) - 1.0)*sin(psi + psi0[j]);
+    force = 2.0*V;
+    force1[PHI] = force*phiw_cos_phi*sin(phi + phi0[j]);
+    force1[PSI] = force*psiw_cos_psi*sin(psi + psi0[j]);
 			
     energy[ET_RAMA] += -V;
-    if (im1!=-1 && ip1!=-1 && (res_info[im1]==LOCAL || res_info[im1]==GHOST) && (res_info[ip1]==LOCAL || res_info[ip1]==GHOST)){
-		for (ia=0; ia<nAngles; ia++) {
-		  for (l=0; l<3; l++) {				
-			f[alpha_carbons[im1]][l] += force1[ia]*(y_slope[ia][CA0][l] + x_slope[ia][CA0][l]);
-			f[alpha_carbons[i]][l] += force1[ia]*(y_slope[ia][CA1][l] + x_slope[ia][CA1][l]);
-			f[alpha_carbons[ip1]][l] += force1[ia]*(y_slope[ia][CA2][l] + x_slope[ia][CA2][l]);
-						
-			f[oxygens[im1]][l] += force1[ia]*(y_slope[ia][O0][l] + x_slope[ia][O0][l]);
-			f[oxygens[i]][l] += force1[ia]*(y_slope[ia][O1][l] + x_slope[ia][O1][l]);
-		  }
-		}
+    if (im1!=-1 && ip1!=-1 && (res_info[im1]==LOCAL || res_info[im1]==GHOST) && (res_info[ip1]==LOCAL || res_info[ip1]==GHOST)) {
+      ia = 0;
+      f[alpha_carbons[im1]][0] += force1[ia]*(y_slope[ia][CA0][0] + x_slope[ia][CA0][0]);
+      f[alpha_carbons[im1]][1] += force1[ia]*(y_slope[ia][CA0][1] + x_slope[ia][CA0][1]);
+      f[alpha_carbons[im1]][2] += force1[ia]*(y_slope[ia][CA0][2] + x_slope[ia][CA0][2]);
+
+      f[alpha_carbons[i]][0] += force1[ia]*(y_slope[ia][CA1][0] + x_slope[ia][CA1][0]);
+      f[alpha_carbons[i]][1] += force1[ia]*(y_slope[ia][CA1][1] + x_slope[ia][CA1][1]);
+      f[alpha_carbons[i]][2] += force1[ia]*(y_slope[ia][CA1][2] + x_slope[ia][CA1][2]);
+
+      f[alpha_carbons[ip1]][0] += force1[ia]*(y_slope[ia][CA2][0] + x_slope[ia][CA2][0]);
+      f[alpha_carbons[ip1]][1] += force1[ia]*(y_slope[ia][CA2][1] + x_slope[ia][CA2][1]);
+      f[alpha_carbons[ip1]][2] += force1[ia]*(y_slope[ia][CA2][2] + x_slope[ia][CA2][2]);
+
+      f[oxygens[im1]][0] += force1[ia]*(y_slope[ia][O0][0] + x_slope[ia][O0][0]);
+      f[oxygens[im1]][1] += force1[ia]*(y_slope[ia][O0][1] + x_slope[ia][O0][1]);
+      f[oxygens[im1]][2] += force1[ia]*(y_slope[ia][O0][2] + x_slope[ia][O0][2]);
+
+      f[oxygens[i]][0] += force1[ia]*(y_slope[ia][O1][0] + x_slope[ia][O1][0]);
+      f[oxygens[i]][1] += force1[ia]*(y_slope[ia][O1][1] + x_slope[ia][O1][1]);
+      f[oxygens[i]][2] += force1[ia]*(y_slope[ia][O1][2] + x_slope[ia][O1][2]);
+
+      ia = 1;
+      f[alpha_carbons[im1]][0] += force1[ia]*(y_slope[ia][CA0][0] + x_slope[ia][CA0][0]);
+      f[alpha_carbons[im1]][1] += force1[ia]*(y_slope[ia][CA0][1] + x_slope[ia][CA0][1]);
+      f[alpha_carbons[im1]][2] += force1[ia]*(y_slope[ia][CA0][2] + x_slope[ia][CA0][2]);
+
+      f[alpha_carbons[i]][0] += force1[ia]*(y_slope[ia][CA1][0] + x_slope[ia][CA1][0]);
+      f[alpha_carbons[i]][1] += force1[ia]*(y_slope[ia][CA1][1] + x_slope[ia][CA1][1]);
+      f[alpha_carbons[i]][2] += force1[ia]*(y_slope[ia][CA1][2] + x_slope[ia][CA1][2]);
+
+      f[alpha_carbons[ip1]][0] += force1[ia]*(y_slope[ia][CA2][0] + x_slope[ia][CA2][0]);
+      f[alpha_carbons[ip1]][1] += force1[ia]*(y_slope[ia][CA2][1] + x_slope[ia][CA2][1]);
+      f[alpha_carbons[ip1]][2] += force1[ia]*(y_slope[ia][CA2][2] + x_slope[ia][CA2][2]);
+
+      f[oxygens[im1]][0] += force1[ia]*(y_slope[ia][O0][0] + x_slope[ia][O0][0]);
+      f[oxygens[im1]][1] += force1[ia]*(y_slope[ia][O0][1] + x_slope[ia][O0][1]);
+      f[oxygens[im1]][2] += force1[ia]*(y_slope[ia][O0][2] + x_slope[ia][O0][2]);
+
+      f[oxygens[i]][0] += force1[ia]*(y_slope[ia][O1][0] + x_slope[ia][O1][0]);
+      f[oxygens[i]][1] += force1[ia]*(y_slope[ia][O1][1] + x_slope[ia][O1][1]);
+      f[oxygens[i]][2] += force1[ia]*(y_slope[ia][O1][2] + x_slope[ia][O1][2]);
     }
   }
 } 
@@ -2619,7 +2683,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
   if (R->rNO(i,j)>dssp_hdrgn_cut) return;
 
   bool i_repulsive = true, i_AP = true, i_P = true, i_theta[4] = {true, true, true, true}, missing = false;
-  double lambda[4], R_NO[4], R_HO[4], theta[4], nu[2], th;
+  double lambda[4], R_NO[4], R_HO[4], theta[4], nu[2], th, dR_NO_sigma, dR_HO_sigma;
   double r_nu[2], prdnu[2], prd_theta[4][2], V[4], VTotal;
   double dxnu[2][3], xNO[4][3], xHO[4][3];
   double force, force1, force2, theta_sum;
@@ -2773,10 +2837,12 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
 
   for (k=0;k<4;++k) {
     if (i_theta[k]) {
-      theta[k] = exp( - pow(R_NO[k] - NO_zero, 2)/(2.0*pow(sigma_NO, 2)) - pow(R_HO[k] - HO_zero, 2)/(2.0*pow(sigma_HO, 2)) );
+      dR_NO_sigma = (R_NO[k] - NO_zero)*sigma_NO_sqinv;
+      dR_HO_sigma = (R_HO[k] - HO_zero)*sigma_HO_sqinv;
+      theta[k] = exp( - 0.5*( (R_NO[k] - NO_zero)*dR_NO_sigma + (R_HO[k] - HO_zero)*dR_HO_sigma ) );
 
-      prd_theta[k][0] = - (R_NO[k] - NO_zero)/(pow(sigma_NO, 2)*R_NO[k]);
-      prd_theta[k][1] = - (R_HO[k] - HO_zero)/(pow(sigma_HO, 2)*R_HO[k]);
+      prd_theta[k][0] = - dR_NO_sigma/R_NO[k];
+      prd_theta[k][1] = - dR_HO_sigma/R_HO[k];
     } else {
       theta[k] = 0.0;
       prd_theta[k][0] = prd_theta[k][1] = 0.0;
@@ -2792,12 +2858,12 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     dxnu[0][1] = xca[i+2][1]-xca[i-2][1];
     dxnu[0][2] = xca[i+2][2]-xca[i-2][2];
 
-    r_nu[0] = sqrt (pow(dxnu[0][0], 2) + pow(dxnu[0][1], 2) + pow(dxnu[0][2], 2) );
+    r_nu[0] = sqrt (dxnu[0][0]*dxnu[0][0] + dxnu[0][1]*dxnu[0][1] + dxnu[0][2]*dxnu[0][2] );
 		
     th = tanh(pref[0]*(r_nu[0] - d_nu0));
-    nu[0] = 0.5*(1+th);
+    nu[0] = 0.5*(1.0 + th);
 
-    prdnu[0] = 0.5*pref[0]*(1-pow(th,2))/r_nu[0];
+    prdnu[0] = pref[0]*nu[0]*(1.0 - th)/r_nu[0];
   } else nu[0] = 1.0;
 
   if (j_resno-2>=j_ch_start-1 && j_resno+2<j_ch_end && hb_class!=2) {
@@ -2808,12 +2874,12 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     dxnu[1][1] = xca[j+2][1]-xca[j-2][1];
     dxnu[1][2] = xca[j+2][2]-xca[j-2][2];
 
-    r_nu[1] = sqrt (pow(dxnu[1][0], 2) + pow(dxnu[1][1], 2) + pow(dxnu[1][2], 2) );
+    r_nu[1] = sqrt( dxnu[1][0]*dxnu[1][0] + dxnu[1][1]*dxnu[1][1] + dxnu[1][2]*dxnu[1][2] );
 		
     th = tanh(pref[1]*(r_nu[1] - d_nu0));
-    nu[1] = 0.5*(1+th);
+    nu[1] = 0.5*(1.0 + th);
 
-    prdnu[1] = 0.5*pref[1]*(1-pow(th,2))/r_nu[1];
+    prdnu[1] = pref[1]*nu[1]*(1.0 - th)/r_nu[1];
   } else nu[1] = 1.0;
 
   if (missing) {

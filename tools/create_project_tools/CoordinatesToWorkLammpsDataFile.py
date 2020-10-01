@@ -60,6 +60,7 @@ for cl in sys.argv[3:]:
 
 seq_file = "sequance.seq"    
 lammps_out_file = "file.in"
+groups_out_file = "groups.dat"
 if out_file[:5]=="data.":
     lammps_out_file = out_file[5:] + ".in"
     seq_file = out_file[5:] + ".seq"
@@ -300,7 +301,7 @@ if cg and not go:
 	pair_coeff_string += "pair_coeff 3 3 20.0 3.5 3.5\n"
 
 replace_rules = [ ["``read_data_file",  "read_data " +  out_file],
-                  ["``groups", groups_string],
+#                  ["``groups", groups_string],
 		  ["``bonds", bonds_string],
 		  ["``main_fix", fix_string],
 		  ["``pair_interactions", pair_string],
@@ -317,9 +318,6 @@ out = open(lammps_out_file,'w')
 out.write(inFile)
 out.close()
 
-#out = open(groups_out_file,'w')
-#for igroup in groups:
-#    out.write( "group\t\t" )
-#    out.write( " ".join(igroup) )
-#    out.write( "\n\n" )
-#out.close()
+out = open(groups_out_file,'w')
+out.write(groups_string)
+out.close()

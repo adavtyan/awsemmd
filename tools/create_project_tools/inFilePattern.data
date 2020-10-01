@@ -30,7 +30,8 @@ atom_style	awsemmd
 
 velocity	all create 300.0 2349852 rot yes dist gaussian
 
-``groups
+include groups.dat
+
 fix		1 all nvt temp 300.0 300.0 100.0
 fix		``main_fix
 fix		3 all momentum 100 linear 1 1 1 angular

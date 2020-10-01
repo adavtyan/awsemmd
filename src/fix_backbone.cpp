@@ -35,6 +35,7 @@ using std::ifstream;
 
 #define delta 0.00001
 #define delta_water_xi 1e-8
+#define dssp_nu_delta 1e-4
 #define pap_delta 1e-12
 #define vfm_small 0.0001
 #define pair_flag 1
@@ -229,6 +230,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> pref[0] >> pref[1];
       in >> d_nu0;
       dssp_hdrgn_cut_sq = dssp_hdrgn_cut*dssp_hdrgn_cut;
+      dssp_nu_cut1_sq = pow(d_nu0 + atanh(2.0*dssp_nu_delta - 1.0)/pref[0], 2);
+      dssp_nu_cut2_sq = pow(d_nu0 + atanh(2.0*dssp_nu_delta - 1.0)/pref[1], 2);
       sigma_HO_sqinv = 1.0/(sigma_HO*sigma_HO);
       sigma_NO_sqinv = 1.0/(sigma_NO*sigma_NO);
     } else if (strcmp(varsection, "[P_AP]")==0) {
@@ -241,7 +244,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> P_AP_pref;
       in >> i_med_min >> i_med_max;
       in >> i_diff_P_AP;
-      pap_cutoff_sq = pow(P_AP_cut + atanh(1.0 - 2.0*pap_delta),2);
+      pap_cutoff_sq = pow(P_AP_cut + atanh(1.0 - 2.0*pap_delta)/P_AP_pref, 2);
     } else if (strcmp(varsection, "[Water]")==0) {
       water_flag = 1;
       if (comm->me==0) print_log("Water flag on\n");
@@ -2686,7 +2689,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
   double lambda[4], R_NO[4], R_HO[4], theta[4], nu[2], th, dR_NO_sigma, dR_HO_sigma;
   double r_nu[2], prdnu[2], prd_theta[4][2], V[4], VTotal;
   double dxnu[2][3], xNO[4][3], xHO[4][3];
-  double force, force1, force2, theta_sum;
+  double ff1, ff2, theta_sum;
   double theta_seq_anti_HB[2], theta_seq_anti_NHB[2], theta_seq_para_HB[2];
   int hb_class;
   int k;
@@ -2780,6 +2783,56 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     hb_class = 4;
   }
 
+  missing = false;
+  nu[0] = prdnu[0] = 0.0;
+  if (i_resno-2>=i_ch_start-1 && i_resno+2<i_ch_end && hb_class!=2) {
+    // Check for missing atoms
+    if (alpha_carbons[i-2]==-1 || alpha_carbons[i+2]==-1) missing = true;
+
+    dxnu[0][0] = xca[i+2][0]-xca[i-2][0];
+    dxnu[0][1] = xca[i+2][1]-xca[i-2][1];
+    dxnu[0][2] = xca[i+2][2]-xca[i-2][2];
+
+    r_nu[0] = dxnu[0][0]*dxnu[0][0] + dxnu[0][1]*dxnu[0][1] + dxnu[0][2]*dxnu[0][2];
+
+    if (r_nu[0] > dssp_nu_cut1_sq) {
+      r_nu[0] = sqrt(r_nu[0]);
+		
+      th = tanh(pref[0]*(r_nu[0] - d_nu0));
+      nu[0] = 0.5*(1.0 + th);
+
+      prdnu[0] = pref[0]*nu[0]*(1.0 - th)/r_nu[0];
+    }
+  } else nu[0] = 1.0;
+
+  nu[1] = prdnu[1] = 0.0;
+  if (j_resno-2>=j_ch_start-1 && j_resno+2<j_ch_end && hb_class!=2) {
+    // Check for missing atoms
+    if (alpha_carbons[j-2]==-1 || alpha_carbons[j+2]==-1) missing = true;
+
+    dxnu[1][0] = xca[j+2][0]-xca[j-2][0];
+    dxnu[1][1] = xca[j+2][1]-xca[j-2][1];
+    dxnu[1][2] = xca[j+2][2]-xca[j-2][2];
+
+    r_nu[1] = dxnu[1][0]*dxnu[1][0] + dxnu[1][1]*dxnu[1][1] + dxnu[1][2]*dxnu[1][2];
+		
+    if (r_nu[1] > dssp_nu_cut2_sq) {
+      r_nu[1] = sqrt(r_nu[1]);
+
+      th = tanh(pref[1]*(r_nu[1] - d_nu0));
+      nu[1] = 0.5*(1.0 + th);
+
+      prdnu[1] = pref[1]*nu[1]*(1.0 - th)/r_nu[1];
+    }
+  } else nu[1] = 1.0;
+
+  if (missing) {
+    printf("DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
+    error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
+  }
+
+  if (nu[0]<dssp_nu_delta || nu[1]<dssp_nu_delta) return;
+
   i_theta[1] = i_repulsive;
   i_theta[2] = i_AP;
   i_theta[3] = i_P;
@@ -2849,150 +2902,160 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
     }
   }
 
-  missing = false;
-  if (i_resno-2>=i_ch_start-1 && i_resno+2<i_ch_end && hb_class!=2) {
-    // Check for missing atoms
-    if (alpha_carbons[i-2]==-1 || alpha_carbons[i+2]==-1) missing = true;
+  ff1 = k_dssp*theta[0];
+  V[0] = lambda[0];
+  V[1] = lambda[1]*theta[1];
+  V[2] = lambda[2]*theta[2];
+  V[3] = lambda[3]*theta[3];
 
-    dxnu[0][0] = xca[i+2][0]-xca[i-2][0];
-    dxnu[0][1] = xca[i+2][1]-xca[i-2][1];
-    dxnu[0][2] = xca[i+2][2]-xca[i-2][2];
+  theta_sum = ff1*(V[0] + V[1] + V[2] + V[3]);
 
-    r_nu[0] = sqrt (dxnu[0][0]*dxnu[0][0] + dxnu[0][1]*dxnu[0][1] + dxnu[0][2]*dxnu[0][2] );
-		
-    th = tanh(pref[0]*(r_nu[0] - d_nu0));
-    nu[0] = 0.5*(1.0 + th);
-
-    prdnu[0] = pref[0]*nu[0]*(1.0 - th)/r_nu[0];
-  } else nu[0] = 1.0;
-
-  if (j_resno-2>=j_ch_start-1 && j_resno+2<j_ch_end && hb_class!=2) {
-    // Check for missing atoms
-    if (alpha_carbons[j-2]==-1 || alpha_carbons[j+2]==-1) missing = true;
-
-    dxnu[1][0] = xca[j+2][0]-xca[j-2][0];
-    dxnu[1][1] = xca[j+2][1]-xca[j-2][1];
-    dxnu[1][2] = xca[j+2][2]-xca[j-2][2];
-
-    r_nu[1] = sqrt( dxnu[1][0]*dxnu[1][0] + dxnu[1][1]*dxnu[1][1] + dxnu[1][2]*dxnu[1][2] );
-		
-    th = tanh(pref[1]*(r_nu[1] - d_nu0));
-    nu[1] = 0.5*(1.0 + th);
-
-    prdnu[1] = pref[1]*nu[1]*(1.0 - th)/r_nu[1];
-  } else nu[1] = 1.0;
-
-  if (missing) {
-    printf("DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!\n");
-    error->all(FLERR,"DSSP: Missing atom! Increase pair cutoff and neighbor skin or check system integrity!");
-  }
-	
-  theta_sum = lambda[0]*theta[0] 
-    + lambda[1]*theta[0]*theta[1] 
-    + lambda[2]*theta[0]*theta[2] 
-    + lambda[3]*theta[0]*theta[3];
-
-  V[0] = k_dssp*lambda[0]*theta[0]*nu[0]*nu[1];
-  V[1] = k_dssp*lambda[1]*theta[0]*theta[1]*nu[0]*nu[1];
-  V[2] = k_dssp*lambda[2]*theta[0]*theta[2]*nu[0]*nu[1];
-  V[3] = k_dssp*lambda[3]*theta[0]*theta[3]*nu[0]*nu[1];
+  ff1 *= nu[0]*nu[1];
+  V[0] *= ff1;
+  V[1] *= ff1;
+  V[2] *= ff1;
+  V[3] *= ff1;
 
   VTotal = V[0] + V[1] + V[2] + V[3];
 
   energy[ET_DSSP] += VTotal;
 
   if (i_resno-2>=i_ch_start-1 && i_resno+2<i_ch_end && hb_class!=2) {
-    force = k_dssp*theta_sum*prdnu[0]*nu[1];
-    f[alpha_carbons[i-2]][0] -= -force*dxnu[0][0];
-    f[alpha_carbons[i-2]][1] -= -force*dxnu[0][1];
-    f[alpha_carbons[i-2]][2] -= -force*dxnu[0][2];
+    ff1 = theta_sum*prdnu[0]*nu[1];
+    f[alpha_carbons[i-2]][0] -= -ff1*dxnu[0][0];
+    f[alpha_carbons[i-2]][1] -= -ff1*dxnu[0][1];
+    f[alpha_carbons[i-2]][2] -= -ff1*dxnu[0][2];
 
-    f[alpha_carbons[i+2]][0] -= force*dxnu[0][0];
-    f[alpha_carbons[i+2]][1] -= force*dxnu[0][1];
-    f[alpha_carbons[i+2]][2] -= force*dxnu[0][2];
+    f[alpha_carbons[i+2]][0] -= ff1*dxnu[0][0];
+    f[alpha_carbons[i+2]][1] -= ff1*dxnu[0][1];
+    f[alpha_carbons[i+2]][2] -= ff1*dxnu[0][2];
   }
 
   if (j_resno-2>=j_ch_start-1 && j_resno+2<j_ch_end && hb_class!=2) {
-    force = k_dssp*theta_sum*nu[0]*prdnu[1];
-    f[alpha_carbons[j-2]][0] -= -force*dxnu[1][0];
-    f[alpha_carbons[j-2]][1] -= -force*dxnu[1][1];
-    f[alpha_carbons[j-2]][2] -= -force*dxnu[1][2];
+    ff2 = theta_sum*nu[0]*prdnu[1];
+    f[alpha_carbons[j-2]][0] -= -ff2*dxnu[1][0];
+    f[alpha_carbons[j-2]][1] -= -ff2*dxnu[1][1];
+    f[alpha_carbons[j-2]][2] -= -ff2*dxnu[1][2];
 
-    f[alpha_carbons[j+2]][0] -= force*dxnu[1][0];
-    f[alpha_carbons[j+2]][1] -= force*dxnu[1][1];
-    f[alpha_carbons[j+2]][2] -= force*dxnu[1][2];
+    f[alpha_carbons[j+2]][0] -= ff2*dxnu[1][0];
+    f[alpha_carbons[j+2]][1] -= ff2*dxnu[1][1];
+    f[alpha_carbons[j+2]][2] -= ff2*dxnu[1][2];
   }
 
-  f[alpha_carbons[j-1]][0] -= -VTotal*(an*prd_theta[0][0]*xNO[0][0] + ah*prd_theta[0][1]*xHO[0][0]);
-  f[alpha_carbons[j-1]][1] -= -VTotal*(an*prd_theta[0][0]*xNO[0][1] + ah*prd_theta[0][1]*xHO[0][1]);
-  f[alpha_carbons[j-1]][2] -= -VTotal*(an*prd_theta[0][0]*xNO[0][2] + ah*prd_theta[0][1]*xHO[0][2]);
+  prd_theta[0][0] *= VTotal;
+  prd_theta[0][1] *= VTotal;
 
-  f[alpha_carbons[j]][0] -= -VTotal*(bn*prd_theta[0][0]*xNO[0][0] + bh*prd_theta[0][1]*xHO[0][0]);
-  f[alpha_carbons[j]][1] -= -VTotal*(bn*prd_theta[0][0]*xNO[0][1] + bh*prd_theta[0][1]*xHO[0][1]);
-  f[alpha_carbons[j]][2] -= -VTotal*(bn*prd_theta[0][0]*xNO[0][2] + bh*prd_theta[0][1]*xHO[0][2]);
+  ff1 = prd_theta[0][0];
+  ff2 = prd_theta[0][1];
+  f[oxygens[i]][0] -= ff1*xNO[0][0] + ff2*xHO[0][0];
+  f[oxygens[i]][1] -= ff1*xNO[0][1] + ff2*xHO[0][1];
+  f[oxygens[i]][2] -= ff1*xNO[0][2] + ff2*xHO[0][2];
 
-  f[oxygens[j-1]][0] -= -VTotal*(cn*prd_theta[0][0]*xNO[0][0] + ch*prd_theta[0][1]*xHO[0][0]);
-  f[oxygens[j-1]][1] -= -VTotal*(cn*prd_theta[0][0]*xNO[0][1] + ch*prd_theta[0][1]*xHO[0][1]);
-  f[oxygens[j-1]][2] -= -VTotal*(cn*prd_theta[0][0]*xNO[0][2] + ch*prd_theta[0][1]*xHO[0][2]);
+  ff1 = an*prd_theta[0][0];
+  ff2 = ah*prd_theta[0][1];
+  f[alpha_carbons[j-1]][0] += ff1*xNO[0][0] + ff2*xHO[0][0];
+  f[alpha_carbons[j-1]][1] += ff1*xNO[0][1] + ff2*xHO[0][1];
+  f[alpha_carbons[j-1]][2] += ff1*xNO[0][2] + ff2*xHO[0][2];
 
-  f[oxygens[i]][0] -= VTotal*(prd_theta[0][0]*xNO[0][0] + prd_theta[0][1]*xHO[0][0]);
-  f[oxygens[i]][1] -= VTotal*(prd_theta[0][0]*xNO[0][1] + prd_theta[0][1]*xHO[0][1]);
-  f[oxygens[i]][2] -= VTotal*(prd_theta[0][0]*xNO[0][2] + prd_theta[0][1]*xHO[0][2]);
+  ff1 = bn*prd_theta[0][0];
+  ff2 = bh*prd_theta[0][1];
+  f[alpha_carbons[j]][0] += ff1*xNO[0][0] + ff2*xHO[0][0];
+  f[alpha_carbons[j]][1] += ff1*xNO[0][1] + ff2*xHO[0][1];
+  f[alpha_carbons[j]][2] += ff1*xNO[0][2] + ff2*xHO[0][2];
+
+  ff1 = cn*prd_theta[0][0];
+  ff2 = ch*prd_theta[0][1];
+  f[oxygens[j-1]][0] += ff1*xNO[0][0] + ff2*xHO[0][0];
+  f[oxygens[j-1]][1] += ff1*xNO[0][1] + ff2*xHO[0][1];
+  f[oxygens[j-1]][2] += ff1*xNO[0][2] + ff2*xHO[0][2];
 
   if (i_repulsive) {
-    f[alpha_carbons[j]][0] -= -V[1]*(an*prd_theta[1][0]*xNO[1][0] + ah*prd_theta[1][1]*xHO[1][0]);
-    f[alpha_carbons[j]][1] -= -V[1]*(an*prd_theta[1][0]*xNO[1][1] + ah*prd_theta[1][1]*xHO[1][1]);
-    f[alpha_carbons[j]][2] -= -V[1]*(an*prd_theta[1][0]*xNO[1][2] + ah*prd_theta[1][1]*xHO[1][2]);
-	
-    f[alpha_carbons[j+1]][0] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][0] + bh*prd_theta[1][1]*xHO[1][0]);
-    f[alpha_carbons[j+1]][1] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][1] + bh*prd_theta[1][1]*xHO[1][1]);
-    f[alpha_carbons[j+1]][2] -= -V[1]*(bn*prd_theta[1][0]*xNO[1][2] + bh*prd_theta[1][1]*xHO[1][2]);
-	
-    f[oxygens[j]][0] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][0] + ch*prd_theta[1][1]*xHO[1][0]);
-    f[oxygens[j]][1] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][1] + ch*prd_theta[1][1]*xHO[1][1]);
-    f[oxygens[j]][2] -= -V[1]*(cn*prd_theta[1][0]*xNO[1][2] + ch*prd_theta[1][1]*xHO[1][2]);
-	
-    f[oxygens[i]][0] -= V[1]*(prd_theta[1][0]*xNO[1][0] + prd_theta[1][1]*xHO[1][0]);
-    f[oxygens[i]][1] -= V[1]*(prd_theta[1][0]*xNO[1][1] + prd_theta[1][1]*xHO[1][1]);
-    f[oxygens[i]][2] -= V[1]*(prd_theta[1][0]*xNO[1][2] + prd_theta[1][1]*xHO[1][2]);
+    prd_theta[1][0] *= V[1];
+    prd_theta[1][1] *= V[1];
+
+    ff1 = prd_theta[1][0];
+    ff2 = prd_theta[1][1];
+    f[oxygens[i]][0] -= ff1*xNO[1][0] + ff2*xHO[1][0];
+    f[oxygens[i]][1] -= ff1*xNO[1][1] + ff2*xHO[1][1];
+    f[oxygens[i]][2] -= ff1*xNO[1][2] + ff2*xHO[1][2];
+
+    ff1 = an*prd_theta[1][0];
+    ff2 = ah*prd_theta[1][1];
+    f[alpha_carbons[j]][0] += ff1*xNO[1][0] + ff2*xHO[1][0];
+    f[alpha_carbons[j]][1] += ff1*xNO[1][1] + ff2*xHO[1][1];
+    f[alpha_carbons[j]][2] += ff1*xNO[1][2] + ff2*xHO[1][2];
+
+    ff1 = bn*prd_theta[1][0];
+    ff2 = bh*prd_theta[1][1];
+    f[alpha_carbons[j+1]][0] += ff1*xNO[1][0] + ff2*xHO[1][0];
+    f[alpha_carbons[j+1]][1] += ff1*xNO[1][1] + ff2*xHO[1][1];
+    f[alpha_carbons[j+1]][2] += ff1*xNO[1][2] + ff2*xHO[1][2];
+
+    ff1 = cn*prd_theta[1][0];
+    ff2 = ch*prd_theta[1][1];
+    f[oxygens[j]][0] += ff1*xNO[1][0] + ff2*xHO[1][0];
+    f[oxygens[j]][1] += ff1*xNO[1][1] + ff2*xHO[1][1];
+    f[oxygens[j]][2] += ff1*xNO[1][2] + ff2*xHO[1][2];
   }
 
 
   if (i_AP) {
-    f[alpha_carbons[i-1]][0] -= -V[2]*(an*prd_theta[2][0]*xNO[2][0] + ah*prd_theta[2][1]*xHO[2][0]);
-    f[alpha_carbons[i-1]][1] -= -V[2]*(an*prd_theta[2][0]*xNO[2][1] + ah*prd_theta[2][1]*xHO[2][1]);
-    f[alpha_carbons[i-1]][2] -= -V[2]*(an*prd_theta[2][0]*xNO[2][2] + ah*prd_theta[2][1]*xHO[2][2]);
-	
-    f[alpha_carbons[i]][0] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][0] + bh*prd_theta[2][1]*xHO[2][0]);
-    f[alpha_carbons[i]][1] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][1] + bh*prd_theta[2][1]*xHO[2][1]);
-    f[alpha_carbons[i]][2] -= -V[2]*(bn*prd_theta[2][0]*xNO[2][2] + bh*prd_theta[2][1]*xHO[2][2]);
-	
-    f[oxygens[i-1]][0] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][0] + ch*prd_theta[2][1]*xHO[2][0]);
-    f[oxygens[i-1]][1] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][1] + ch*prd_theta[2][1]*xHO[2][1]);
-    f[oxygens[i-1]][2] -= -V[2]*(cn*prd_theta[2][0]*xNO[2][2] + ch*prd_theta[2][1]*xHO[2][2]);
-	
-    f[oxygens[j]][0] -= V[2]*(prd_theta[2][0]*xNO[2][0] + prd_theta[2][1]*xHO[2][0]);
-    f[oxygens[j]][1] -= V[2]*(prd_theta[2][0]*xNO[2][1] + prd_theta[2][1]*xHO[2][1]);
-    f[oxygens[j]][2] -= V[2]*(prd_theta[2][0]*xNO[2][2] + prd_theta[2][1]*xHO[2][2]);
+    prd_theta[2][0] *= V[2];
+    prd_theta[2][1] *= V[2];
+
+    ff1 = prd_theta[2][0];
+    ff2 = prd_theta[2][1];
+    f[oxygens[j]][0] -= ff1*xNO[2][0] + ff2*xHO[2][0];
+    f[oxygens[j]][1] -= ff1*xNO[2][1] + ff2*xHO[2][1];
+    f[oxygens[j]][2] -= ff1*xNO[2][2] + ff2*xHO[2][2];
+
+    ff1 = an*prd_theta[2][0];
+    ff2 = ah*prd_theta[2][1];
+    f[alpha_carbons[i-1]][0] += ff1*xNO[2][0] + ff2*xHO[2][0];
+    f[alpha_carbons[i-1]][1] += ff1*xNO[2][1] + ff2*xHO[2][1];
+    f[alpha_carbons[i-1]][2] += ff1*xNO[2][2] + ff2*xHO[2][2];
+
+    ff1 = bn*prd_theta[2][0];
+    ff2 = bh*prd_theta[2][1];
+    f[alpha_carbons[i]][0] += ff1*xNO[2][0] + ff2*xHO[2][0];
+    f[alpha_carbons[i]][1] += ff1*xNO[2][1] + ff2*xHO[2][1];
+    f[alpha_carbons[i]][2] += ff1*xNO[2][2] + ff2*xHO[2][2];
+
+    ff1 = cn*prd_theta[2][0];
+    ff2 = ch*prd_theta[2][1];
+    f[oxygens[i-1]][0] += ff1*xNO[2][0] + ff2*xHO[2][0];
+    f[oxygens[i-1]][1] += ff1*xNO[2][1] + ff2*xHO[2][1];
+    f[oxygens[i-1]][2] += ff1*xNO[2][2] + ff2*xHO[2][2];
   }
 
 
   if (i_P) {
-    f[alpha_carbons[i+1]][0] -= -V[3]*(an*prd_theta[3][0]*xNO[3][0] + ah*prd_theta[3][1]*xHO[3][0]);
-    f[alpha_carbons[i+1]][1] -= -V[3]*(an*prd_theta[3][0]*xNO[3][1] + ah*prd_theta[3][1]*xHO[3][1]);
-    f[alpha_carbons[i+1]][2] -= -V[3]*(an*prd_theta[3][0]*xNO[3][2] + ah*prd_theta[3][1]*xHO[3][2]);
-	
-    f[alpha_carbons[i+2]][0] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][0] + bh*prd_theta[3][1]*xHO[3][0]);
-    f[alpha_carbons[i+2]][1] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][1] + bh*prd_theta[3][1]*xHO[3][1]);
-    f[alpha_carbons[i+2]][2] -= -V[3]*(bn*prd_theta[3][0]*xNO[3][2] + bh*prd_theta[3][1]*xHO[3][2]);
-	
-    f[oxygens[i+1]][0] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][0] + ch*prd_theta[3][1]*xHO[3][0]);
-    f[oxygens[i+1]][1] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][1] + ch*prd_theta[3][1]*xHO[3][1]);
-    f[oxygens[i+1]][2] -= -V[3]*(cn*prd_theta[3][0]*xNO[3][2] + ch*prd_theta[3][1]*xHO[3][2]);
-	
-    f[oxygens[j]][0] -= V[3]*(prd_theta[3][0]*xNO[3][0] + prd_theta[3][1]*xHO[3][0]);
-    f[oxygens[j]][1] -= V[3]*(prd_theta[3][0]*xNO[3][1] + prd_theta[3][1]*xHO[3][1]);
-    f[oxygens[j]][2] -= V[3]*(prd_theta[3][0]*xNO[3][2] + prd_theta[3][1]*xHO[3][2]);
+    prd_theta[3][0] *= V[3];
+    prd_theta[3][1] *= V[3];
+
+    ff1 = prd_theta[3][0];
+    ff2 = prd_theta[3][1];
+    f[oxygens[j]][0] -= ff1*xNO[3][0] + ff2*xHO[3][0];
+    f[oxygens[j]][1] -= ff1*xNO[3][1] + ff2*xHO[3][1];
+    f[oxygens[j]][2] -= ff1*xNO[3][2] + ff2*xHO[3][2];
+
+    ff1 = an*prd_theta[3][0];
+    ff2 = ah*prd_theta[3][1];
+    f[alpha_carbons[i+1]][0] += ff1*xNO[3][0] + ff2*xHO[3][0];
+    f[alpha_carbons[i+1]][1] += ff1*xNO[3][1] + ff2*xHO[3][1];
+    f[alpha_carbons[i+1]][2] += ff1*xNO[3][2] + ff2*xHO[3][2];
+
+    ff1 = bn*prd_theta[3][0];
+    ff2 = bh*prd_theta[3][1];
+    f[alpha_carbons[i+2]][0] += ff1*xNO[3][0] + ff2*xHO[3][0];
+    f[alpha_carbons[i+2]][1] += ff1*xNO[3][1] + ff2*xHO[3][1];
+    f[alpha_carbons[i+2]][2] += ff1*xNO[3][2] + ff2*xHO[3][2];
+
+    ff1 = cn*prd_theta[3][0];
+    ff2 = ch*prd_theta[3][1];
+    f[oxygens[i+1]][0] += ff1*xNO[3][0] + ff2*xHO[3][0];
+    f[oxygens[i+1]][1] += ff1*xNO[3][1] + ff2*xHO[3][1];
+    f[oxygens[i+1]][2] += ff1*xNO[3][2] + ff2*xHO[3][2];
   }
 }
 

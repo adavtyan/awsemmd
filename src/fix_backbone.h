@@ -230,7 +230,7 @@ public:
   char *mcso_se;
   char mcso_seq_output_file_name[100];
   char mcso_energy_output_file_name[100];
-  static const double k_b = 0.001987;
+  const double k_b = 0.001987;
 
   // Optimization block parameters
   int optimization_output_freq;

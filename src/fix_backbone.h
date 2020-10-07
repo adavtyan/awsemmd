@@ -255,22 +255,31 @@ public:
   int nlevels_respa;
   bool allocated;
   class NeighList *list;         // standard neighbor list used by most pairs
+  class NeighList *listfull;         // standard neighbor list used by most pairs
 
   // Pair style computation arrays
   double *loc_water_ro;
   double *loc_helix_ro;
   double *water_ro;
   double *helix_ro;
-  double **water_xi;
+//  double **loc_water_xi;
+//  double **water_xi;
+  double *loc_water_xi;
+  double *water_xi;
   double *water_sigma_h;
   double *water_sigma_h_prd;
   double *helix_sigma_h;
   double *helix_sigma_h_prd;
+  double *loc_helix_xi_1;
+  double *loc_helix_xi_2;
   double *helix_xi_1;
   double *helix_xi_2;
+  double *burial_force;
   bool *b_water_sigma_h;
   bool *b_helix_sigma_h;
+  bool *b_water_xi;
   bool *b_helix_xi;
+  bool *b_burial_force;
  
   int ntimestep;
   int n, nn; // n is the total number of residues, nn is the local number of residues

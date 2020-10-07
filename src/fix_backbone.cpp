@@ -598,6 +598,9 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       for (i=0;i<20;++i) {
 	for (j=i;j<20;++j) {
 	  in_wg >> water_gamma[i_well][i][j][0] >> water_gamma[i_well][i][j][1];
+          water_gamma[i_well][i][j][0] *= k_water;
+          water_gamma[i_well][i][j][1] *= k_water;
+
 	  water_gamma[i_well][j][i][0] = water_gamma[i_well][i][j][0];
 	  water_gamma[i_well][j][i][1] = water_gamma[i_well][i][j][1];
 	}
@@ -1222,11 +1225,19 @@ FixBackbone::~FixBackbone()
   delete [] helix_sigma_h_prd;
   delete [] b_water_sigma_h;
   delete [] b_helix_sigma_h;
+  delete [] loc_helix_xi_1;
+  delete [] loc_helix_xi_2;
   delete [] helix_xi_1;
   delete [] helix_xi_2;
-  delete [] b_helix_xi;
+  delete [] b_water_xi;
+  delete [] burial_force;
+  delete [] b_burial_force;
 
-  for (int i_well=0;i_well<n_wells;++i_well) delete [] water_xi[i_well];
+//  for (int i_well=0;i_well<n_wells;++i_well) {
+//    delete [] loc_water_xi[i_well];
+//    delete [] water_xi[i_well];
+//  }
+  delete [] loc_water_xi;
   delete [] water_xi;
 }
 
@@ -1341,18 +1352,28 @@ void FixBackbone::allocate()
   loc_helix_ro = new double[n];
   water_ro = new double[n];
   helix_ro = new double[n];
-  water_xi = new double*[n_wells];
+//  loc_water_xi = new double*[n_wells];
+  loc_water_xi = new double[n];
+//  water_xi = new double*[n_wells];
+  water_xi = new double[n];
   water_sigma_h = new double[n];
   water_sigma_h_prd = new double[n];
   helix_sigma_h = new double[n];
   helix_sigma_h_prd = new double[n];
   b_water_sigma_h = new bool[n];
   b_helix_sigma_h = new bool[n];
+  loc_helix_xi_1 =  new double[n];
+  loc_helix_xi_2 =  new double[n];
   helix_xi_1 =  new double[n];
   helix_xi_2 =  new double[n];
-  b_helix_xi =  new bool[n];
+  b_water_xi =  new bool[n];
+  burial_force = new double[n];
+  b_burial_force = new bool[n];
 
-  for (int i_well=0;i_well<n_wells;++i_well) water_xi[i_well] = new double[n];
+//  for (int i_well=0;i_well<n_wells;++i_well) {
+//    loc_water_xi[i_well] = new double[n];
+//    water_xi[i_well] = new double[n];
+//  }
 
   allocated = true;
 }
@@ -1595,18 +1616,27 @@ void FixBackbone::init()
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 	
   int irequest = neighbor->request((void *) this);
+  neighbor->requests[irequest]->id = 1;
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->fix = 1;
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1;
+  neighbor->requests[irequest]->half = 1;
+  neighbor->requests[irequest]->full = 0;
   //  neighbor->requests[irequest]->occasional = 0;
+
+  int irequest_full = neighbor->request((void *) this);
+  neighbor->requests[irequest_full]->id = 2;
+  neighbor->requests[irequest_full]->pair = 0;
+  neighbor->requests[irequest_full]->fix = 1;
+  neighbor->requests[irequest_full]->half = 0;
+  neighbor->requests[irequest_full]->full = 1;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixBackbone::init_list(int id, NeighList *ptr)
 {
-  list = ptr;
+  if (id == 1) list = ptr;
+  else if (id == 2) listfull = ptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -2743,7 +2773,7 @@ void FixBackbone::compute_dssp_hdrgn(int i, int j)
       lambda[3] = 0.0;
       hb_class = 1;
     } else if (abs(j_resno - i_resno) < 18) {
-      if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
+      if (n_rama_par>0 && aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
 	lambda[0] = -hbscl[1][0];
 	lambda[1] = -hbscl[1][1];
 	lambda[2] = -hbscl[1][2]
@@ -3091,7 +3121,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   }
 
   if (i_AP_med || i_AP_long) {
-    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
+    if (n_rama_par>0 && aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1]*k_betapred_P_AP : 0.0);
     } else {
       K = (i_AP_med ? k_P_AP[0] : 0.0) + (i_AP_long ? k_P_AP[1] : 0.0);
@@ -3128,7 +3158,7 @@ void FixBackbone::compute_P_AP_potential(int i, int j)
   }
     
   if (i_P) {
-    if (aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
+    if (n_rama_par>0 && aps[n_rama_par-1][i_resno]==1.0 && aps[n_rama_par-1][j_resno]==1.0) {
       K = k_P_AP[2]*k_betapred_P_AP;
     } else {
       K = k_P_AP[2];
@@ -3218,9 +3248,9 @@ void FixBackbone::compute_water_potential(int i, int j)
       theta_gamma = (water_gamma_1 - water_gamma_0)*well->theta(i, j, i_well);
     }		
 	    
-    energy[ET_WATER] += -k_water*sigma_gamma*well->theta(i, j, i_well);
+    energy[ET_WATER] += -sigma_gamma*well->theta(i, j, i_well);
 		  
-    force = k_water*sigma_gamma*well->prd_theta(i, j, i_well);
+    force = sigma_gamma*well->prd_theta(i, j, i_well);
 
     f[iatom][0] += force*dx[0];
     f[iatom][1] += force*dx[1];
@@ -3230,8 +3260,8 @@ void FixBackbone::compute_water_potential(int i, int j)
     f[jatom][1] += -force*dx[1];
     f[jatom][2] += -force*dx[2];
 
-    prdHiHj = k_water*theta_gamma*well->prd_H(i)*well->H(j);
-    HiprdHj = k_water*theta_gamma*well->H(i)*well->prd_H(j);
+    prdHiHj = theta_gamma*well->prd_H(i)*well->H(j);
+    HiprdHj = theta_gamma*well->H(i)*well->prd_H(j);
 		
     if (!direct_contact && (fabs(prdHiHj)>1e-12 || fabs(HiprdHj)>1e-12)) {
       for (k=0;k<nn;++k) {
@@ -3541,12 +3571,11 @@ void FixBackbone::compute_helix_dtheta_pair(int i, int j)
   prd_pair_theta[0] = - dR_NO_sigma/R_NO;
   prd_pair_theta[1] = - dR_HO_sigma/R_HO;
 	
-  sigma_gamma = helix_gamma_p + (helix_gamma_w - helix_gamma_p)*helix_sigma_h[i]*helix_sigma_h[j];
+  sigma_gamma = helix_gamma_p + (helix_gamma_w - helix_gamma_p)*helix_sigma_h[i_resno]*helix_sigma_h[j_resno];
 
-  helix_xi_1[i_resno] = (helix_gamma_w - helix_gamma_p)*pair_theta*helix_sigma_h_prd[i]*helix_sigma_h[j];
-  helix_xi_2[i_resno] = (helix_gamma_w - helix_gamma_p)*pair_theta*helix_sigma_h[i]*helix_sigma_h_prd[j];
-  b_helix_xi[i_resno] = true;
-	
+  loc_helix_xi_1[i_resno] = (helix_gamma_w - helix_gamma_p)*pair_theta*helix_sigma_h_prd[i_resno]*helix_sigma_h[j_resno];
+  loc_helix_xi_2[i_resno] = (helix_gamma_w - helix_gamma_p)*pair_theta*helix_sigma_h[i_resno]*helix_sigma_h_prd[j_resno];
+
   V = sigma_gamma*pair_theta;
 
   energy[ET_HELIX] += V;
@@ -3579,7 +3608,7 @@ void FixBackbone::compute_amhgo_normalization()
   int ires_type, jres_type;
   double amhgo_gamma, rnative;
   double normi;
-	
+
   // Loop over chains
   amh_go_norm[0] = 0.0; //BinZhang
   for (ich=0;ich<nch;++ich) {
@@ -3649,10 +3678,10 @@ void FixBackbone::compute_amh_go_model()
   
   int nforces; // Number of atoms' forces in the buffer
     
-  inum = list->inum;
-  ilist = list->ilist;
-  numneigh = list->numneigh;
-  firstneigh = list->firstneigh;
+  inum = listfull->inum;
+  ilist = listfull->ilist;
+  numneigh = listfull->numneigh;
+  firstneigh = listfull->firstneigh;
   
   // loop over neighbors of my atoms
   for (ii = 0; ii < inum; ii++) {
@@ -3735,7 +3764,7 @@ void FixBackbone::compute_amh_go_model()
               amhgo_gamma = amh_go_gamma->getGamma(ires_type, jres_type, ires-1, jres-1);
               if (amh_go_gamma->error==amh_go_gamma->ERR_CALL) error->all(FLERR,"AMH-Go: Wrong call of getGamma() function");
 			  
-              Eij = amhgo_gamma*exp(-drsq/(2*amhgo_sigma_sq));
+              Eij = amhgo_gamma*exp(-drsq/(2.0*amhgo_sigma_sq));
 			  
               force = Eij*dr/(amhgo_sigma_sq*r);
 
@@ -3755,7 +3784,7 @@ void FixBackbone::compute_amh_go_model()
           }
         }
       }
-      
+
       //BinZhang
       //factor = -0.5*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1)/amh_go_norm[imol-1];
       factor = -0.5*k_amh_go*amh_go_p*pow(Ei, amh_go_p-1)/amh_go_norm[0];
@@ -5245,7 +5274,7 @@ double FixBackbone::compute_water_energy(double rij, int i_resno, int j_resno, i
   t_max_mediated = tanh( well->par.kappa*(well->par.well_r_max[1] - rij) );
   theta_mediated = 0.25*(1.0 + t_min_mediated)*(1.0 + t_max_mediated);
 
-  water_energy = -k_water*(sigma_gamma_direct*theta_direct+sigma_gamma_mediated*theta_mediated);
+  water_energy = -(sigma_gamma_direct*theta_direct+sigma_gamma_mediated*theta_mediated);
 
   return water_energy;
 }
@@ -6602,7 +6631,7 @@ double FixBackbone::compute_direct_energy(double rij, int i_resno, int j_resno, 
   t_max_direct = tanh( well->par.kappa*(well->par.well_r_max[0] - rij) );
   theta_direct = 0.25*(1.0 + t_min_direct)*(1.0 + t_max_direct);
 
-  direct_energy = -k_water*(sigma_gamma_direct*theta_direct);
+  direct_energy = -sigma_gamma_direct*theta_direct;
 
   return direct_energy;
 }
@@ -6627,7 +6656,7 @@ double FixBackbone::compute_proteinmed_energy(double rij, int i_resno, int j_res
   t_max_mediated = tanh( well->par.kappa*(well->par.well_r_max[1] - rij) );
   theta_mediated = 0.25*(1.0 + t_min_mediated)*(1.0 + t_max_mediated);
 
-  proteinmed_energy = -k_water*sigma_prot*water_gamma_prot_mediated*theta_mediated;
+  proteinmed_energy = -sigma_prot*water_gamma_prot_mediated*theta_mediated;
 
   return proteinmed_energy;
 }
@@ -6651,7 +6680,7 @@ double FixBackbone::compute_watermed_energy(double rij, int i_resno, int j_resno
   t_max_mediated = tanh( well->par.kappa*(well->par.well_r_max[1] - rij) );
   theta_mediated = 0.25*(1.0 + t_min_mediated)*(1.0 + t_max_mediated);
 
-  watermed_energy = -k_water*sigma_wat*water_gamma_wat_mediated*theta_mediated;
+  watermed_energy = -sigma_wat*water_gamma_wat_mediated*theta_mediated;
 
   return watermed_energy;
 }
@@ -7462,7 +7491,7 @@ void FixBackbone::compute_pair()
   double xi[3], xj[3], dx[3], rsq, r, r2sq;
   double factor, force, ff[3], th, theta;
   double water_gamma_0, water_gamma_1, sigma_gamma, theta_gamma;
-  double t[3][2], burial_force, burial_gamma_0, burial_gamma_1, burial_gamma_2;
+  double t[3][2], burial_gamma_0, burial_gamma_1, burial_gamma_2;
   bool br, direct_contact;
 
   double **x = atom->x;
@@ -7483,12 +7512,17 @@ void FixBackbone::compute_pair()
     water_sigma_h_prd[i] = 0.0;
     helix_sigma_h[i] = 0.0;
     helix_sigma_h_prd[i] = 0.0;
+    loc_helix_xi_1[i] = 0.0;
+    loc_helix_xi_2[i] = 0.0;
     helix_xi_1[i] = 0.0;
     helix_xi_2[i] = 0.0;
+    burial_force[i] = 0.0;
     b_water_sigma_h[i] = false;
     b_helix_sigma_h[i] = false;
-    b_helix_xi[i] = false;
-    for (i_well=0;i_well<n_wells;++i_well) water_xi[i_well][i] = 0.0;
+    b_water_xi[i] = false;
+    b_burial_force[i] = false;
+    loc_water_xi[i] = 0.0;
+    water_xi[i] = 0.0;
   }
 
   inum = list->inum;
@@ -7537,19 +7571,23 @@ void FixBackbone::compute_pair()
           rsq = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2];
           br = false;
 
-          if ( (imol!=jmol || abs(ires-jres)>1) && (water_flag || helix_flag) ) {
+          if (imol!=jmol || abs(ires-jres)>1) {
             if (water_flag && rsq>wellp->rmin_theta_sq[0] && rsq<wellp->rmax_theta_sq[0]) {
 
               if (!br) { r = sqrt(rsq); br = true; }
 
-              water_ro[ires] += wellp->theta_pair(ires, jres, 0, r);
+              theta = wellp->theta_pair(ires, jres, 0, r);
+              loc_water_ro[ires] += theta;
+              loc_water_ro[jres] += theta;
             }
 
             if (helix_flag && rsq>helix_wellp->rmin_theta_sq[0] && rsq<helix_wellp->rmax_theta_sq[0]) {
 
               if (!br) { r = sqrt(rsq); br = true; }
 
-              helix_ro[ires] += helix_wellp->theta_pair(ires, jres, 0, r);
+              theta = helix_wellp->theta_pair(ires, jres, 0, r);
+              loc_helix_ro[ires] += theta;
+              loc_helix_ro[jres] += theta;
             }
           }
         }
@@ -7557,16 +7595,17 @@ void FixBackbone::compute_pair()
     }
   }
 
-//  MPI_Allreduce(loc_water_ro,water_ro,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-//  MPI_Allreduce(loc_helix_ro,helix_ro,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  if (water_flag) MPI_Allreduce(loc_water_ro,water_ro,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  if (helix_flag) MPI_Allreduce(loc_helix_ro,helix_ro,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
   timerEnd(TIME_PAIR_DL1);
 
   // Calculating water and helix sigma values
 
-  if (water_flag || helix_flag) {
+  if (water_flag || helix_flag || burial_flag) {
     for (i = 0; i < nall; i++) {
       ires = residue[i]-1;
+      ires_type = se_map[se[ires]-'A'];
 
       if ( (mask[i]&groupbit && se[ires]=='G') || (mask[i]&group2bit && se[ires]!='G') ) {
         if (water_flag && !b_water_sigma_h[ires]) {
@@ -7582,8 +7621,64 @@ void FixBackbone::compute_pair()
           helix_sigma_h_prd[ires] = -helix_par.kappa_sigma*helix_sigma_h[ires]*(1.0 + th);
           b_helix_sigma_h[ires] = true;
         }
+
+        if (burial_flag && !b_burial_force[ires]) {
+          t[0][0] = tanh( burial_kappa*(water_ro[ires] - burial_ro_min[0]) );
+          t[0][1] = tanh( burial_kappa*(burial_ro_max[0] - water_ro[ires]) );
+          t[1][0] = tanh( burial_kappa*(water_ro[ires] - burial_ro_min[1]) );
+          t[1][1] = tanh( burial_kappa*(burial_ro_max[1] - water_ro[ires]) );
+          t[2][0] = tanh( burial_kappa*(water_ro[ires] - burial_ro_min[2]) );
+          t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - water_ro[ires]) );
+
+          burial_gamma_0 = get_burial_gamma(ires, ires_type, 0);
+          burial_gamma_1 = get_burial_gamma(ires, ires_type, 1);
+          burial_gamma_2 = get_burial_gamma(ires, ires_type, 2);
+
+          if (i<nlocal) {
+            energy[ET_BURIAL] += -0.5*k_burial*burial_gamma_0*(t[0][0] + t[0][1]);
+            energy[ET_BURIAL] += -0.5*k_burial*burial_gamma_1*(t[1][0] + t[1][1]);
+            energy[ET_BURIAL] += -0.5*k_burial*burial_gamma_2*(t[2][0] + t[2][1]);
+          }
+
+          burial_force[ires] = burial_gamma_0*( t[0][1]*t[0][1] - t[0][0]*t[0][0] );
+          burial_force[ires] += burial_gamma_1*( t[1][1]*t[1][1] - t[1][0]*t[1][0] );
+          burial_force[ires] += burial_gamma_2*( t[2][1]*t[2][1] - t[2][0]*t[2][0] );
+          burial_force[ires] *= 0.5*k_burial*burial_kappa;
+        }
       }
     }
+  }
+
+  if (helix_flag) {
+    for (i = 0; i < nlocal; i++) {
+
+      if (mask[i]&group3bit) {
+        ires = residue[i]-1;
+        imol = molecule[i];
+        ires_type = se_map[se[ires]-'A'];
+        il = res_no_l[ires];
+        jl = -1;
+
+        if (ires+helix_i_diff<n && res_no_l[ires+helix_i_diff]!=-1)
+          jl = res_no_l[ires+helix_i_diff];
+
+        if (jl!=-1 && imol==chain_no[jl] && (res_info[jl]==LOCAL || res_info[jl]==GHOST) && (res_info[jl-1]==LOCAL || res_info[jl-1]==GHOST) && res_no[jl-1]-1==ires+helix_i_diff-1) {
+
+          dx[0] = xo[il][0] - xn[jl][0];
+          dx[1] = xo[il][1] - xn[jl][1];
+          dx[2] = xo[il][2] - xn[jl][2];
+
+          r2sq = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2];
+
+          if (r2sq<helix_cutoff_sq) compute_helix_dtheta_pair(il, jl);
+        }
+      }
+    }
+  }
+
+  if (helix_flag) {
+    MPI_Allreduce(loc_helix_xi_1,helix_xi_1,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Allreduce(loc_helix_xi_2,helix_xi_2,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   }
 
   timerEnd(TIME_PAIR_SL);
@@ -7596,25 +7691,6 @@ void FixBackbone::compute_pair()
     ires = residue[i]-1;
     imol = molecule[i];
     ires_type = se_map[se[ires]-'A'];
-
-    if (mask[i]&group3bit && helix_flag) {
-      il = res_no_l[ires];
-      jl = -1;
-
-      if (ires+helix_i_diff<n && res_no_l[ires+helix_i_diff]!=-1)
-        jl = res_no_l[ires+helix_i_diff];
-
-      if (jl!=-1 && imol==chain_no[jl] && res_info[il]==LOCAL && (res_info[jl]==LOCAL || res_info[jl]==GHOST) && (res_info[jl-1]==LOCAL || res_info[jl-1]==GHOST) && res_no[jl-1]-1==ires+helix_i_diff-1) {
-      
-        dx[0] = xo[il][0] - xn[jl][0];
-        dx[1] = xo[il][1] - xn[jl][1];
-        dx[2] = xo[il][2] - xn[jl][2];
-
-        r2sq = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2];
-
-        if (r2sq<helix_cutoff_sq) compute_helix_dtheta_pair(il, jl);
-      }
-    }
 
     if ( (mask[i]&groupbit && se[ires]=='G') || (mask[i]&group2bit && se[ires]!='G') ) {
       jlist = firstneigh[i];
@@ -7649,6 +7725,8 @@ void FixBackbone::compute_pair()
           if (water_flag && (imol!=jmol || abs(ires-jres)>=contact_cutoff)) {
 
             for (i_well=0;i_well<n_wells;++i_well) {
+              if (!well_flag[i_well]) continue;
+
               water_gamma_0 = get_water_gamma(ires, jres, i_well, ires_type, jres_type, 0);
               water_gamma_1 = get_water_gamma(ires, jres, i_well, ires_type, jres_type, 1);
 
@@ -7657,18 +7735,29 @@ void FixBackbone::compute_pair()
 
                 if (!br) { r = sqrt(rsq); br = true; }
                 theta_gamma = (water_gamma_1 - water_gamma_0)*wellp->theta_pair(ires, jres, i_well, r);
-                if (jres!=ires) water_xi[i_well][ires] += theta_gamma*water_sigma_h[jres];
+                loc_water_xi[ires] += theta_gamma*water_sigma_h[jres];
+                loc_water_xi[jres] += theta_gamma*water_sigma_h[ires];
               }
             }
           }
         }
       }
-      if (water_flag) {
+    }
+  }
 
-        for (i_well=0;i_well<n_wells;++i_well)
-          water_xi[i_well][ires] *= k_water*water_sigma_h_prd[ires];
+  if (water_flag) {
+    for (i = 0; i < nall; i++) {
+      ires = residue[i]-1;
+      if ( (mask[i]&groupbit && se[ires]=='G') || (mask[i]&group2bit && se[ires]!='G') ) {
+        if (!b_water_xi[ires]) {
+            loc_water_xi[ires] *= water_sigma_h_prd[ires];
+
+          b_water_xi[ires] = true;
+        }
       }
     }
+
+    MPI_Allreduce(loc_water_xi,water_xi,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   }
 
   timerEnd(TIME_PAIR_DL2);
@@ -7687,31 +7776,6 @@ void FixBackbone::compute_pair()
       xi[1] = x[i][1];
       xi[2] = x[i][2];
 
-      if ( (mask[i]&groupbit && se[ires]=='G') || (mask[i]&group2bit && se[ires]!='G') ) {
-        if (burial_flag) {
-
-          t[0][0] = tanh( burial_kappa*(water_ro[ires] - burial_ro_min[0]) );
-          t[0][1] = tanh( burial_kappa*(burial_ro_max[0] - water_ro[ires]) );
-          t[1][0] = tanh( burial_kappa*(water_ro[ires] - burial_ro_min[1]) );
-          t[1][1] = tanh( burial_kappa*(burial_ro_max[1] - water_ro[ires]) );
-          t[2][0] = tanh( burial_kappa*(water_ro[ires] - burial_ro_min[2]) );
-          t[2][1] = tanh( burial_kappa*(burial_ro_max[2] - water_ro[ires]) );
-
-          burial_gamma_0 = get_burial_gamma(ires, ires_type, 0);
-          burial_gamma_1 = get_burial_gamma(ires, ires_type, 1);
-          burial_gamma_2 = get_burial_gamma(ires, ires_type, 2);
-
-          energy[ET_BURIAL] += -0.5*k_burial*burial_gamma_0*(t[0][0] + t[0][1]);
-          energy[ET_BURIAL] += -0.5*k_burial*burial_gamma_1*(t[1][0] + t[1][1]);
-          energy[ET_BURIAL] += -0.5*k_burial*burial_gamma_2*(t[2][0] + t[2][1]);
-
-          burial_force = burial_gamma_0*( t[0][1]*t[0][1] - t[0][0]*t[0][0] );
-          burial_force += burial_gamma_1*( t[1][1]*t[1][1] - t[1][0]*t[1][0] );
-          burial_force += burial_gamma_2*( t[2][1]*t[2][1] - t[2][0]*t[2][0] );
-          burial_force *= 0.5*k_burial*burial_kappa;
-        }
-      }
-      
       jlist = firstneigh[i];
       jnum = numneigh[i];
       
@@ -7744,15 +7808,15 @@ void FixBackbone::compute_pair()
               for (i_well=0;i_well<n_wells;++i_well) {
                 if (!well_flag[i_well]) continue;
 
-                direct_contact = false;
+                if ( (imol!=jmol || abs(jres-ires)>=contact_cutoff) && rsq>wellp->rmin_theta_sq[i_well] && rsq<wellp->rmax_theta_sq[i_well]) {
+                  direct_contact = false;
 
-                water_gamma_0 = get_water_gamma(ires, jres, i_well, ires_type, jres_type, 0);
-                water_gamma_1 = get_water_gamma(ires, jres, i_well, ires_type, jres_type, 1);
+                  water_gamma_0 = get_water_gamma(ires, jres, i_well, ires_type, jres_type, 0);
+                  water_gamma_1 = get_water_gamma(ires, jres, i_well, ires_type, jres_type, 1);
 
-                // Optimization for gamma[0]==gamma[1]
-                if (fabs(water_gamma_0 - water_gamma_1)<delta) direct_contact = true;
+                  // Optimization for gamma[0]==gamma[1]
+                  if (fabs(water_gamma_0 - water_gamma_1)<delta) direct_contact = true;
 
-                if ( ((imol!=jmol && jres>ires) || jres-ires>=contact_cutoff) && rsq>wellp->rmin_theta_sq[i_well] && rsq<wellp->rmax_theta_sq[i_well]) {
                   if (direct_contact) {
                     sigma_gamma = 0.5*(water_gamma_0 + water_gamma_1);
                   } else {      
@@ -7761,32 +7825,38 @@ void FixBackbone::compute_pair()
     
                   if (!br) { r = sqrt(rsq); br = true; }
 
-                  factor = k_water*sigma_gamma;
+                  factor = sigma_gamma;
                   energy[ET_WATER] += -factor*wellp->theta_pair(ires, jres, i_well, r);
 
-                  force += factor*wellp->prd_theta_pair(ires, jres, i_well, r);
-                }
-
-                if ( (imol!=jmol || abs(jres-ires)>1) && fabs(water_xi[i_well][ires])>delta_water_xi && rsq>wellp->rmin_theta_sq[0] && rsq<wellp->rmax_theta_sq[0]) {
-                  if (!br) { r = sqrt(rsq); br = true; }
-
-                  force += wellp->prd_theta_pair(ires, jres, 0, r)*water_xi[i_well][ires];
+                    force += factor*wellp->prd_theta_pair(ires, jres, i_well, r);
                 }
               }
+
+                if ( (imol!=jmol || abs(jres-ires)>1) && rsq>wellp->rmin_theta_sq[0] && rsq<wellp->rmax_theta_sq[0]) {
+                  if (fabs(water_xi[ires])>delta_water_xi) {
+                    if (!br) { r = sqrt(rsq); br = true; }
+
+                    force += wellp->prd_theta_pair(ires, jres, 0, r)*water_xi[ires];
+                  }
+
+                  if (fabs(water_xi[jres])>delta_water_xi) {
+                    if (!br) { r = sqrt(rsq); br = true; }
+
+                    force += wellp->prd_theta_pair(ires, jres, 0, r)*water_xi[jres];
+                  }
+                }
             }
           
             if (burial_flag && (imol!=jmol || abs(jres-ires)>1) && rsq>wellp->rmin_theta_sq[0] && rsq<wellp->rmax_theta_sq[0]) {
               if (!br) { r = sqrt(rsq); br = true; }
 
-              force += burial_force*wellp->prd_theta_pair(ires, jres, 0, r);
+              force += (burial_force[ires]+burial_force[jres])*wellp->prd_theta_pair(ires, jres, 0, r);
             }
 
             if (helix_flag && (imol!=jmol || abs(jres-ires)>1) && rsq>helix_wellp->rmin_theta_sq[0] && rsq<helix_wellp->rmax_theta_sq[0]) {
-              factor = 0.0;
-              if (b_helix_xi[ires])
-                factor += helix_xi_1[ires];
-              if (ires-helix_i_diff>=0 && b_helix_xi[ires-helix_i_diff])
-                factor += helix_xi_2[ires-helix_i_diff];
+              factor = helix_xi_1[ires] + helix_xi_1[jres];
+              if (ires-helix_i_diff>=0) factor += helix_xi_2[ires-helix_i_diff]; 
+              if (jres-helix_i_diff>=0) factor += helix_xi_2[jres-helix_i_diff]; 
 
               if (factor!=0.0) {
                 if (!br) { r = sqrt(rsq); br = true; }
@@ -7810,21 +7880,37 @@ void FixBackbone::compute_pair()
             }
           }
 
+          if ( mask[j]&group3bit && mask[i]&groupbit && dssp_hdrgn_flag) {
+
+            if ( se[ires]!='P' && !isLast(jl) && !isFirst(il) && ( imol!=jmol || abs(jres-ires)>2 )
+                && res_info[il]==LOCAL && (res_info[jl]==LOCAL || res_info[jl]==GHOST) && il>0 && (res_info[il-1]==LOCAL || res_info[il-1]==GHOST) ) {
+              dx[0] = xo[jl][0] - xn[il][0];
+              dx[1] = xo[jl][1] - xn[il][1];
+              dx[2] = xo[jl][2] - xn[il][2];
+
+              r2sq = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2];
+
+              if (r2sq < dssp_hdrgn_cut_sq) compute_dssp_hdrgn(jl, il);
+            }
+          }
+
           if ( mask[i]&groupbit && mask[j]&groupbit) {
-//            if ( res_info[il]==LOCAL && (res_info[jl]==LOCAL || res_info[jl]==GHOST) ) {
 
               if (p_ap_flag && rsq < pap_cutoff_sq)
-                if (rsq < pap_cutoff_sq) compute_P_AP_potential(il, jl);
+                if (rsq < pap_cutoff_sq) { 
+                  compute_P_AP_potential(il, jl);
+                  compute_P_AP_potential(jl, il);
+                }
 
-              if ( frag_mem_tb_flag && jres-ires>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || jres-ires<=fm_gamma->maxSep()) && imol==jmol)
-                table_fragment_memory(il, jl);
+              if ( frag_mem_tb_flag && imol==jmol && abs(jres-ires)>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || abs(jres-ires)<=fm_gamma->maxSep()))
+                if (jres>ires) table_fragment_memory(il, jl);
+                else table_fragment_memory(jl, il);
 
-              if (ssb_flag && ( imol!=jmol || jres-ires>=ssb_ij_sep ) )
+              if (ssb_flag && ( imol!=jmol || abs(jres-ires)>=ssb_ij_sep ) )
                 compute_solvent_barrier(il, jl);
 
-              if (huckel_flag && jres > ires)
+              if (huckel_flag && abs(jres-ires)>1)
                 compute_DebyeHuckel_Interaction(il, jl);
-//            }
           }
 
           if (force!=0.0) {

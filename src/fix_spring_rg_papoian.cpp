@@ -56,14 +56,14 @@ FixSpringRGPapoian::FixSpringRGPapoian(LAMMPS *lmp, int narg, char **arg) :
   // Input: ID group-ID spring/rg/papoian N rg0 gamma D alpha beta
   if (narg != 9) error->all(FLERR,"Illegal fix spring/rg/papoian command");
 
-  N = force->numeric(FLERR,arg[3]); // N: residue number
+  N = utils::numeric(FLERR,arg[3],false,lmp); // N: residue number
   rg0_flag = 0;
   if (strcmp(arg[4],"NULL") == 0) rg0_flag = 1;
-  else rg0 = force->numeric(FLERR,arg[4]); // rg0: rg at bottom of well
-  gamma = force->numeric(FLERR,arg[5]); // gamma: rescaling factor for rg0
-  D = force->numeric(FLERR,arg[6]); // D: well depth
-  alpha = force->numeric(FLERR,arg[7]); // alpha: width between two maximum
-  beta = force->numeric(FLERR,arg[8]); // beta: well width
+  else rg0 = utils::numeric(FLERR,arg[4],false,lmp); // rg0: rg at bottom of well
+  gamma = utils::numeric(FLERR,arg[5],false,lmp); // gamma: rescaling factor for rg0
+  D = utils::numeric(FLERR,arg[6],false,lmp); // D: well depth
+  alpha = utils::numeric(FLERR,arg[7],false,lmp); // alpha: width between two maximum
+  beta = utils::numeric(FLERR,arg[8],false,lmp); // beta: well width
 
   dynamic_group_allow = 1;
   respa_level_support = 1;

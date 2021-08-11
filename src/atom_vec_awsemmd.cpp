@@ -1066,7 +1066,7 @@ int AtomVecAWSEM::write_data_hybrid(FILE *fp, double *buf)
    return # of bytes of allocated memory
 ------------------------------------------------------------------------- */
 
-bigint AtomVecAWSEM::memory_usage()
+double AtomVecAWSEM::memory_usage()
 {
   bigint bytes = 0;
 

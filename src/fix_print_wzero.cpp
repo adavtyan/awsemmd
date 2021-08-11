@@ -35,7 +35,7 @@ FixPrintWithZero::FixPrintWithZero(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
   if (narg < 5) error->all(FLERR,"Illegal fix print/wzero command");
-  nevery = force->inumeric(FLERR,arg[3]);
+  nevery = utils::inumeric(FLERR,arg[3],false,lmp);
   if (nevery <= 0) error->all(FLERR,"Illegal fix print/wzero command");
 
   MPI_Comm_rank(world,&me);

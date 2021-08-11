@@ -1,19 +1,37 @@
-Prepared by Weihua Zheng
+Prepared by David Rosenberger (based on Prepared by Weihua Zheng)
 
 ******************
 A. Install LAMMPS:
-1. download LAMMPS: http://lammps.sandia.gov/download.html (the tarball version, not the SVN version)
-2. download fftw-2.1.5. and install it. http://www.fftw.org/download.html (newer version might have problems)
-	./configure --prefix=/home/weihua/fftw-2.1.5
-	make
-	make install
+git clone https://github.com/lammps/lammps.git
 
-3. cd LAMMPS/src/STUBS/ (LAMMPS/ is where the tar ball is extracted to)
-   make
+Serial build via make:
+1. cd lammps/src
+3.cp $PATH_To_AWSEMMD/src/* lammps/src/
+4. make yes-molecule serial -j4
 
-4. copy the attached Makefile.serial to LAMMPS/src/MAKE/, then 
-LAMMPS/src/make serial ('make clean-all' before recompile)
-'make serial' if Makefile.serial is used.
+Parallel build via make:
+1. cd lammps/src 
+2. make lib-poems args="-m mpi"
+3. add necessary compiler options to lammps/src/MAKE/Makefile.mpi
+   e.g: I had to modify according to:
+   CC =            mpicxx
+   CCFLAGS =       -O2 -g -DNDEBUG  -fopenmp
+   SHFLAGS =       -fPIC
+   DEPFLAGS =      -M
+   LINK =          mpicxx
+   LINKFLAGS =     -g -O2 -DNDEBUG -fopenmp
+
+                         
+4.cp $PATH_To_AWSEMMD/src/* lammps/src/
+5. make yes-most mpi -j4
+
+Alternative use cmake:
+1. in lammps directory: mkdir build
+2. cp $PATH_To_AWSEMMD/src/* lammps/src/
+2. cd build
+3. cmake -C ../cmake/presets/most.cmake -D CMAKE_INSTALL_PREFIX=/where_to_install_lammps/lammps_w_AWSEM ../cmake
+4. make -j4
+5. make install
 
 **************************************
 B. Prepare input for LAMMPS simulation
@@ -23,9 +41,11 @@ B. Prepare input for LAMMPS simulation
 4. Copy the pdb file you want to study into the directory, run 
 ./Pdb2Lammps.sh PDB_ID input (Note: PDB_ID is the pdb file name without '.pdb' part)
 The code will take the pdb file and generate a couple of input files for the simulation.
-5. Currently, 'ssweight' input file needs to be generated manually. Here is how. 
+5a). Currently, 'ssweight' input file needs to be generated manually. Here is how. 
  Submit your sequence to 'Jpred3' at http://www.compbio.dundee.ac.uk/www-jpred/. Use the 'view simple' results to generate the file. 'ssweight' is a two column data, number of rows is the same as the number of residues. In each row, if the corresponding residue is in helix form ('H'), then write '1.0 0.0'; write '0.0 1.0' if it's in beta sheet.
-6. Edit input.in file, change 'sequance.se' to 'input.se' or whatever input name you used in step 4. Find 'nvt' and add 'temp' after it with a space in between. After line 'dump ...', add a new line 'dump_modify 1 sort id' so that the atom order is correctly written into the trajectory file.
+5b): Upload pdb to http://webclu.bio.wzw.tum.de/cgi-bin/stride/stridecgi.py:
+     Run stride and produce plain text: Copy output to a file named: ssweight.stride
+     python ~/programs/awsemmd/tools/create_project_tools/stride2ssweight.py > ssweight
 
 *************************
 C. Run LAMMPS simulation

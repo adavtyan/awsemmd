@@ -29,7 +29,7 @@ class Atom:
         self.desc = desc
 
     def print_(self):
-        print self.No, self.ch, self.ty , self.x, ',', self.y, ',', self.z, self.desc
+        print (self.No, self.ch, self.ty , self.x, ',', self.y, ',', self.z, self.desc)
 
     def write_(self, f):
         f.write(str(self.No))
@@ -50,13 +50,13 @@ class Atom:
 
 def print_array(a):
     for ia in a:
-        print ia
+        print (ia)
 
 filename = ""
 if len(sys.argv)>1: filename = sys.argv[1]
 
 if filename=="":
-    print "\nZ-MatrixToCoordinates.py input_file [output_file]\n"
+    print ("\nZ-MatrixToCoordinates.py input_file [output_file]\n")
     exit()
 
 output_filename = ""

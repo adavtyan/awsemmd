@@ -18,12 +18,12 @@ for line in f:
         line=line.split()
         if line[0] == 'ASG':
             if line[6] == 'Strand':
-                print '0.0 1.0'
+                print ('0.0 1.0')
 
             elif line[6] == 'AlphaHelix':
-                print '1.0 0.0'
+                print ('1.0 0.0')
 
             else:
-                print '0.0 0.0'
+                print ('0.0 0.0')
 
                 

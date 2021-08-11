@@ -30,7 +30,7 @@ class ZAtom:
         if self.d_no>0: pr += [ str(round(self.d,3)), str(self.d_no) ]
         if self.a_no>0: pr += [ str(round(self.a,1)), str(self.a_no) ]
         if self.b_no>0: pr += [ str(round(self.b,1)), str(self.b_no) ]
-        print '\t'.join(pr)
+        print ('\t'.join(pr))
 
     def write_(self, f, wdesc=False):
         pr = [ str(self.no), str(self.ch), self.ty ]
@@ -42,8 +42,8 @@ class ZAtom:
         f.write('\t'.join(pr))
 
 if len(sys.argv)==1:
-    print "\nSequanceToZ-Matrix.py input_file [output_file] [-d]\n"
-    print "\t-d\tInclude descripton string"
+    print ("\nSequanceToZ-Matrix.py input_file [output_file] [-d]\n")
+    print ("\t-d\tInclude descripton string")
     exit()
 
 incDesc = False
@@ -58,7 +58,7 @@ if len(sys.argv)>1: inpfname = sys.argv[1]
 if len(sys.argv)>2: outfname = sys.argv[2]
 
 myhome = os.environ.get("HOME")
-fdata = open(myhome + "/opt/script/SequanceToZ-Matrix.data")
+fdata = open(myhome + "/programs/awsemmd/tools/create_project_tools/SequanceToZ-Matrix.data")
 raw_data = []
 iFirst = 0
 iSecond = 0

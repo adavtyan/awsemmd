@@ -437,7 +437,6 @@ int FixGoModel::setmask()
 {
 	int mask = 0;
 	mask |= POST_FORCE;
-	mask |= THERMO_ENERGY;
 	mask |= POST_FORCE_RESPA;
 	mask |= MIN_POST_FORCE;
 	return mask;

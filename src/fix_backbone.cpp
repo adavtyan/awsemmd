@@ -14,6 +14,7 @@
 #include "string.h"
 #include "stdlib.h"
 #include "fix_backbone.h"
+#include "fix.h"
 #include "atom.h"
 #include "update.h"
 #include "output.h"
@@ -101,7 +102,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 
   scalar_flag = 1;
   vector_flag = 1;
-  thermo_energy = 1;
+  int thermo_energy = 1;
   size_vector = nEnergyTerms-1;
   global_freq = 1;
   extscalar = 1;
@@ -1596,7 +1597,6 @@ int FixBackbone::setmask()
 {
   int mask = 0;
   mask |= PRE_FORCE;
-  mask |= THERMO_ENERGY;
   mask |= PRE_FORCE_RESPA;
   mask |= MIN_PRE_FORCE;
   mask |= POST_NEIGHBOR;
@@ -1657,6 +1657,7 @@ void FixBackbone::min_setup(int vflag)
 {
   pre_force(vflag);
 }
+
 
 /* ---------------------------------------------------------------------- */
 
@@ -7961,7 +7962,6 @@ void FixBackbone::min_pre_force(int vflag)
 {
   pre_force(vflag);
 }
-
 /* ----------------------------------------------------------------------
    return total potential energy
    ------------------------------------------------------------------------- */

@@ -55,7 +55,7 @@ class AtomVecAWSEM : public AtomVec {
   virtual int pack_data_hybrid(int, double *);
   virtual void write_data(FILE *, int, double **);
   virtual int write_data_hybrid(FILE *, double *);
-  virtual bigint memory_usage();
+  virtual double memory_usage();
 
   tagint *residue; 
 

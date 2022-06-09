@@ -1,0 +1,31 @@
+#PBS -N Monomer_1R69
+#PBS -l nodes=1:ppn=1
+#PBS -l walltime=24:00:00
+#PBS -l pmem=2000m       
+#PBS -q serial
+#PBS -V  
+#PBS -M xxx.xxx@gmail.com
+#PBS -m n
+
+date
+
+echo "My job ran on:"
+cat $PBS_NODEFILE
+cd $PBS_O_WORKDIR
+
+~/opt/bin/lmp_serial_499 < folding.in  ##Modify the path to your own path
+
+python /home/wz12/work/AWSEMMD/trunk/results_analysis_tools/CalcQValue_multi.py 1r69 2_dump 2_qo 1 ##Modify the path to your own path
+python /home/wz12/work/AWSEMMD/trunk/results_analysis_tools/CalcQValue_multi.py 1r69 2_dump 2_qw 0 ##Modify the path to your own path
+
+sed  "/Fix print/d" energy     > 2_energy
+sed  "/Step/d"      energy.log > 2_energy.log
+
+if [ -e tmp ]; then
+	rm tmp
+fi
+
+cat fix_backbone_coeff.data >> log.lammps
+cp log.lammps 2_log.lammps
+
+date

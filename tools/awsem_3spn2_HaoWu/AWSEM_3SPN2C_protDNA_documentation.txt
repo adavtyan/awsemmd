@@ -1,0 +1,69 @@
+#########################################################################
+# Author: Hao Wu
+# Update: Mar 11 2019
+# Compile AWSEM-3SPN.2C executive file and prepare files for simulation.
+# Work for one chain of B-type dsDNA without ions with curvature for 
+# studying protein-DNA projects.
+#########################################################################
+
+##########################STEP1 COMPILE##########################
+
+1. Download latest LAMMPS (Mar 31 2017), AWSEM (May 2017) and 3SPN2C (Dec 2016).
+
+2. Some files of 3SPN2C are a tiny bit incompatible with the newest version of LAMMPS and will raise error. The fix is simple and involves adding the word FLERR to force->bounds command in cpp files like this:
+
+force->bounds(arg[0], blha,blah,blah)
+replace with
+force->bounds(FLERR, arg[0], blha,blah,blah) 
+
+The files in need of modification are:
+angle_3spn2_stacking.cpp dihedral_3spn2.cpp pair_3spn2.cpp bond_list.cpp angle_list.cpp dihedral_list.cpp pair_list.cpp
+
+Also, the array_size in default *_list.cpp files are too small. For example:
+int array_size = 4*num+4;
+replace with:
+int array_size = 100*(num+2);
+
+The files in need of modification are:
+bond_list.cpp angle_list.cpp dihedral_list.cpp pair_list.cpp
+
+3. Go to src/STUBS directory and do make
+
+4. go back to src and type 
+make yes-MOLECULE 
+make yes-CLASS2 
+make yes-USER-3SPN2
+
+5. make serial
+
+##########################STEP2 PREPARE DATA FILE##########################
+
+1. If no ions are included in your system: 
+Copy everything in default 3SPN2/DSIM_ICNF to another directory called 3SPN2/DSIM_ICNF_noIon/. 
+Go to this directory and replace wrte_lammps.c with shared version. Compile a new executable file. 
+
+2. Copy shared make_list_files_protDNA.py to 3SPN2/utils/. 
+This script changes DNA atom indices in list files to be consistent with the definition in protein-DNA complex data file.
+
+3. Prepare protein and DNA .pdb and sequence files.
+
+4. Copy shared files into your simulation directory, including:
+
+Pdb2Lammps_proteinDNA.sh
+proteinDna_combine.py
+BuildAllAtomsFromLammps_multiChain_wDNA.py
+write_cg_dna_pdb.py (write CG representation of DNA, assume they are chain Y and Z)
+buildAllAtom.sh
+proteinDna_pairCoeff.in (parameters can be changed)
+
+5. Run: 
+
+bash Pdb2Lammps_proteinDNA.sh protein_pdb_id dna_pdb dna_seq
+
+This should generate everything needed for simulation except for the LAMMPS input file.
+
+6. Obtain input file, fix_backbone_coeff.data, other parameter files and fragment memory files for AWSEM. 
+
+7. Run the simulation! (lmp_serial -in input_file)
+
+8. After the simulation. run bash buildAllAtom.sh to build "atomistic" representation of the trajectory.

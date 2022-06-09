@@ -1,0 +1,54 @@
+Prepared by David Rosenberger (based on Prepared by Weihua Zheng)
+
+******************
+A. Install LAMMPS:
+git clone https://github.com/lammps/lammps.git
+
+Serial build via make:
+1. cd lammps/src
+3.cp $PATH_To_AWSEMMD/src/* lammps/src/
+4. make yes-molecule serial -j4
+
+Parallel build via make:
+1. cd lammps/src 
+2. make lib-poems args="-m mpi"
+3. add necessary compiler options to lammps/src/MAKE/Makefile.mpi
+   e.g: I had to modify according to:
+   CC =            mpicxx
+   CCFLAGS =       -O2 -g -DNDEBUG  -fopenmp
+   SHFLAGS =       -fPIC
+   DEPFLAGS =      -M
+   LINK =          mpicxx
+   LINKFLAGS =     -g -O2 -DNDEBUG -fopenmp
+
+                         
+4.cp $PATH_To_AWSEMMD/src/* lammps/src/
+5. make yes-most mpi -j4
+
+Alternative use cmake:
+1. in lammps directory: mkdir build
+2. cp $PATH_To_AWSEMMD/src/* lammps/src/
+2. cd build
+3. cmake -C ../cmake/presets/most.cmake -D CMAKE_INSTALL_PREFIX=/where_to_install_lammps/lammps_w_AWSEM ../cmake
+4. make -j4
+5. make install
+
+**************************************
+B. Prepare input for LAMMPS simulation
+1. Install BioPython: http://biopython.org/wiki/Download
+2. Get a copy of the LAMMPS_tools developed by Aram (attached).
+3. Make a new directory 'newdir/', copy all scripts in LAMMPS_tools/create_project_tools/ into the directory. Copy all files in LAMMPS_tools/parameters/ to 'newdir/'.
+4. Copy the pdb file you want to study into the directory, run 
+./Pdb2Lammps.sh PDB_ID input (Note: PDB_ID is the pdb file name without '.pdb' part)
+The code will take the pdb file and generate a couple of input files for the simulation.
+5a). Currently, 'ssweight' input file needs to be generated manually. Here is how. 
+ Submit your sequence to 'Jpred3' at http://www.compbio.dundee.ac.uk/www-jpred/. Use the 'view simple' results to generate the file. 'ssweight' is a two column data, number of rows is the same as the number of residues. In each row, if the corresponding residue is in helix form ('H'), then write '1.0 0.0'; write '0.0 1.0' if it's in beta sheet.
+5b): Upload pdb to http://webclu.bio.wzw.tum.de/cgi-bin/stride/stridecgi.py:
+     Run stride and produce plain text: Copy output to a file named: ssweight.stride
+     python ~/programs/awsemmd/tools/create_project_tools/stride2ssweight.py > ssweight
+
+*************************
+C. Run LAMMPS simulation
+In 'newdir/' created above, run
+LAMMPS/src/lmp_serial < input.in
+'lmp_serial' is the exe compiled in step A.

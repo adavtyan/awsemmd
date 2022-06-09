@@ -1,0 +1,18 @@
+
+
+STRIDE was initially developed for UNIX and ported to MSDOS using the freely 
+available DJGPP compiler which is a port of the GNU C compiler to MSDOS by 
+DJ Delorie. I tested STRIDE for DOS on hundreds of PDB files using a 486DX2 
+PC with 8mB of memory and another one with 16 mB. In general it runs without
+problems, but for VERY large PDB files 16 mB of memory are strongly recommended. 
+
+
+
+
+Dmitrij Frishman
+European Molecular Biology Laboratory
+Meyerhofstr. 1, 69012 Heidelberg, Germany
+tel. +49 -6221 - 387231
+fax. +49 -6221 - 387517
+frishman@embl-heidelberg.de
+

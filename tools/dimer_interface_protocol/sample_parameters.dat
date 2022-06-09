@@ -1,0 +1,44 @@
+Jobname
+sodwtsodwt
+Initial_dimer_pdb
+init.pdb
+Timesteps
+4000000
+Simulation_hours
+50
+Simulation_minutes
+0
+COM_separation
+45
+Boundary_margin
+4.5
+Number_of_orientations
+40
+Plot_x_range
+400
+Plot_energy (yes/no)
+yes
+Replot_only (yes/no)
+yes
+Delete_PDB_trajs (yes/no)
+no
+Contact_map_max_distance
+60
+Contact_map_min_distance
+15
+Energy_graph_max
+-6400
+Energy_graph_min
+-6800
+Skip_initial_frames
+200
+Path_to_awsem
+/mnt/e/Research/awsemmd/
+Path_to_lmp_serial
+/global/scratch/pranav/lmp_serial
+Python2_command
+python2
+Dump_time
+5000
+Restart_time
+100000

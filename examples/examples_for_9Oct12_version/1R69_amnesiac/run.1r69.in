@@ -1,0 +1,3 @@
+./lmp_opensuse < 1r69.in
+python CalcQValue.py 1R69 dump.lammpstrj qvalues.dat
+#python CountNativeContactsDifference.py dump.lammpstrj 1R69 contacts.data

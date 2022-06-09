@@ -1,0 +1,77 @@
+# 3d protein simulation
+
+units real
+
+timestep 5
+
+dimension	3
+
+boundary s s s
+#boundary p p p
+
+neighbor	5 bin
+neigh_modify	delay 5
+
+atom_modify sort 0 0.0
+
+special_bonds fene
+
+atom_style	awsemmd
+
+bond_style harmonic
+
+pair_style vexcluded 2 3.5 3.5
+
+read_data data.1r69
+
+pair_coeff * * 0.0
+pair_coeff 1 1 20.0 3.5 4.5
+pair_coeff 1 4 20.0 3.5 4.5
+pair_coeff 4 4 20.0 3.5 4.5
+pair_coeff 3 3 20.0 3.5 3.5
+
+
+velocity	all create 300.0 2349852
+
+group		alpha_carbons id 1 4 7 10 13 16 19 22 25 28 31 34 37 40 43 46 49 52 55 58 61 64 67 70 73 76 79 82 85 88 91 94 97 100 103 106 109 112 115 118 121 124 127 130 133 136 139 142 145 148 151 154 157 160 163 166 169 172 175 178 181 184 187
+
+group		beta_atoms id 3 6 9 12 15 18 21 24 27 30 33 36 39 42 45 48 51 54 57 60 63 66 69 72 75 78 81 84 87 90 93 96 99 102 105 108 111 114 117 120 123 126 129 132 135 138 141 144 147 150 153 156 159 162 165 168 171 174 177 180 183 186 189
+
+group		oxygens id 2 5 8 11 14 17 20 23 26 29 32 35 38 41 44 47 50 53 56 59 62 65 68 71 74 77 80 83 86 89 92 95 98 101 104 107 110 113 116 119 122 125 128 131 134 137 140 143 146 149 152 155 158 161 164 167 170 173 176 179 182 185 188
+
+
+#Nose-Hoover thermostat
+#fix		  1 all nvt temp 300.0 300.0 100.0  
+
+#langevin thermostat
+fix 1  all nve
+fix 11 all langevin 350.0 550.0 1000 3456  #Temperature increases from 350K to 550K. Change 3456 to other RANDOM numbers to initiate a different simulation
+
+fix		  2 alpha_carbons backbone beta_atoms oxygens fix_backbone_coeff.data extended.seq
+
+thermo		1000
+dump		1 all atom 2000 1_dump
+
+dump_modify	1 sort id
+
+variable E_bond  equal emol
+variable E_chain equal f_2[1]
+variable E_excl  equal epair
+variable E_chi   equal f_2[3]
+variable E_rama  equal f_2[4]
+variable E_dssp  equal f_2[6]
+variable E_pap   equal f_2[7]
+variable E_water equal f_2[8]
+variable E_burial equal f_2[9]
+variable E_helix equal f_2[10]
+variable E_fmem  equal f_2[12]
+variable E_P     equal v_E_chain+v_E_chi+v_E_rama+v_E_water+v_E_helix+v_E_fmem+v_E_excl+v_E_dssp+v_E_pap+v_E_bond+v_E_burial
+variable E_K     equal ke
+variable E_total equal v_E_P+v_E_K
+variable Step equal step
+#Output to energy file
+fix energy all print 1000 "${Step} ${E_chain} ${E_bond} ${E_chi} ${E_rama} ${E_excl} ${E_dssp} ${E_pap} ${E_water} ${E_burial} ${E_helix} ${E_fmem} ${E_P}" file energy screen no
+
+reset_timestep	0
+restart 2000000 unfold
+run		2000000

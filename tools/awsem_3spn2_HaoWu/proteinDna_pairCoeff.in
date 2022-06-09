@@ -1,0 +1,213 @@
+
+# dna pair-wise interaction
+pair_coeff      1      1 3spn2      0.23900600      4.50000000
+pair_coeff      1      2 3spn2      0.23900600      5.35000000
+pair_coeff      1      3 3spn2      0.23900600      4.95000000
+pair_coeff      1      4 3spn2      0.23900600      5.80000000
+pair_coeff      1      5 3spn2      0.23900600      4.70000000
+pair_coeff      1      6 3spn2      0.23900600      5.45000000
+pair_coeff      1      7 3spn2      0.23900600      4.95000000
+pair_coeff      1      8 3spn2      0.23900600      5.80000000
+pair_coeff      1      9 3spn2      0.23900600      4.70000000
+pair_coeff      1     10 3spn2      0.23900600      5.45000000
+pair_coeff      1     11 3spn2      0.23900600      4.95000000
+pair_coeff      1     12 3spn2      0.23900600      5.80000000
+pair_coeff      1     13 3spn2      0.23900600      4.70000000
+pair_coeff      1     14 3spn2      0.23900600      5.45000000
+pair_coeff      2      2 3spn2      0.23900600      6.20000000
+pair_coeff      2      3 3spn2      0.23900600      5.80000000
+pair_coeff      2      4 3spn2      0.23900600      6.65000000
+pair_coeff      2      5 3spn2      0.23900600      5.55000000
+pair_coeff      2      6 3spn2      0.23900600      6.30000000
+pair_coeff      2      7 3spn2      0.23900600      5.80000000
+pair_coeff      2      8 3spn2      0.23900600      6.65000000
+pair_coeff      2      9 3spn2      0.23900600      5.55000000
+pair_coeff      2     10 3spn2      0.23900600      6.30000000
+pair_coeff      2     11 3spn2      0.23900600      5.80000000
+pair_coeff      2     12 3spn2      0.23900600      6.65000000
+pair_coeff      2     13 3spn2      0.23900600      5.55000000
+pair_coeff      2     14 3spn2      0.23900600      6.30000000
+pair_coeff      3      3 3spn2      0.23900600      5.40000000
+pair_coeff      3      4 3spn2      0.23900600      6.25000000
+pair_coeff      3      5 3spn2      0.23900600      5.15000000
+pair_coeff      3      6 3spn2      0.23900600      5.90000000
+pair_coeff      3      7 3spn2      0.23900600      5.40000000
+pair_coeff      3      8 3spn2      0.23900600      6.25000000
+pair_coeff      3      9 3spn2      0.23900600      5.15000000
+pair_coeff      3     10 3spn2      0.23900600      5.90000000
+pair_coeff      3     11 3spn2      0.23900600      5.40000000
+pair_coeff      3     12 3spn2      0.23900600      6.25000000
+pair_coeff      3     13 3spn2      0.23900600      5.15000000
+pair_coeff      3     14 3spn2      0.23900600      5.90000000
+pair_coeff      4      4 3spn2      0.23900600      7.10000000
+pair_coeff      4      5 3spn2      0.23900600      6.00000000
+pair_coeff      4      6 3spn2      0.23900600      6.75000000
+pair_coeff      4      7 3spn2      0.23900600      6.25000000
+pair_coeff      4      8 3spn2      0.23900600      7.10000000
+pair_coeff      4      9 3spn2      0.23900600      6.00000000
+pair_coeff      4     10 3spn2      0.23900600      6.75000000
+pair_coeff      4     11 3spn2      0.23900600      6.25000000
+pair_coeff      4     12 3spn2      0.23900600      7.10000000
+pair_coeff      4     13 3spn2      0.23900600      6.00000000
+pair_coeff      4     14 3spn2      0.23900600      6.75000000
+pair_coeff      5      5 3spn2      0.23900600      4.90000000
+pair_coeff      5      6 3spn2      0.23900600      5.65000000
+pair_coeff      5      7 3spn2      0.23900600      5.15000000
+pair_coeff      5      8 3spn2      0.23900600      6.00000000
+pair_coeff      5      9 3spn2      0.23900600      4.90000000
+pair_coeff      5     10 3spn2      0.23900600      5.65000000
+pair_coeff      5     11 3spn2      0.23900600      5.15000000
+pair_coeff      5     12 3spn2      0.23900600      6.00000000
+pair_coeff      5     13 3spn2      0.23900600      4.90000000
+pair_coeff      5     14 3spn2      0.23900600      5.65000000
+pair_coeff      6      6 3spn2      0.23900600      6.40000000
+pair_coeff      6      7 3spn2      0.23900600      5.90000000
+pair_coeff      6      8 3spn2      0.23900600      6.75000000
+pair_coeff      6      9 3spn2      0.23900600      5.65000000
+pair_coeff      6     10 3spn2      0.23900600      6.40000000
+pair_coeff      6     11 3spn2      0.23900600      5.90000000
+pair_coeff      6     12 3spn2      0.23900600      6.75000000
+pair_coeff      6     13 3spn2      0.23900600      5.65000000
+pair_coeff      6     14 3spn2      0.23900600      6.40000000
+pair_coeff      7      7 3spn2      0.23900600      5.40000000
+pair_coeff      7      8 3spn2      0.23900600      6.25000000
+pair_coeff      7      9 3spn2      0.23900600      5.15000000
+pair_coeff      7     10 3spn2      0.23900600      5.90000000
+pair_coeff      7     11 3spn2      0.23900600      5.40000000
+pair_coeff      7     12 3spn2      0.23900600      6.25000000
+pair_coeff      7     13 3spn2      0.23900600      5.15000000
+pair_coeff      7     14 3spn2      0.23900600      5.90000000
+pair_coeff      8      8 3spn2      0.23900600      7.10000000
+pair_coeff      8      9 3spn2      0.23900600      6.00000000
+pair_coeff      8     10 3spn2      0.23900600      6.75000000
+pair_coeff      8     11 3spn2      0.23900600      6.25000000
+pair_coeff      8     12 3spn2      0.23900600      7.10000000
+pair_coeff      8     13 3spn2      0.23900600      6.00000000
+pair_coeff      8     14 3spn2      0.23900600      6.75000000
+pair_coeff      9      9 3spn2      0.23900600      4.90000000
+pair_coeff      9     10 3spn2      0.23900600      5.65000000
+pair_coeff      9     11 3spn2      0.23900600      5.15000000
+pair_coeff      9     12 3spn2      0.23900600      6.00000000
+pair_coeff      9     13 3spn2      0.23900600      4.90000000
+pair_coeff      9     14 3spn2      0.23900600      5.65000000
+pair_coeff     10     10 3spn2      0.23900600      6.40000000
+pair_coeff     10     11 3spn2      0.23900600      5.90000000
+pair_coeff     10     12 3spn2      0.23900600      6.75000000
+pair_coeff     10     13 3spn2      0.23900600      5.65000000
+pair_coeff     10     14 3spn2      0.23900600      6.40000000
+pair_coeff     11     11 3spn2      0.23900600      5.40000000
+pair_coeff     11     12 3spn2      0.23900600      6.25000000
+pair_coeff     11     13 3spn2      0.23900600      5.15000000
+pair_coeff     11     14 3spn2      0.23900600      5.90000000
+pair_coeff     12     12 3spn2      0.23900600      7.10000000
+pair_coeff     12     13 3spn2      0.23900600      6.00000000
+pair_coeff     12     14 3spn2      0.23900600      6.75000000
+pair_coeff     13     13 3spn2      0.23900600      4.90000000
+pair_coeff     13     14 3spn2      0.23900600      5.65000000
+pair_coeff     14     14 3spn2      0.23900600      6.40000000
+
+# protein pair-wise interaction
+pair_coeff   15   15 vexcluded 20.0 3.5 4.5
+pair_coeff   15   18 vexcluded 20.0 3.5 4.5
+pair_coeff   18   18 vexcluded 20.0 3.5 4.5
+pair_coeff   17   17 vexcluded 20.0 3.5 3.5
+pair_coeff   15   16 vexcluded 0.0 3.5 3.5
+pair_coeff   15   17 vexcluded 0.0 3.5 3.5
+pair_coeff   15   19 vexcluded 0.0 3.5 3.5
+pair_coeff   16   16 vexcluded 0.0 3.5 3.5
+pair_coeff   16   17 vexcluded 0.0 3.5 3.5
+pair_coeff   16   18 vexcluded 0.0 3.5 3.5
+pair_coeff   16   19 vexcluded 0.0 3.5 3.5
+pair_coeff   17   18 vexcluded 0.0 3.5 3.5
+pair_coeff   17   19 vexcluded 0.0 3.5 3.5
+pair_coeff   18   19 vexcluded 0.0 3.5 3.5
+pair_coeff   19   19 vexcluded 0.0 3.5 3.5
+
+
+# protein dna pair-wise interaction
+pair_coeff      1     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      1     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      1     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      1     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      1     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      2     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      2     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      2     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      2     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      2     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      3     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      3     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      3     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      3     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      3     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      4     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      4     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      4     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      4     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      4     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      5     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      5     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      5     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      5     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      5     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      6     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      6     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      6     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      6     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      6     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      7     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      7     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      7     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      7     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      7     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      8     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      8     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      8     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      8     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      8     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      9     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      9     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      9     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      9     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff      9     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     10     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     10     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     10     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     10     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     10     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     11     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     11     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     11     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     11     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     11     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     12     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     12     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     12     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     12     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     12     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     13     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     13     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     13     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     13     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     13     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     14     15 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     14     16 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     14     17 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     14     18 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     14     19 lj/cut/coul/debye      0.01991714      6.20000000     15.50000000     40.00000000
+pair_coeff     15     15 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     15     16 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     15     17 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     15     18 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     15     19 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     16     16 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     16     17 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     16     18 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     16     19 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     17     17 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     17     18 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     17     19 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     18     18 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     18     19 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+pair_coeff     19     19 lj/cut/coul/debye      0.00000000      6.20000000      0.00000000     40.00000000
+

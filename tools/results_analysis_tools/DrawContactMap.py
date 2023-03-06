@@ -77,7 +77,7 @@ sigma = []
 sigma0 = 4
 
 if len(sys.argv)<=3:
-    print "\n", sys.argv[0], "Input_file(dump file) PDB_id Timestep\n"
+    print ("\n", sys.argv[0], "Input_file(dump file) PDB_id Timestep\n")
     exit()
 
 filename = sys.argv[1]

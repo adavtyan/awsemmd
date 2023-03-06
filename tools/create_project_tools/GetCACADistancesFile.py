@@ -32,8 +32,8 @@ def checkIfNative(ires, jres):
     else: return False
 
 if len(sys.argv)==1:
-    print "\nReadingPDBFile.py PDB_Id [Output_file [-s]]\n"
-    print "-s\tSplit into files for each chain"
+    print ("\nReadingPDBFile.py PDB_Id [Output_file [-s]]\n")
+    print ("-s\tSplit into files for each chain")
 #    sys.argv.append("1BG8")
     exit()
 
@@ -78,7 +78,7 @@ for ch in chains:
     if output_fn!="":
 	pass
     else:
-        print "Chain:", ch.get_id()
+        print ("Chain:", ch.get_id())
     four_res = [None, None, None, None]
     all_res = []
     for res in ch:
@@ -117,12 +117,12 @@ for ch in chains:
         if splite:
             out.close()
     else:
-        print three2one(sequance)
+        print (three2one(sequance))
 	for ri in dis:
 		for rij in ri:
-			print str(round(rij, 2)), ' ',
-		print
-        print '\n'
+			print (str(round(rij, 2)), ' ', end="")
+		print()
+        print ('\n')
 
 if output_fn!="" and not splite:
     out.close()

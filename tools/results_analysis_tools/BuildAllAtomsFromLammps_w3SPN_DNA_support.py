@@ -439,7 +439,7 @@ def lammps_load_and_convert(lammpsdump_file, atom_type, atom_desc, pdb_type, dna
                             # res_name = convert_res_index_to_res_name(res_index)
                             # chain_id = convert_res_index_to_chain_id(res_index)
                             # convert_to_pdb()
-                            # print_pdb()
+                            # print(_pdb())
                             
                             box_boundary = []
                             atoms_per_frame = []
@@ -448,7 +448,7 @@ def lammps_load_and_convert(lammpsdump_file, atom_type, atom_desc, pdb_type, dna
                     # atoms2
                     # convert to PDB
                     # build DNA
-                    # print all to PDB
+                    # print (all to PDB)
                     # end build and re-initialization
                     elif item == "NUMBER OF ATOMS":
                         n_atoms = int(dump_line)

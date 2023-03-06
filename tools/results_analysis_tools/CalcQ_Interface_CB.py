@@ -92,8 +92,8 @@ class Atom:
 
 #if len(sys.argv)!=5 and len(sys.argv)!=4:
 if len(sys.argv)!=4 :
-	print "\n.py native_PDB_Id dump_file Output_Qi_file\n"
-	print
+	print ("\n.py native_PDB_Id dump_file Output_Qi_file\n")
+	print()
 	exit()
 
 splitq = False
@@ -137,8 +137,8 @@ p = PDBParser(PERMISSIVE=1)
 
 def computeQ_inter():
 	if len(cb_atoms)!=len(cb_atoms_pdb):
-		print "Error. Length mismatch!"
-		print "Pdb: ", len(cb_atoms_pdb), "trj: ", len(cb_atoms)
+		print ("Error. Length mismatch!")
+		print ("Pdb: ", len(cb_atoms_pdb), "trj: ", len(cb_atoms))
 		exit()
 	Q=0
 	N = len(cb_atoms)
@@ -158,7 +158,7 @@ def computeQ_inter():
 #push in all the CA atoms of pdb file
 s = p.get_structure(struct_id, pdb_file)
 chains = s[0].get_list()
-print "Number of chains:",  len(chains)
+print ("Number of chains:",  len(chains))
 ichain = 0
 for chain in chains:
 	ichain = ichain + 1
@@ -174,9 +174,9 @@ for chain in chains:
 
 			cb_res_pdb.append(res.get_resname())
 			pdb_chain_id.append(ichain)
-print "Number of residues in the PDB: ", len(cb_atoms_pdb)
+print ("Number of residues in the PDB: ", len(cb_atoms_pdb))
 len_chainA = pdb_chain_id.count(1)
-#print len_chainA
+#print (len_chainA)
 
 for i in range(0, len(cb_atoms_pdb)+1):
 	sigma.append( (1+i)**sigma_exp )
@@ -186,11 +186,11 @@ for i in range(0, len(cb_atoms_pdb)+1):
 #out_contact=open("contact_list", 'w')
 #for ia in range(0, len(cb_atoms_pdb)/2):
 #	for ja in range(len(cb_atoms_pdb)/2, len(cb_atoms_pdb)):
-#		#print pdb_chain_id[ia], pdb_chain_id[ja]
+#		#print (pdb_chain_id[ia], pdb_chain_id[ja])
 #		#if  pdb_chain_id[ia] == pdb_chain_id[ja]: #only count the interface
 #		#	continue
 #		r_N=vabs(vector(cb_atoms_pdb[ia], cb_atoms_pdb[ja]));
-#		#print r_N
+#		#print (r_N)
 #		if r_N < 6.5:
 #			out_contact.write('1 '+str(ia+1)+' '+str(ja+1)+' '+cb_res_pdb[ia]+' '+cb_res_pdb[ja]+' '+str(round(r_N, 3))+'\n')
 #		else:

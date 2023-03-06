@@ -42,7 +42,7 @@ class Atom:
         self.ch = ch
 
     def print_(self):
-        print self.No, self.ch, self.ty , self.x, ',', self.y, ',', self.z, self.desc
+        print (self.No, self.ch, self.ty , self.x, ',', self.y, ',', self.z, self.desc)
 
     def write_(self, f):
         f.write(str(self.No))
@@ -63,7 +63,7 @@ class Atom:
 
 def print_array(a):
     for ia in a:
-        print ia
+        print (ia)
 
 class PDB_Atom:
 	no = 0
@@ -124,8 +124,8 @@ def three2one(prot):
     return newprot
 
 if len(sys.argv)==1:
-    print "\nReadingPDBFile.py PDB_Id Output_file [-s]\n"
-    print "-s\tSplit into files for each chain"
+    print ("\nReadingPDBFile.py PDB_Id Output_file [-s]\n")
+    print ("-s\tSplit into files for each chain")
     exit()
 
 from Bio.PDB.PDBParser import PDBParser
@@ -164,17 +164,13 @@ for ch in chains:
     iatom = 0
     ichain = ichain + 1
     if output_fn!="":
-	pass
-#        if not splite:
-#            out.write("Chain: ")
-#            out.write(ch.get_id())
-#            out.write('\n')
+        pass
     else:
-        print "Chain:", ch.get_id()
+        print ("Chain:", ch.get_id())
     for res in ch:
         is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 
-	res_id = res.get_id()[0]
+        res_id = res.get_id()[0]
         if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
             ires = ires + 1
             resname = res.get_resname() 
@@ -193,8 +189,8 @@ for ch in chains:
                xyz_O = res['OT1'].get_coord()
             if resname != 'GLY':
               if not res.has_id('CB'):
-                print ires, resname, "missing CB atom!"
-                print "Abort!"
+                print (ires, resname, "missing CB atom!")
+                print ("Abort!")
                 exit()
               xyz_CB = res['CB'].get_coord()
             else:
@@ -252,7 +248,7 @@ for ch in chains:
             out.close()
             se_out.close()
     else:
-        print three2one(sequance)
+        print (three2one(sequance))
         for iAtm in atoms:
             iAtm.print_()
 

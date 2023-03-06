@@ -89,9 +89,9 @@ frac = False # Output fraction of native contacts
 nNative = 0
 
 if len(sys.argv)<=2:
-    print "\nExtractGoModelCGCoeffs.py Input_file PDB_id [Output_file [-s]] [-f]\n"
-    print "-s\tSplit into files for each chain\n"
-    print "-f\tOutput fraction of native contacts\n"
+    print ("\nExtractGoModelCGCoeffs.py Input_file PDB_id [Output_file [-s]] [-f]\n")
+    print ("-s\tSplit into files for each chain\n")
+    print ("-f\tOutput fraction of native contacts\n")
     exit()
 
 filename = sys.argv[1]
@@ -192,7 +192,7 @@ if len(ca_atoms)>0:
 
 ldiff = len(diff)
 
-print "Number of native contacts: ", nNative
+print ("Number of native contacts: ", nNative)
 
 if output_fn!="":
 #        if splite and len(sequance)==0: continue
@@ -223,12 +223,12 @@ else:
 	for df in diff:
 		idf = idf + 1
 		if frac:
-			print str(round(df,4)),
+			print (str(round(df,4)), end="")
 		else:
-			print str(int(df)),
+			print (str(int(df)), end="")
 		if idf!=ldiff:
-			print " ",
-	print "\n"
+			print (" ", end="")
+	print ("\n")
 
 if output_fn!="" and not splite:
     out.close()

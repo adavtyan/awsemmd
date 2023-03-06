@@ -91,17 +91,17 @@ for line in file(filename):
                                         
     point1 = point2 # make the ending point the new starting point then loop back to get a new ending point
 
-# print the results in a Mathematica friendly way
-# print "{",
+# print (the results in a Mathematica friendly way)
+# print ("{", end="")
 # for i in xrange(dimension):
 #     for j in xrange(dimension):
 #         for k in xrange(dimension):
-#             print "{{",i,",",j,",",k,"},{",flowfield[i][j][k][0],",",flowfield[i][j][k][1],",",flowfield[i][j][k][2],"}}",
+#             print ("{{",i,",",j,",",k,"},{",flowfield[i][j][k][0],",",flowfield[i][j][k][1],",",flowfield[i][j][k][2],"}}", end="")
 #             if(k != dimension-1): print ",",
 
-# print "}"
+# print ("}")
 
-# print the results in a gnuplot friendly way
+# print (the results in a gnuplot friendly way)
 for i in xrange(dimension):
     for j in xrange(dimension):
         for k in xrange(dimension):
@@ -109,6 +109,6 @@ for i in xrange(dimension):
             flowfield[i][j][k][0]=flowfield[i][j][k][0]*float(scalefactor)
             flowfield[i][j][k][1]=flowfield[i][j][k][1]*float(scalefactor)
             flowfield[i][j][k][2]=flowfield[i][j][k][2]*float(scalefactor)
-            # print out a line with coordinates and field
-            print i,j,k,flowfield[i][j][k][0],flowfield[i][j][k][1],flowfield[i][j][k][2]
+            # print (out a line with coordinates and field)
+            print (i,j,k,flowfield[i][j][k][0],flowfield[i][j][k][1],flowfield[i][j][k][2])
 

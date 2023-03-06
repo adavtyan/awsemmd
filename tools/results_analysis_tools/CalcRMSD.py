@@ -95,7 +95,7 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=4:
-	print "\nCalcRMSD.py PDB_Id Input_file(lammpstrj) Output_file(rmsd)\n"
+	print ("\nCalcRMSD.py PDB_Id Input_file(lammpstrj) Output_file(rmsd)\n")
 	exit()
 
 struct_id = sys.argv[1]
@@ -131,7 +131,7 @@ p = PDBParser(PERMISSIVE=1)
 ##
 def computeRMSD():
 	if len(ca_atoms)!=len(ca_atoms_pdb):
-		print "Error. Length mismatch!"
+		print ("Error. Length mismatch!")
 		exit()
 	l = len(ca_atoms)
 

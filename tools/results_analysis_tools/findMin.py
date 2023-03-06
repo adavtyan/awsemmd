@@ -15,5 +15,5 @@ for ia in a[st:]:
 		min = ia
 		imin = i
 	i = i + 1
-print min, imin+st
+print (min, imin+st)
 file.close()

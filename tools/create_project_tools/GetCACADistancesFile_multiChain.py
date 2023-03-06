@@ -33,8 +33,8 @@ def checkIfNative(ires, jres):
     else: return False
 
 if len(sys.argv)==1:
-    print "\nGetCACADistancesFile_multi.py PDB_Id Output_file \n"
-    print "-s\tSplit into files for each chain"
+    print ("\nGetCACADistancesFile_multi.py PDB_Id Output_file \n")
+    print ("-s\tSplit into files for each chain")
 #    sys.argv.append("1BG8")
     exit()
 

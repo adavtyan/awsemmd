@@ -19,7 +19,7 @@ def three2one(prot):
     return newprot
 
 if len(sys.argv)!=3:
-    print "\nGetCACoordinatesFromPDB.py PDB_Id Output_file\n"
+    print ("\nGetCACoordinatesFromPDB.py PDB_Id Output_file\n")
     exit()
 
 from Bio.PDB.PDBParser import PDBParser

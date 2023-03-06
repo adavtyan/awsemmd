@@ -91,10 +91,10 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=4 and len(sys.argv)!=5 and len(sys.argv)!=6:
-	print "\nCalcPdbQ.py PDB_Id1 PDB_Id2 Output_file [sigma_exp] [-i]\n"
-	print
-	print "\t\t-i\tcalculate individual q values for each chain"
-	print
+	print ("\nCalcPdbQ.py PDB_Id1 PDB_Id2 Output_file [sigma_exp] [-i]\n")
+	print()
+	print ("\t\t-i\tcalculate individual q values for each chain")
+	print()
 	exit()
 
 splitq = False
@@ -138,8 +138,8 @@ p = PDBParser(PERMISSIVE=1)
 
 def computeQ():
 	if len(ca_atoms_pdb2)!=len(ca_atoms_pdb):
-		print "Error. Length mismatch!"
-		print "Pdb1: ", len(ca_atoms_pdb), "Pdb2: ", len(ca_atoms_pdb2)
+		print ("Error. Length mismatch!")
+		print ("Pdb1: ", len(ca_atoms_pdb), "Pdb2: ", len(ca_atoms_pdb2))
 		exit()
 	Q = {}
 	norm = {}
@@ -188,7 +188,7 @@ for chain in chains:
                         pdb_chain_id2.append(ichain)
 
 if len(ca_atoms_pdb) != len(ca_atoms_pdb2):
-	print "Error: Pdb structures have different lengths!"
+	print ("Error: Pdb structures have different lengths!")
 	exit() 
 
 for i in range(0, len(ca_atoms_pdb)+1):
@@ -201,5 +201,5 @@ if len(ca_atoms_pdb)>0:
 		out.write(str(round(q[key],3)))
 		out.write(' ')
 	out.write('\n')
-#print q[1]
+#print (q[1])
 out.close()

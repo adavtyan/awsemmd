@@ -310,14 +310,14 @@ class LmpConf:
                 line = file.readline()
 
         except IOError:
-            print "Count not open %s" % self.confFile
+            print ("Count not open %s" % self.confFile)
             sys.exit(2)
         self.initialize_box(xlo,xhi,ylo,yhi,zlo,zhi)
 
 
 def get_command_line_args(args):
     if len(args) != 3:
-        print "Usage: %s <LAMMPS configuation file> <protein atom number>" % args[0]
+        print ("Usage: %s <LAMMPS configuation file> <protein atom number>" % args[0])
         sys.exit(1)
     return args[1]
 

@@ -43,8 +43,8 @@ def checkIfNative(ires, jres):
     else: return False
 
 if len(sys.argv)==1:
-    print "\nReadingPDBFile.py PDB_Id [Output_file [-s]]\n"
-    print "-s\tSplit into files for each chain"
+    print ("\nReadingPDBFile.py PDB_Id [Output_file [-s]]\n")
+    print ("-s\tSplit into files for each chain")
 #    sys.argv.append("1BG8")
     exit()
 
@@ -112,7 +112,7 @@ for ch in chains:
     if output_fn!="":
 	pass
     else:
-        print "Chain:", ch.get_id()
+        print ("Chain:", ch.get_id())
     four_res = [None, None, None, None]
     all_res = []
     for res in ch:
@@ -125,20 +125,20 @@ for ch in chains:
             sequance.append(res.get_resname())
             if four_res[2] and four_res[3]:
                 if four_res[2].get_id()[1]+1!=four_res[3].get_id()[1]:
-                    print "Error: Wrong residue order"
+                    print ("Error: Wrong residue order")
                 xyz_CA3 = four_res[2]['CA'].get_coord()
                 xyz_CA4 = four_res[3]['CA'].get_coord()
                 r = calc_bond(xyz_CA3, xyz_CA4)
                 bonds.append(r)
             if four_res[1] and four_res[2] and four_res[3]:
                 if four_res[1].get_id()[1]+1!=four_res[2].get_id()[1]:
-                    print "Error: Wrong residue order"
+                    print ("Error: Wrong residue order")
                 xyz_CA2 = four_res[1]['CA'].get_coord()
                 theta = calc_angle(xyz_CA2, xyz_CA3, xyz_CA4)
                 angles.append(theta)
             if four_res[0] and four_res[1] and four_res[2] and four_res[3]:
                 if four_res[0].get_id()[1]+1!=four_res[1].get_id()[1]:
-                    print "Error: Wrong residue order"
+                    print ("Error: Wrong residue order")
                 xyz_CA1 = four_res[0]['CA'].get_coord()
                 phi = calc_dihedral_angle(xyz_CA1, xyz_CA2, xyz_CA3, xyz_CA4)
                 dihedrals.append(phi)
@@ -236,43 +236,43 @@ for ch in chains:
         if splite:
             out.close()
     else:
-        print three2one(sequance)
-        print "[Go-Model_LJ]"
-	print str(epsilon), str(epsilon2)
-	print '\n'
+        print (three2one(sequance))
+        print ("[Go-Model_LJ]")
+	print (str(epsilon), str(epsilon2))
+	print ('\n')
 		
-	print "[Bonds]"
-	print str(k_bond)
+	print ("[Bonds]")
+	print (str(k_bond))
 	for ir in bonds:
-		print str(round(ir, 5)), ' ',
-	print '\n'
+		print (str(round(ir, 5)), ' ', end="")
+	print ('\n')
 	
-	print "[Angles]"
-	print str(k_angle)
+	print ("[Angles]")
+	print (str(k_angle))
 	for ia in angles:
-		print str(round(ia, 4)), ' ',
-	print '\n'
+		print (str(round(ia, 4)), ' ', end="")
+	print ('\n')
 	
-	print "[Dihedrals]"
-	print str(k_dihedral[0]), str(k_dihedral[1])
+	print ("[Dihedrals]")
+	print (str(k_dihedral[0]), str(k_dihedral[1]))
 	for idha in dihedrals:
-		print str(round(idha, 4)), ' ',
-	print '\n'
+		print (str(round(idha, 4)), ' ', end="")
+	print ('\n')
 	
-	print "[Contacts]"
+	print ("[Contacts]")
 	for i in range( 0, len(all_res)-4 ):
         	for j in range( i+4, len(all_res) ):
 			if isNative[i][j]:
-				print 1,
+				print (1, end="")
 			else:
-				print 0,
-		print '\n',
-	print '\n',
+				print (0, end="")
+		print ('\n', end="")
+	print ('\n', end="")
 	for i in range( 0, len(all_res)-4 ):
         	for j in range( i+4, len(all_res) ):
-			print str(round(sigma[i][j], 4)),
-		print '\n',
-        print '\n'
+			print (str(round(sigma[i][j], 4)), end="")
+		print ('\n', end="")
+        print ('\n')
 
 if output_fn!="" and not splite:
     out.close()

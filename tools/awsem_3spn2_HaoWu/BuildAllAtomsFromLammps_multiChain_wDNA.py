@@ -136,7 +136,7 @@ def One2ThreeLetters(txt):
 #----------------------------------------------------------------------
 
 if len(sys.argv) < 3 or len(sys.argv) > 10:
-    print "\n" + sys.argv[0] + "Input_file Output_file [snapshot] [-seq sequence_file] [-dna dnaPDBTemplateFile] [-dna dnaBondFile]\n"
+    print ("\n" + sys.argv[0] + "Input_file Output_file [snapshot] [-seq sequence_file] [-dna dnaPDBTemplateFile] [-dna dnaBondFile]\n")
     exit()
 
 del_list = []
@@ -413,7 +413,7 @@ def print_atom_array():
         ia.write_(out)
 
 #----------------------------------------------------------------------
-# print PDB file with DNA
+# print (PDB file with DNA)
 #----------------------------------------------------------------------
 def print_pdb():
     for ia in atoms3:
@@ -424,7 +424,7 @@ def print_pdb():
     out.write("END\n");
 
 #----------------------------------------------------------------------
-# print PSF file
+# print (PSF file)
 #----------------------------------------------------------------------
 def print_psf():
     space8 = "        "
@@ -509,7 +509,7 @@ if snapshot < 0:
                             dnaAtomList[i].z = ia.z
                         setDNAAtomIndex = True
 
-                    print_pdb()
+                    print(_pdb())
                 step = int(l)
                 atoms = []
                 atoms2 = []
@@ -567,8 +567,8 @@ if snapshot < 0:
                 dnaAtomList[i].z = ia.z
             setDNAAtomIndex = True
 
-        print_pdb()
-        print_psf()
+        print(_pdb())
+        print(_psf())
 
 #----------------------------------------------------------------------
 # snapshot selected: single snapshot
@@ -607,7 +607,7 @@ else:
                             dnaAtomList[i].z = ia.z
                         setDNAAtomIndex = True
 
-                    print_pdb()
+                    print(_pdb())
                 step = int(l)
             elif item == "NUMBER OF ATOMS":
                 n_atoms = int(l)
@@ -659,8 +659,8 @@ else:
                 dnaAtomList[i].z = ia.z
             setDNAAtomIndex = True
 
-        print_pdb()
-        print_psf()
+        print(_pdb())
+        print(_psf())
 
 lfile.close()
 out.close()

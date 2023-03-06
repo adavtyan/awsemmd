@@ -12,7 +12,7 @@
 import sys
 
 if len(sys.argv)!=3:
-	print "\n" + sys.argv[0] + " inpute_file output_file\n"
+	print ("\n" + sys.argv[0] + " inpute_file output_file\n")
 	exit()
 
 input_file = sys.argv[1]

@@ -10,7 +10,7 @@ fpng = ""
 # Read command parameters
 
 if len(sys.argv)<4:
-	print "\n>", sys.argv[0], "file1 [file2 file3 ...] column1 [column2 column3 ...] legend1 [legend2 legend3 ...] [desc_text] [image_file_name]\n"
+	print ("\n>", sys.argv[0], "file1 [file2 file3 ...] column1 [column2 column3 ...] legend1 [legend2 legend3 ...] [desc_text] [image_file_name]\n")
 	sys.exit()
 
 # Read files
@@ -22,7 +22,7 @@ for iarg in sys.argv[1:]:
 	nplots += 1
 
 if len(sys.argv)<3*nplots+1:
-	print "\n>", sys.argv[0], "file1 [file2 file3 ...] column1 [column2 column3 ...] legend1 [legend2 legend3 ...] [desc_text] [image_file_name]\n"
+	print ("\n>", sys.argv[0], "file1 [file2 file3 ...] column1 [column2 column3 ...] legend1 [legend2 legend3 ...] [desc_text] [image_file_name]\n")
 	sys.exit()
 	
 
@@ -30,7 +30,7 @@ if len(sys.argv)<3*nplots+1:
 for i in range(nplots):
 	iarg = sys.argv[nplots + i + 1]
 	if not iarg.isdigit():
-		print "Column number was specified in a wrong format!\n"
+		print ("Column number was specified in a wrong format!\n")
 		sys.exit()
 	cols.append(int(iarg))
 
@@ -77,7 +77,7 @@ grid(True)
 legend()
 
 if fpng!="":
-	print "Saving plot to", fpng, "..."
+	print ("Saving plot to", fpng, "...")
 	savefig(fpng)
 
 show()

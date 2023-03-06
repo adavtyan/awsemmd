@@ -66,11 +66,11 @@ for i in range(number_cations):
 	ions.append(cation_charge)
 for i in range(number_anions):
 	ions.append(anion_charge)
-#print ions
-#print len(ions)
-print "Salt concentration", mM, "mM"
-print "Number of anions:", number_anions
-print "Number of cations:", number_cations
+#print (ions)
+#print (len(ions))
+print ("Salt concentration", mM, "mM")
+print ("Number of anions:", number_anions)
+print ("Number of cations:", number_cations)
 
 for ion in ions:
 	g = True
@@ -88,7 +88,7 @@ for ion in ions:
 			if r < r0: g = False
 		if g: break
 	if not g:
-		print "Warning: Cannot create distant ion"
+		print ("Warning: Cannot create distant ion")
 	#add ion in atoms array	
 	atom_number = atom_number+1
 	molecule = molecule+1

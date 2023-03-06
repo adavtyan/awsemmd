@@ -328,7 +328,7 @@ replace_rules = [["``read_data_file",  "read_data " + out_file],
                  ["``pair_interactions", pair_string],
                  ["``pair_coeff", pair_coeff_string]]
 myhome = os.environ.get("HOME")
-inp = open(myhome + "/programs/awsemmd/tools/create_project_tools/inFilePattern.data")
+inp = open(myhome + "/opt/script/inFilePattern.data")
 inFile = inp.read()
 inp.close()
 

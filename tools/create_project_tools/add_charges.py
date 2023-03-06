@@ -102,7 +102,7 @@ class Coeff:
 	
 	
 if (len(sys.argv)!=3):
-        print "Incorrect arguments:  <prot.data file> <file.seq>"
+        print ("Incorrect arguments:  <prot.data file> <file.seq>")
         sys.exit(1)
 
 file_prot=open(sys.argv[1],'r')

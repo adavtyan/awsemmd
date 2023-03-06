@@ -15,7 +15,7 @@ class Foldon:
         self.samplingtemperature = 0.0
 
     def display(self):
-        print self.residuelist
+        print (self.residuelist)
 
     def calculateNumNativeContacts(self, snapshot):
         numNativeContacts = 0.0
@@ -57,7 +57,7 @@ class ustate:
         self.code = code
 
     def display(self):
-        print self.code
+        print (self.code)
     
     def isFolded(self,i):
         if(self.code[i] == '1'):
@@ -78,8 +78,8 @@ class Residue:
         self.z = z
         
     def display(self):
-        print "pos: " + str(self.pos)
-        print "coords: " + str(self.x) + " " + str(self.y) + " " + str(self.z)
+        print ("pos: " + str(self.pos))
+        print ("coords: " + str(self.x) + " " + str(self.y) + " " + str(self.z))
 
     def isNativeContactWith(self,otherresidue):
         distance = math.sqrt(pow(self.x-otherresidue.x,2)+pow(self.y-otherresidue.y,2)+pow(self.z-otherresidue.z,2))
@@ -119,15 +119,15 @@ class Snapshot:
         self.ustate = ustate("")
 
     def display(self):
-        print "Ca coordinates:"
+        print ("Ca coordinates:")
         for i in range(self.numRes):
-            print "residue " + str(i) + ": " + str(self.residues[i].x) + " " + str(self.residues[i].y) + " " + str(self.residues[i].z)
+            print ("residue " + str(i) + ": " + str(self.residues[i].x) + " " + str(self.residues[i].y) + " " + str(self.residues[i].z))
             
-        print "Biasing energy: " + str(self.biasingenergy)
-        print "Internal energy: " + str(self.internalenergy)
-        print "Reduced energy: " + str(self.reducedenergy)
-        print "Qvalue: " + str(self.Q)
-        print "Microstate code:"
+        print ("Biasing energy: " + str(self.biasingenergy))
+        print ("Internal energy: " + str(self.internalenergy))
+        print ("Reduced energy: " + str(self.reducedenergy))
+        print ("Qvalue: " + str(self.Q))
+        print ("Microstate code:")
         self.ustate.display()
 
     def assignUstate(self):
@@ -282,7 +282,7 @@ def readDumpFile(dumpFile):
                     residues.append(Residue(residuePosition, x, y, z))
                     residuePosition += 1
             else:
-                print "Wrong atom type: " + str(atomType)
+                print ("Wrong atom type: " + str(atomType))
                 sys.exit()
 
     if snapshotIndex % snapshotFreq == 0:
@@ -355,7 +355,7 @@ def readNativeDumpFile(dumpFile):
                     residues.append(Residue(residuePosition, x, y, z))
                     residuePosition += 1
             else:
-                print "Wrong atom type: " + str(atomType)
+                print ("Wrong atom type: " + str(atomType))
                 sys.exit()
 
     snapshot = Snapshot(residues)
@@ -367,7 +367,7 @@ def readAllTrajectories(metadataFile):
     f = open(metadataFile, 'r')
     for line in f:
         line=line.split()
-        print "Creating trajectory for " + line[0] + " ..."
+        print ("Creating trajectory for " + line[0] + " ...")
         trajectory = Trajectory(line[0],line[1])
         trajectories.append(trajectory)
         samplingtemperature.append(float(line[2]))
@@ -449,12 +449,12 @@ def sortNativeContactsByFoldon():
                 if foldon.containsResidue(residue1) or foldon.containsResidue(residue2):
                     foldon.nativefoldoncontactlist.append([residue1, residue2])
 
-            print "Foldon definition:"
+            print ("Foldon definition:")
             foldon.display()
-            print "Number of native contacts:"
-            print len(foldon.nativefoldoncontactlist)
-            print "Native contacts being monitored:"
-            print foldon.nativefoldoncontactlist
+            print ("Number of native contacts:")
+            print (len(foldon.nativefoldoncontactlist))
+            print ("Native contacts being monitored:")
+            print (foldon.nativefoldoncontactlist)
 
     else:
         for foldon in foldons:
@@ -464,12 +464,12 @@ def sortNativeContactsByFoldon():
                 if foldon.containsResidue(residue1) and foldon.containsResidue(residue2):
                     foldon.nativefoldoncontactlist.append([residue1, residue2])
                     
-            print "Foldon definition:"
+            print ("Foldon definition:")
             foldon.display()
-            print "Number of native contacts:"
-            print len(foldon.nativefoldoncontactlist)
-            print "Native contacts being monitored:"
-            print foldon.nativefoldoncontactlist
+            print ("Number of native contacts:")
+            print (len(foldon.nativefoldoncontactlist))
+            print ("Native contacts being monitored:")
+            print (foldon.nativefoldoncontactlist)
 
 def floatRange(a, b, inc):
     try: x = [float(a)]
@@ -551,8 +551,8 @@ def subsampleTrajectories():
         try:
             g = timeseries.statisticalInefficiency(A_t)
         except Exception as e:
-            print str(e)
-            print A_t
+            print (str(e))
+            print (A_t)
         
         # Subsample data.
         if subsample:
@@ -560,7 +560,7 @@ def subsampleTrajectories():
         else:
             indices = timeseries.subsampleCorrelatedData(A_t, g=1)
         N_uncorr = len(indices) # number of uncorrlated samples
-        print "k = %5d : g = %.1f, N_uncorr = %d" % (k, g, N_uncorr)
+        print ("k = %5d : g = %.1f, N_uncorr = %d" % (k, g, N_uncorr))
         qw_kn[k,0:N_uncorr] = qw_kt[k,indices]
         U_kn[k,0:N_uncorr] = U_kt[k,indices]
         reducedU_kn[k,0:N_uncorr] = reducedU_kt[k,indices]
@@ -579,7 +579,7 @@ def binaryfoldonstate(decimalfoldonstate):
 
 def computeReducedEnergies():
     # Compute reduced potentials from all simulations in all thermodynamic states.
-    print "Computing reduced potentials..."
+    print ("Computing reduced potentials...")
     u_kln = numpy.zeros([K,K,N_max], numpy.float32) # u_kln[k,l,n] is reduced biased potential of uncorrelated snapshot n from simulation k in thermodynamic state l
     for k in range(K):
         N = N_k[k] # number of uncorrelated snapshots
@@ -759,26 +759,26 @@ biasing_value = []
 ################
 # find folding temperature
 foldingtemperature = 320
-print "Folding temperature: " + str(foldingtemperature)
+print ("Folding temperature: " + str(foldingtemperature))
 # read in native coordinates for the purposes of computing contacts
-print "Reading native dump file..."
+print ("Reading native dump file...")
 nativeSnapshot = readNativeDumpFile(nativeDumpFile)[0]
 # calculate native distances
-print "Calculating native distances..."
+print ("Calculating native distances...")
 nativedistances = nativeSnapshot.calculatePairwiseDistances()
 # Find native contacts
-print "Finding native contacts..."
+print ("Finding native contacts...")
 findNativeContacts(nativeSnapshot)
 # read in the foldon definitions
-print "Reading foldon file..."
+print ("Reading foldon file...")
 foldons = readFoldonFile(foldonFile)
 sortNativeContactsByFoldon()
 if readTrajectoriesFromMetadata:
     # read all the trajectory information from the metadata file and assign all microstates
-    print "Reading all trajectories and assigning microstates..."
+    print ("Reading all trajectories and assigning microstates...")
     readAllTrajectories(metadataFile)
     # Pickle trajectories list for reading later
-    print "Pickling trajectories..."
+    print ("Pickling trajectories...")
     cPickle.dump(trajectories, open(trajectoriespicklefile, 'wb')) 
     cPickle.dump(Kbias, open('./kbias.pkl', 'wb'))
     cPickle.dump(samplingtemperature, open('./samplingtemperature.pkl', 'wb'))
@@ -786,7 +786,7 @@ if readTrajectoriesFromMetadata:
 
 else:
     # load trajectories from existing Pickle file
-    print "Loading pickled trajectories..."
+    print ("Loading pickled trajectories...")
     trajectories = cPickle.load(open(trajectoriespicklefile, 'rb'))
     Kbias = cPickle.load(open('./kbias.pkl', 'rb'))
     samplingtemperature = cPickle.load(open('./samplingtemperature.pkl', 'rb'))
@@ -796,30 +796,30 @@ else:
 subsampleTrajectories()
 
 # find all the microstates present
-print "Finding all microstates..."
+print ("Finding all microstates...")
 (microstatecodes, binmicrostatecodes) = findAllUstates()
-print "Microstate codes: " + str(binmicrostatecodes)
+print ("Microstate codes: " + str(binmicrostatecodes))
 # finding folded and unfolded states
 unfoldedstate, foldedstate = findUnfoldedAndFoldedStates()
 # Make sure all bins are populated.
-print "Counting number of samples per bin..."
+print ("Counting number of samples per bin...")
 nbins = len(microstatecodes)
 bin_counts = numpy.zeros([nbins], numpy.int32)
 for i in range(nbins):
     code = microstatecodes[i]
     bin_counts[i] = (ustate_kn == code).sum()
-print "Number of samples per microstate code: " + str(bin_counts)
-print "Computing reduced energies of all samples in all states..."
+print ("Number of samples per microstate code: " + str(bin_counts))
+print ("Computing reduced energies of all samples in all states...")
 u_kln = computeReducedEnergies()
 
 # Initialize or load MBAR.
 if initializeMBAR:
-    print "Initializing MBAR for the calculation of free energies..."
+    print ("Initializing MBAR for the calculation of free energies...")
     mbar = pymbar.MBAR(u_kln, N_k)
     cPickle.dump(mbar, open(mbarpicklefile, 'wb')) 
 else:
     # load MBAR object
-    print "Loading MBAR object..."
+    print ("Loading MBAR object...")
     mbar = cPickle.load(open(mbarpicklefile, 'rb'))
 
 # Bin data
@@ -832,10 +832,10 @@ for k in range(K):
 
 # loop over all desired (extrapolated) temperatures, compute overall rate
 for temperature in temperatures:
-    print "Microstate codes: " + str(binmicrostatecodes)
-    print "Calculating rate for temperature: " + str(temperature)
+    print ("Microstate codes: " + str(binmicrostatecodes))
+    print ("Calculating rate for temperature: " + str(temperature))
     # Compute perturbed reduced potential at temperature of interest in absence of biasing potential.
-    print "Computing perturbed reduced potential at temperature of interest..."
+    print ("Computing perturbed reduced potential at temperature of interest...")
     u_kn = numpy.zeros([K,N_max], numpy.float32) # u_kn[k,n] is the unbiased reduced potential energy of snapshot n of umbrella simulation k at conditions of interest
     kT = kb * temperature
     beta = 1.0 / kT # reduced temperature
@@ -843,15 +843,15 @@ for temperature in temperatures:
         N = N_k[k]
         u_kn[k,0:N] = beta * U_kn[k,0:N] # unbiased reduced potential at desired temperature
     # calculate microstate free energies for a certain temperature
-    print "Calculating microstate free energies..."
+    print ("Calculating microstate free energies...")
     (microstatefreeenergies, microstateuncertainties) = mbar.computePMF(u_kn, bin_kn, nbins)  # Compute PMF in unbiased potential (in units of kT).
-    print "Microstate free energies: " + str(microstatefreeenergies)
+    print ("Microstate free energies: " + str(microstatefreeenergies))
     # calculate rate matrix, given a temperature
-    print "Calculating rate matrix..."
+    print ("Calculating rate matrix...")
     ratematrix = calculateRateMatrix()
     if(alwaysOutputRateMatrix):
         numpy.savetxt('ratematrix'+str(temperature),ratematrix)
-    print "Rate Matrix: \n" + str(ratematrix)
+    print ("Rate Matrix: \n" + str(ratematrix))
     # calculate and append microstate info
     info = []
     for i in range(len(microstatecodes)):
@@ -861,10 +861,10 @@ for temperature in temperatures:
     maxrank = findMaxRank(info)
     ustatestabilitygap = findUstateStabilityGap(minrank,maxrank)
     # calculate eigenvalues and eigenvectors
-    print "Calculating eigenvalues and eigenvectors"
+    print ("Calculating eigenvalues and eigenvectors")
     eigenvalues, eigenvectors, sortedeigenvalues, sortedeigenvectors = calculateEigenvectorsEigenvalues()
-    print "Eigenvalues: \n" + str(sortedeigenvalues)
-    print "Eigenvectors: \n " + str(sortedeigenvectors)
+    print ("Eigenvalues: \n" + str(sortedeigenvalues))
+    print ("Eigenvectors: \n " + str(sortedeigenvectors))
     overallrates.append([temperature,ustatestabilitygap,numpy.log(-1*sortedeigenvalues[1]),numpy.log(-1*sortedeigenvalues[2])])
     #############################################
     # Begin time evolution and flux calculation #
@@ -877,41 +877,41 @@ for temperature in temperatures:
             timeStep = (endTime-startTime)/numTimeSteps
         else:
             numTimeSteps = int((endTime-startTime)/timeStep)
-        print "Starting time evolution and flux calculation..."
-        print "Start time: %s\n" % str(startTime)
-        print "End time: %s\n" % str(endTime)
-        print "Time step: %s\n" % str(timeStep)
+        print ("Starting time evolution and flux calculation...")
+        print ("Start time: %s\n" % str(startTime))
+        print ("End time: %s\n" % str(endTime))
+        print ("Time step: %s\n" % str(timeStep))
         concentrations = numpy.zeros((len(microstatecodes),numTimeSteps))
         if(autoDetermineFoldingOrUnfolding):
-            print "Determining if this will be a folding or unfolding calculation based on folding temperature..."
+            print ("Determining if this will be a folding or unfolding calculation based on folding temperature...")
             if(temperature < foldingtemperature):
-                print "Starting folding calculation..."
+                print ("Starting folding calculation...")
                 foldingSimulation = True
             else:
-                print "Starting unfolding calculation..."
+                print ("Starting unfolding calculation...")
                 foldingSimulation = False
-        print "Setting initial concentrations..."
+        print ("Setting initial concentrations...")
         initialconcentrations = numpy.zeros(len(microstatecodes))
         if(foldingSimulation):
             initialconcentrations[binmicrostatecodes.index(unfoldedstate)] = 1.0
         else:
             initialconcentrations[binmicrostatecodes.index(foldedstate)] = 1.0
         initialconcentrations = initialconcentrations[:,numpy.newaxis]
-        print "Initial concentrations: \n%s\n" % str(initialconcentrations)
+        print ("Initial concentrations: \n%s\n" % str(initialconcentrations))
         coefficients = numpy.dot(LA.inv(eigenvectors),initialconcentrations)
-        print "Coefficents: \n%s\n" % str(coefficients)
-        print "Calculating time evolution..."
+        print ("Coefficents: \n%s\n" % str(coefficients))
+        print ("Calculating time evolution...")
         timeIndex = 0
         for time in floatRange(startTime,endTime,timeStep):
             if(graphicalEvolution):
-                print "Concentration of states:"
+                print ("Concentration of states:")
             for state in range(len(microstatecodes)):
                 total = 0
                 for eigenvalueindex in range(len(eigenvalues)):
                     total += coefficients[eigenvalueindex]*eigenvectors[state,eigenvalueindex]*numpy.exp(eigenvalues[eigenvalueindex]*float(time))
                 concentrations[state,timeIndex] = total
                 if(graphicalEvolution):
-                    print str(binmicrostatecodes[state]) + ": " + int(concentrations[state,timeIndex]*100)*'#'
+                    print (str(binmicrostatecodes[state]) + ": " + int(concentrations[state,timeIndex]*100)*'#')
             timeIndex += 1
             if(graphicalEvolution):
                 timefunctions.sleep(0.1)
@@ -941,7 +941,7 @@ for temperature in temperatures:
 
                 fluxes[state1][state2] = total
 
-        print "Fluxes: \n%s\n" % str(fluxes)
+        print ("Fluxes: \n%s\n" % str(fluxes))
         numpy.savetxt('fluxes'+str(temperature),fluxes)
         cPickle.dump(fluxes, open('fluxes'+str(temperature)+'.pkl', 'wb')) 
 

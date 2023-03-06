@@ -49,7 +49,7 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=3:
-	print "\nCalcQValue.py Input_file Output_file\n"
+	print ("\nCalcQValue.py Input_file Output_file\n")
 	exit()
 
 input_file = sys.argv[1]
@@ -136,10 +136,10 @@ def computeLp():
 	global uij_count
 
 	if len(ca_atoms)==0:
-                print "Error. Empty snapshot"
+                print ("Error. Empty snapshot")
                 sys.exit()
 	if len(ca_atoms)%2!=0:
-		print "Odd number of atoms"
+		print ("Odd number of atoms")
                 sys.exit()
 
 	N = len(ca_atoms)/2
@@ -177,7 +177,7 @@ for l in lfile:
 				n_atoms = len(ca_atoms)
 			step = int(l)
 			if step%1000000==0 and step!=0 and len(uij_sum)>0:
-				print step, uij_sum[0], uij_count[0]
+				print (step, uij_sum[0], uij_count[0])
 			ca_atoms = []
 			box = []
 			A = []

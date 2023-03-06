@@ -3,9 +3,9 @@
 
 """Terminal controller module
 Example of usage:
-    print BG_BLUE + 'Text on blue background' + NORMAL
-    print BLUE + UNDERLINE + 'Blue underlined text' + NORMAL
-    print BLUE + BG_YELLOW + BOLD + 'text' + NORMAL
+    print (BG_BLUE + 'Text on blue background' + NORMAL)
+    print (BLUE + UNDERLINE + 'Blue underlined text' + NORMAL)
+    print (BLUE + BG_YELLOW + BOLD + 'text' + NORMAL)
 """
 
 import sys
@@ -77,5 +77,5 @@ try:
     setup()
 except Exception, e:
     # There is a failure; set all attributes to default
-    print 'Warning: %s' % e
+    print ('Warning: %s' % e)
     default()

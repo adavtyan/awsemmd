@@ -34,9 +34,9 @@ for i in range(len(numpts)):
     sfn3[i]=sfn3[i]/n
     skewness[i]=sfn3[i]/math.pow(sfn2[i],1.5)
 
-# print out results
+# print (out results)
 for i in range(len(numpts)):
     # include the number of points in each distance range to indicate
     # how well sampled each region is
-    print i,sfn1[i],sfn2[i],sfn3[i],skewness[i],numpts[i]
+    print (i,sfn1[i],sfn2[i],sfn3[i],skewness[i],numpts[i])
 

@@ -12,8 +12,8 @@ weight=1 #feature in match file
 
 from Bio import SeqIO
 inseq=SeqIO.read(inFASTA,'fasta')
-print "processing: ",inseq.name
-#print inseq.seq
+print ("processing: ",inseq.name)
+#print (inseq.seq)
 
 fragmentLength=9 #needs to be an odd number
 memoriesPerPosition=10 #can be any integer > 0
@@ -23,8 +23,8 @@ EvalueThreshold=10000 #needs to be large enough that PSI-BLAST returns at least 
 ##SANITY CHECKING
 #is length greater than 9 residues?
 if(len(inseq.seq) < fragmentLength):
-    print "Exception::query sequence is smaller than "+str(fragmentLength)+" residues"
-    print "This version has no means to handle smaller queries"
+    print ("Exception::query sequence is smaller than "+str(fragmentLength)+" residues")
+    print ("This version has no means to handle smaller queries")
     sys.exit()
 
 ##open match file
@@ -38,7 +38,7 @@ for i in range(1,iterations+1):
     rangeEnd=i+fragmentLength-1
     subrange=str(inseq[rangeStart:rangeEnd].seq)
     fragment=open('/usr/tmp/fragment.fasta','w')
-    print subrange
+    print (subrange)
     fragment.write(subrange)
     fragment.close()
 ##submit PSI-BLAST -- run psiblast -help for explanation of format 6 output
@@ -46,17 +46,17 @@ for i in range(1,iterations+1):
     exeline="psiblast -num_iterations 1 -word_size 2 -evalue "+str(EvalueThreshold)
     exeline+=" -outfmt 6 -matrix BLOSUM62 -db "
     exeline+=database+" -query /usr/tmp/fragment.fasta"
-    print exeline
+    print (exeline)
     psiblastOut=os.popen(exeline).read()
     psiblastOut=psiblastOut.splitlines() #now an array
 #column 7,8,9,10 (starting at 1) are the indices for the aligned ranges
-    print "PDB INSEQ-START INSEQ-END MATCH-START MATCH-END EVALUE"
+    print ("PDB INSEQ-START INSEQ-END MATCH-START MATCH-END EVALUE")
     for line in psiblastOut[0:memoriesPerPosition]:
         this=line.split()
-#        print this[1],this[6],this[7],this[8],this[9],this[11]
+#        print (this[1],this[6],this[7],this[8],this[9],this[11])
         queryStart=rangeStart+int(this[6])
         queryEnd=queryStart+int(this[7])-1
-        print this[1],str(queryStart),str(queryEnd),this[8],this[9],this[11]
+        print (this[1],str(queryStart),str(queryEnd),this[8],this[9],this[11])
         out=this[1]+' '+str(queryStart)+' '+str(queryEnd)+' '
         out+=this[8]+' '+this[9]+' '+str(weight)+"\n"
         delQuery=queryEnd-queryStart

@@ -69,7 +69,7 @@ dist = []
 nNative = 0
 
 if len(sys.argv)<=3:
-    print "\nCountFoldonContacts.py Input_file PDB_id Foldon_file Output_file_name\n"
+    print ("\nCountFoldonContacts.py Input_file PDB_id Foldon_file Output_file_name\n")
     exit()
 
 filename = sys.argv[1]
@@ -143,7 +143,7 @@ for l in infile:
 				dist = []
 				CalcCADistances(ca_atoms)
 				CountNativeContacts()
-                                print numNativeContacts
+                                print (numNativeContacts)
 			nFrame = nFrame + 1
 			ca_atoms = []
 			step = int(l)
@@ -171,6 +171,6 @@ if len(ca_atoms)>0:
     dist = []
     CalcCADistances(ca_atoms)
     CountNativeContacts()
-    print numNativeContacts
+    print (numNativeContacts)
 
 

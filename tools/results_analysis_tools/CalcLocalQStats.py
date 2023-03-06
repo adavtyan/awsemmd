@@ -19,7 +19,7 @@ from pylab import *
 from Bio.PDB.PDBParser import PDBParser
 
 if len(sys.argv)!=4:
-	print "\nCalcQValue.py PDB_ID directory_list output_file \n"
+	print ("\nCalcQValue.py PDB_ID directory_list output_file \n")
 	exit()
 
 struct_id = sys.argv[1]
@@ -59,8 +59,8 @@ def calc_dis(p1, p2):
 
 def compute_qis():
 	if len(cb_atoms)!=len(native_distances):
-		print "Error: length mismatch!"
-		print "Pdb: ", len(native_distances), "trj: ", len(cb_atoms)
+		print ("Error: length mismatch!")
+		print ("Pdb: ", len(native_distances), "trj: ", len(cb_atoms))
 		exit()	
    	N = len(cb_atoms)
 	qis = zeros([len(cb_atoms)])
@@ -89,7 +89,7 @@ for chain in chains:
 		elif (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
 			native_coords.append(res['CB'].get_coord())
 		else:
-			print 'ERROR: irregular residue at %s!' % res
+			print ('ERROR: irregular residue at %s!' % res)
 			exit()
 
 #calculate native distances from pdb file			
@@ -111,7 +111,7 @@ for i in range(0,len(native_coords)):
 		else:
 			native_contacts[i][j] = 0
 	if norm[i]==0:
-		print 'res %s has no native contacts' % i
+		print ('res %s has no native contacts' % i)
 		exit()
 
 #calculate sigma table
@@ -147,7 +147,7 @@ var_file = open(out_var, 'w')
 for path in directories:
 	qis_array = []
 	path = path[0] + '/' + lammps_file
-	print path
+	print (path)
 	lfile = open(path)
 	for l in lfile:
 		l = l.strip()

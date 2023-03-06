@@ -107,7 +107,7 @@ for ich in range(n_dna_chains):	#molecule 0 and 1
 	lch1 = len(sequences[ich*2])
 	lch2 = len(sequences[ich*2+1])
 	if lch1 != lch2:
-			print "dna mismatch"
+			print ("dna mismatch")
 	molecule = ich+1		#molecule 1 and 2
 	xx = (11.065*ich*2)
 	for c in range(2):		#chain 0 and 1
@@ -136,11 +136,11 @@ for i in range(number_cations):
 	ions.append(cation_charge)
 for i in range(number_anions):
 	ions.append(anion_charge)
-#print ions
-#print len(ions)
-print "Salt concentration", mM, "mM"
-print "Number of anions:", number_anions
-print "Number of cations:", number_cations
+#print (ions)
+#print (len(ions))
+print ("Salt concentration", mM, "mM")
+print ("Number of anions:", number_anions)
+print ("Number of cations:", number_cations)
 
 for ion in ions:
 	g = True
@@ -158,7 +158,7 @@ for ion in ions:
 			if r < r0: g = False
 		if g: break
 	if not g:
-		print "Warning: Cannot create distant ion"
+		print ("Warning: Cannot create distant ion")
 	#add ion in atoms array	
 	atom_number = atom_number+1
 	molecule = molecule+1
@@ -170,7 +170,7 @@ for ich in range(0,len(chain_lengths)/2):
 	lch1 = chain_lengths[ich*2]
 	lch2 = chain_lengths[ich*2+1]
 	if lch1 != lch2:
-		print "dna mismatch"
+		print ("dna mismatch")
 		sys.exit()
 	istp1 = starting_points[ich*2]
 	istp2 = starting_points[ich*2+1]
@@ -200,7 +200,7 @@ for ich in range(0,len(chain_lengths)/2):
 	lch1= (chain_lengths[ich*2])
 	lch2= (chain_lengths[ich*2+1])
 	if lch1 != lch2:
-		print "dna mismatch"
+		print ("dna mismatch")
 		sys.exit()
 	istp1 = starting_points[ich*2]
 	istp2 = starting_points[ich*2+1]

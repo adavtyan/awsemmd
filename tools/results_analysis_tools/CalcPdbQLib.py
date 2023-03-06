@@ -95,8 +95,8 @@ class Atom:
 
 def computeQ(ca_atoms_pdb, ca_atoms_pdb2, pdb_chain_id, sigma_sq, splitq):
 	if len(ca_atoms_pdb2)!=len(ca_atoms_pdb):
-		print "Error. Length mismatch!"
-		print "Pdb1: ", len(ca_atoms_pdb), "Pdb2: ", len(ca_atoms_pdb2)
+		print ("Error. Length mismatch!")
+		print ("Pdb1: ", len(ca_atoms_pdb), "Pdb2: ", len(ca_atoms_pdb2))
 		exit()
 	Q = {}
 	norm = {}
@@ -171,7 +171,7 @@ def calcQ(pdb_file, pdb_file2, splitq=False):
                         	pdb_chain_id2.append(ichain)
 
 	if len(ca_atoms_pdb) != len(ca_atoms_pdb2):
-		print "Error: Pdb structures have different lengths!"
+		print ("Error: Pdb structures have different lengths!")
 		exit() 
 	#Pre-computes sigmas
 	for i in range(0, len(ca_atoms_pdb)+1):

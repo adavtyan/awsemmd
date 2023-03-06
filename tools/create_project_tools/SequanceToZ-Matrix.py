@@ -58,7 +58,7 @@ if len(sys.argv)>1: inpfname = sys.argv[1]
 if len(sys.argv)>2: outfname = sys.argv[2]
 
 myhome = os.environ.get("HOME")
-fdata = open(myhome + "/programs/awsemmd/tools/create_project_tools/SequanceToZ-Matrix.data")
+fdata = open(myhome + "/opt/script/SequanceToZ-Matrix.data")
 raw_data = []
 iFirst = 0
 iSecond = 0

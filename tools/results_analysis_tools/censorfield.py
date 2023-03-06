@@ -10,6 +10,6 @@ for line in file:
 
     vectornorm = math.sqrt(float(splitline[3])**2+float(splitline[4])**2+float(splitline[5])**2)
     if(vectornorm>float(sys.argv[2])):
-        print line
+        print (line)
     
 

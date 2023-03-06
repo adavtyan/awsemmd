@@ -13,7 +13,7 @@ from VectorAlgebra import *
 from Bio.PDB.PDBParser import PDBParser
 
 if len(sys.argv) != 4 and len(sys.argv) != 5:
-	print "\n" + str(sys.argv[0]) + " PDB_ID dump_file output_file [snapshot]\n"
+	print ("\n" + str(sys.argv[0]) + " PDB_ID dump_file output_file [snapshot]\n")
 	sys.exit()
 
 struct_id = sys.argv[1]
@@ -41,8 +41,8 @@ def calc_dis(p1, p2):
 
 def compute_qis():
 	if len(cb_atoms)!=len(native_distances):
-		print "Error: length mismatch!"
-		print "Pdb: ", len(native_distances), "trj: ", len(cb_atoms)
+		print ("Error: length mismatch!")
+		print ("Pdb: ", len(native_distances), "trj: ", len(cb_atoms))
 		exit()	
    	N = len(cb_atoms)
 	qis = numpy.zeros([len(cb_atoms)])
@@ -71,7 +71,7 @@ for chain in chains:
 		elif (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
 			native_coords.append(res['CB'].get_coord())
 		else:
-			print 'ERROR: irregular residue at %s!' % res
+			print ('ERROR: irregular residue at %s!' % res)
 			exit()
 
 #calculate native distances from pdb file			
@@ -94,7 +94,7 @@ for i in range(0,len(native_coords)):
 			native_contacts[i][j] = 0
 	if norm[i]==0:
 		norm[i]=1
-		print 'Warning: Residue %s has no native contacts. norm set to 1. The residue will always appear "unfolded".' % i
+		print ('Warning: Residue %s has no native contacts. norm set to 1. The residue will always appear "unfolded".' % i)
 
 #read in dump.lammpstrj and calculate qi's
 nFrame = 0

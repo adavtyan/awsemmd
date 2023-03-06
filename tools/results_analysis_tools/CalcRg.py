@@ -48,7 +48,7 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=3:
-	print "\nCalcQValue.py Input_file Output_file\n"
+	print ("\nCalcQValue.py Input_file Output_file\n")
 	sys.exit()
 
 input_file = sys.argv[1]
@@ -69,7 +69,7 @@ out = open(output_file, 'w')
 
 def computeRg():
 	if len(ca_atoms)==0:
-		print "Error. Empty snapshot"
+		print ("Error. Empty snapshot")
 		exit()
 	N = len(ca_atoms)
 	Rg = 0.0

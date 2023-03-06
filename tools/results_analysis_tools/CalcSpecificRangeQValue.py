@@ -91,10 +91,10 @@ class Atom:
 		f.write('\n')
 
 if len(sys.argv)!=7:
-	print "\nCalcQValue.py PDB_Id Input_file Output_file sigma_exp minsep maxsep [-i]\n"
-	print
-	print "\t\t-i\tcalculate individual q values for each chain"
-	print
+	print ("\nCalcQValue.py PDB_Id Input_file Output_file sigma_exp minsep maxsep [-i]\n")
+	print()
+	print ("\t\t-i\tcalculate individual q values for each chain")
+	print()
 	exit()
 
 splitq = False
@@ -139,8 +139,8 @@ p = PDBParser(PERMISSIVE=1)
 
 def computeQ():
 	if len(ca_atoms)!=len(ca_atoms_pdb):
-		print "Error. Length mismatch!"
-		print "Pdb: ", len(ca_atoms_pdb), "trj: ", len(ca_atoms)
+		print ("Error. Length mismatch!")
+		print ("Pdb: ", len(ca_atoms_pdb), "trj: ", len(ca_atoms))
 		exit()
 	Q = {}
 	norm = {}

@@ -19,11 +19,11 @@ from Pdb2GroLib import *
 from Bio.PDB.Polypeptide import * #func three_to_one()
 
 if len(sys.argv)!=5:
-	print "\n prepFragsLAMW.py database-prefix file.fasta N_mem brain_damage_flag (1/0 for yes/no) > logfile \n\n"
-	print "#######################################################################"
-	print "#NOTE: Before running this script, please make sure the fasta file "
-	print "#contains only the sequences that have coordinates in the PDB file"
-	print "######################################################################"
+	print ("\n prepFragsLAMW.py database-prefix file.fasta N_mem brain_damage_flag (1/0 for yes/no) > logfile \n\n")
+	print ("#######################################################################")
+	print ("#NOTE: Before running this script, please make sure the fasta file ")
+	print ("#contains only the sequences that have coordinates in the PDB file")
+	print ("######################################################################")
 	exit()
 
 ################################################################
@@ -48,7 +48,7 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 		                if (res_index < res_Start ):
 		                    continue
 		                if (res_index > res_End and i == 0 ):
-				   print "Residue index shifted: ", res_index, "mismatch: ", res_Start
+				   print ("Residue index shifted: ", res_index, "mismatch: ", res_Start)
 		                   return False
 		                if (res_index > res_End   ):
 		                    break
@@ -56,7 +56,7 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 		                is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 				res_id = res.get_id()[0]
 		                if not (res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L' or res_id=='H_CAS') or not is_regular_res :
-					print 'Discard Fragment: Non-regular residue:', res.get_id()[0], 'at position', res_index,  'in pdb:', pdbID
+					print ('Discard Fragment: Non-regular residue:', res.get_id()[0], 'at position', res_index,  'in pdb:', pdbID)
 					return False
 				res_name = res.get_resname()
 				#convert to 1-letter code
@@ -72,7 +72,7 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 
 				#Add sanity check, residues have to match the blast-out seq
 				if ( res_code != residue_list[i] ):
-					print "Mismatching residue in the PDB file:", pdbID, "residue :", res_code
+					print ("Mismatching residue in the PDB file:", pdbID, "residue :", res_code)
 					return False
 
 				i += 1
@@ -85,20 +85,20 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 			                for target_atom_name in atom_list:
 				               	if atom_name == target_atom_name:
 			                 	        keys[target_atom_name]=1
-							#print "matching:", atom_name
+							#print ("matching:", atom_name)
 						if len(keys) == len(atom_list):
 							break;
 		                if len(keys) == len(atom_list):
-				#	print "matching res:", res_index
+				#	print ("matching res:", res_index)
 	        	        	keys_res[res_index] = 1 
 
 	if len(keys_res) == res_End - res_Start + 1:
 		return True
 	else:
-		print "Missing CA or CB in the residues for PDB ", pdbID, ch_name
-		print "Good residues: "
+		print ("Missing CA or CB in the residues for PDB ", pdbID, ch_name)
+		print ("Good residues: ")
 		for j in keys_res:
-			print j
+			print (j)
 		return False
 ## NoMissingAtoms function
 ################################################################
@@ -113,7 +113,7 @@ weight=1 #feature in match file
 
 from Bio import SeqIO
 inseq=SeqIO.read(inFASTA,'fasta')
-print "processing: ",inseq.name
+print ("processing: ",inseq.name)
 query=str(inseq.name)[0:4]
 
 myhome  = os.environ.get("HOME")
@@ -128,15 +128,15 @@ EvalueThreshold=10000 #needs to be large enough that PSI-BLAST returns at least 
 ##SANITY CHECKING
 #is length greater than fragmentLength?
 if(len(inseq.seq) < fragmentLength):
-    print "Exception::query sequence is smaller than "+str(fragmentLength)+" residues"
-    print "This version has no means to handle smaller queries"
+    print ("Exception::query sequence is smaller than "+str(fragmentLength)+" residues")
+    print ("This version has no means to handle smaller queries")
     sys.exit()
 
 ##Create necessary directories
 if not os.path.exists(pdbDir): os.makedirs(pdbDir)
 if not os.path.exists(fLibDir): os.makedirs(fLibDir)
 if not os.path.exists(pdbDir) or not os.path.exists(fLibDir):
-	print "Can't create necessary directories"
+	print ("Can't create necessary directories")
 	sys.exit()
 
 ##open match file
@@ -147,13 +147,13 @@ iterations=len(inseq.seq)-fragmentLength+1 #number of sliding windows
 
 for i in range(1,iterations+1): 
     ##select subrange
-    print "window position:::"+str(i)
+    print ("window position:::"+str(i))
     rangeStart=i-1
     rangeEnd=i+fragmentLength-1
     subrange=str(inseq[rangeStart:rangeEnd].seq)
 
     fragment=open('fragment.fasta','w')
-    print "fragment subrange:::"+subrange
+    print ("fragment subrange:::"+subrange)
     fragment.write(subrange)
     fragment.close()
     ##submit PSI-BLAST
@@ -161,21 +161,21 @@ for i in range(1,iterations+1):
     exeline="psiblast -num_iterations 1 -word_size 2 -evalue "+str(EvalueThreshold)
     exeline+=" -outfmt '6 sseqid qstart qend sstart send qseq sseq length gaps bitscore evalue' -matrix BLOSUM62 -db "
     exeline+=database+" -query fragment.fasta"
-    print "executing:::"+exeline
+    print ("executing:::"+exeline)
     psiblastOut=os.popen(exeline).read()
     psiblastOut=psiblastOut.splitlines() #now an array
-    print "Number of searched PDBs:  ", len(psiblastOut)
-#   print psiblastOut
+    print ("Number of searched PDBs:  ", len(psiblastOut))
+#   print (psiblastOut)
 #   exit()
-#    print "PDB INSEQ-START INSEQ-END MATCH-START MATCH-END EVALUE"
+#    print ("PDB INSEQ-START INSEQ-END MATCH-START MATCH-END EVALUE")
     for line in psiblastOut:#[0:memoriesPerPosition]:
         this=line.split()
 	this.append(str(i))
-	print this
+	print (this)
 	# 0:sseqid 1:qlen 2:slen 3:qstart 4:qend 5:sstart 6:send 7:qseq 8:sseq 9:length 10:gaps 11:bitscore 12:evalue 13:window_index
         queryStart=int(this[1])+rangeStart  #+int(this[6])
         queryEnd  = rangeStart + int(this[2])
-        #print this #[1],str(queryStart),str(queryEnd),this[8],this[9],this[11]
+        #print (this #[1],str(queryStart),str(queryEnd),this[8],this[9],this[11])
 	this[1] = str(queryStart)
 	this[2] = str(queryEnd)
 
@@ -218,7 +218,7 @@ pdbparse=PDBParser(PERMISSIVE=1)
 
 #atomLine=re.compile('\AATOM')
 #Finding homologs
-print inseq.seq
+print (inseq.seq)
 fragment=open('fragment.fasta','w')
 fragment.write(str(inseq.seq))
 fragment.close()
@@ -239,7 +239,7 @@ for pdbfull in unique:
         os.system("nice gunzip pdb"+pdbID+".ent.gz; mv pdb"+pdbID+".ent "+pdbDir+pdbID.upper()+".pdb");
 
     if not os.path.isfile(pdbDir+pdbID.upper()+".pdb"):
-        print ":::Cannot build PDB for PDB ID, failed to download:"+pdbID.upper()
+        print (":::Cannot build PDB for PDB ID, failed to download:"+pdbID.upper())
 	failed_pdb[pdbID] = 1
 	
         
@@ -248,13 +248,13 @@ if brain_damage == 1:
     exeline="psiblast -num_iterations 1 -word_size 2 -evalue 0.005"
     exeline+=" -outfmt '6 sseqid slen bitscore score evalue' -matrix BLOSUM62 -db "
     exeline+=database+" -query fragment.fasta"
-    print "brain damamge, finding homologs"
-    print "executing::: "+exeline
+    print ("brain damamge, finding homologs")
+    print ("executing::: "+exeline)
     homoOut=os.popen(exeline).read()
     homoOut=homoOut.splitlines() #now an array
     for line in homoOut:
     	entries=line.split()
-	print entries
+	print (entries)
 	pdbfull = entries[0]
 	pdbID = pdbfull[0:4].lower()
 	homo[pdbID] = 1
@@ -270,7 +270,7 @@ Missing_pdb = {}
 for line in matchlines:
     iter+=1
     if not(iter==1):
-        print ":::here: match line:"+line.rstrip('\n')
+        print (":::here: match line:"+line.rstrip('\n'))
         entries=line.split()
 
 	windows_index_str = entries[11]
@@ -287,13 +287,13 @@ for line in matchlines:
 		continue
 	#ignore homologs
 	if brain_damage and  homo[pdbID]:
-		print pdbID, " is a homolog, discard"
+		print (pdbID, " is a homolog, discard")
 		continue
 	atoms_list = ('CA', 'CB')
 	residue_list = entries[6]  ##sseq
 	res_Start = int(entries[3])
 	res_End   = int(entries[4])
-	print "start: ", res_Start, "end: ", res_End
+	print ("start: ", res_Start, "end: ", res_End)
 
 	#check missing atoms
 	##have to check residue list, not residue index.
@@ -303,10 +303,10 @@ for line in matchlines:
 	        if os.path.isfile(pdbFile): 
 		    if not os.path.isfile(groFile) :
         	        Pdb2Gro(pdbFile, groFile, chainID.upper())
-        	    print ":::convert: "+pdbFile+" --> "+groFile
+        	    print (":::convert: "+pdbFile+" --> "+groFile)
 		    count[windows_index_str] += 1
             
-        	    print ":::here2: writing line to LAMWmatch\n"
+        	    print (":::here2: writing line to LAMWmatch\n")
         	    length=res_End - res_Start + 1  
 	            out=groFile+' '+entries[1]+' '
         	    out+=entries[3]+' '+str(length)+' '+str(weight)+"\n"
@@ -318,22 +318,22 @@ for line in matchlines:
 		    out1 += ' '+entries[1]+' '+entries[3]+' '+str(length)+' '+str(weight)+"\n"
 		    log_match.write(out1)
 		else:
-		    print pdbFile, "does not exist! Go figure..."
+		    print (pdbFile, "does not exist! Go figure...")
 	else:
 		Missing_pdb[pdbID] = 1
 		Missing_count += 1
 if brain_damage == 1:
   for line in homoOut:
     entries=line.split()
-    print "HOMOLOGS:::"
-    print entries
-print "memories per position that is fewer than expected:"  
+    print ("HOMOLOGS:::")
+    print (entries)
+print ("memories per position that is fewer than expected:")
 for i in count:
   if count[i] < N_mem:
-    print i, count[i]
+    print (i, count[i])
 
-#print "MemPerPosition: ", count
-print "Number of blasted PDB: ", len(failed_pdb)
-print "Number of failed downloaded PDB: ", sum(failed_pdb.values())
-print "Number of PDB with Missing atoms: ", len(Missing_pdb)
-print "Discarded fragments with Missing atoms: ", Missing_count 
+#print ("MemPerPosition: ", count)
+print ("Number of blasted PDB: ", len(failed_pdb))
+print ("Number of failed downloaded PDB: ", sum(failed_pdb.values()))
+print ("Number of PDB with Missing atoms: ", len(Missing_pdb))
+print ("Discarded fragments with Missing atoms: ", Missing_count)

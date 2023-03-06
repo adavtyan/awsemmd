@@ -39,7 +39,7 @@ class Atom:
         self.desc = desc
 
     def print_(self):
-        print self.atom_no, self.atom_name, self.res_no, self.res_name, self.x, self.y, self.z, self.desc
+        print (self.atom_no, self.atom_name, self.res_no, self.res_name, self.x, self.y, self.z, self.desc)
 
     def write_(self, f):
     	f.write( ("     "+str(self.res_no))[-5:] )
@@ -52,7 +52,7 @@ class Atom:
     	f.write("\n")
 
 if len(sys.argv)!=4 and len(sys.argv)!=3:
-    print "\n> Pdb2Gro.py PDB_Id Output_file [Chain]\n"
+    print ("\n> Pdb2Gro.py PDB_Id Output_file [Chain]\n")
     exit()
 
 from Bio.PDB.PDBParser import PDBParser

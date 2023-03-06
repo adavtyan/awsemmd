@@ -116,7 +116,7 @@ def vcross(v1, v2):
 	return [v1[1]*v2[2] - v1[2]*v2[1], v1[2]*v2[0] - v1[0]*v2[2], v1[0]*v2[1] - v1[1]*v2[0]]
 
 if len(sys.argv)!=4 and len(sys.argv)!=5:
-	print "\n" + sys.argv[0] + " lammps_Input pdb_Output pdbID.seq [snapshot]\n"
+	print ("\n" + sys.argv[0] + " lammps_Input pdb_Output pdbID.seq [snapshot]\n")
 	exit()
 
 lammps_file = sys.argv[1]
@@ -137,8 +137,8 @@ for line in fh.readlines():
   nres_tot += len(seq)
   nch += 1
 fh.close()
-print "Number of sequences:", nch
-print "Total length:", nres_tot
+print ("Number of sequences:", nch)
+print ("Total length:", nres_tot)
 
 ich = 1
 ch_map = {}
@@ -191,7 +191,7 @@ def convertToPDB():
     ires = ia.res_no
     resname = one2three(seqs_all[ires-1])
     if not ch_map.has_key(ires):
-      print "Error! atom list and sequance file size mismatch!\n"
+      print ("Error! atom list and sequance file size mismatch!\n")
       sys.exit()
     ch = ch_map[ires]
     atom = PDB_Atom(ia.No, PDB_type[ia.No_m], resname, ch, ires, ia.x, ia.y, ia.z, ia.ty)
@@ -222,13 +222,13 @@ def buildAllAtoms(build_terminal_atoms=True, build_bonds=False):
 	# Recovering N and Cp atoms except for termianl residues
 	for i in range(1, nres_tot):
 		if not Ca_atom_map.has_key(i):
-			print "Error! missing Ca atom in residue %d!\n" % i
+			print ("Error! missing Ca atom in residue %d!\n" % i)
 			sys.exit()
 		if not Ca_atom_map.has_key(i+1):
-			print "Error! missing Ca atom in residue %d!\n" % (i+1)
+			print ("Error! missing Ca atom in residue %d!\n" % (i+1))
 			sys.exit()
 		if not O_atom_map.has_key(i):
-			print "Error! missing O atom in residue %d!\n" % i
+			print ("Error! missing O atom in residue %d!\n" % i)
 			sys.exit()
 
 		if ch_map[i]==ch_map[i+1]:
@@ -344,21 +344,21 @@ def buildAllAtoms(build_terminal_atoms=True, build_bonds=False):
 	index = 1
 	for i in range(1, nres_tot+1):
 		if not Ca_atom_map.has_key(i):
-			print "Error! missing Ca atom in residue!\n" % i
+			print ("Error! missing Ca atom in residue!\n" % i)
 			sys.exit()
 		if not O_atom_map.has_key(i):
-			print "Error! missing O atom in residue!\n" % i
+			print ("Error! missing O atom in residue!\n" % i)
 			sys.exit()
 		if not Cb_atom_map.has_key(i):
-			print "Error! missing Cb or Hb atom in residue!\n" % i
+			print ("Error! missing Cb or Hb atom in residue!\n" % i)
 			sys.exit()
 		if not N_atom_map.has_key(i):
 			if build_terminal_atoms or (i>1 and ch_map[i]==ch_map[i-1]):
-				print "Error! missing N atom in residue!\n" % i
+				print ("Error! missing N atom in residue!\n" % i)
 				sys.exit()
 		if not Cp_atom_map.has_key(i):
 			if build_terminal_atoms or (i<nres_tot and ch_map[i]==ch_map[i+1]):
-				print "Error! missing Cp atom in residue!\n" % i
+				print ("Error! missing Cp atom in residue!\n" % i)
 				sys.exit()
 
 		add_atoms = []
@@ -455,7 +455,7 @@ if snapshot<0:
 					buildAllAtoms(b_terminal)
 					convertToPDB()
 					n_atoms = len(atoms2)
-					print_pdb()
+					print(_pdb())
 				step = int(l)
 				atoms = []
 				atoms2 = []
@@ -486,8 +486,8 @@ if snapshot<0:
 		buildAllAtoms(b_terminal, build_bonds=True)
 		convertToPDB()
 		n_atoms = len(atoms2)
-		print_pdb()
-		print_psf()
+		print(_pdb())
+		print(_psf())
 else:
 	for l in lfile:
 		l = l.strip()
@@ -522,8 +522,8 @@ else:
 		buildAllAtoms(b_terminal, build_bonds=True)
 		convertToPDB()
 		n_atoms = len(atoms2)
-		print_pdb()
-		print_psf()
+		print(_pdb())
+		print(_psf())
 
 lfile.close()
 out.close()

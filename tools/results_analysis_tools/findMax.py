@@ -15,5 +15,5 @@ for ia in a[st:]:
 		max = ia
 		imax = i
 	i = i + 1
-print max, imax+st
+print (max, imax+st)
 file.close()

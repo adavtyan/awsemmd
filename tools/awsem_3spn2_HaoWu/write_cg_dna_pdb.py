@@ -19,7 +19,7 @@
 import sys
 
 if len(sys.argv) != 4:
-    print "\n" + sys.argv[0] + " res_num crd_file pdb_file\n"
+    print ("\n" + sys.argv[0] + " res_num crd_file pdb_file\n")
     exit()
 
 res_num = int(sys.argv[1])

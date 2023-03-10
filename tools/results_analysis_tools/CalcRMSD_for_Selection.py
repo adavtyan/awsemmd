@@ -131,7 +131,7 @@ if sel:
 		i1 = int(ir[1])
 		il = int(ir[2])
 
-		if not residue_ranges.has_key(ch): residue_ranges[ch] = []
+		if not ch in residue_ranges: residue_ranges[ch] = []
 
 		for i in range(i1, il+1):
 			residue_ranges[ch].append(i)
@@ -182,7 +182,7 @@ for chain in chains:
 		is_regular_res = res.has_id('CA') and res.has_id('O')
 		res_id0 = res.get_id()[0]
 		res_id = res.get_id()[1]
-        	if (res_id0==' ' or res_id0=='H_MSE' or res_id0=='H_M3L') and is_regular_res:
+		if (res_id0==' ' or res_id0=='H_MSE' or res_id0=='H_M3L') and is_regular_res:
 			ca_atoms_pdb.append(res['CA'].get_coord())
 
 			# Fill include_res_map
@@ -190,7 +190,7 @@ for chain in chains:
 				inc = 1
 			else:
 				inc = 0
-				if residue_ranges.has_key(chain_id) and res_id in residue_ranges[chain_id]: inc = 1
+				if chain_id in residue_ranges and res_id in residue_ranges[chain_id]: inc = 1
 
 			include_res_map.append(inc)
 

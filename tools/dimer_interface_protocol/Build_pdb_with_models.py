@@ -163,7 +163,7 @@ def convertToPDB():
   for ia in atoms2:
     if ia.desc == 'N': ires = ires + 1
     resname = one2three(seqs_all[ires-1])
-    if not ch_map.has_key(ires):
+    if not ires in ch_map:
       print ("Error! atom list and sequance file size mismatch!\n")
       sys.exit()
     ch = ch_map[ires]

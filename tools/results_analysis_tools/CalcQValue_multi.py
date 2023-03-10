@@ -156,7 +156,7 @@ def computeQ():
 				dr = r - rn
 				if splitq: index = pdb_chain_id[ia]
 				else: index = 1
-				if not Q.has_key(index):
+				if not index in Q:
 					Q[index] = 0.0
 					norm[index] = 0
 				#change
@@ -180,7 +180,7 @@ for chain in chains:
 	for res in chain:
 		is_regular_res = res.has_id('CA') and res.has_id('O')
 		res_id = res.get_id()[0]
-	        if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
+		if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
 			ca_atoms_pdb.append(res['CA'].get_coord())
 			pdb_chain_id.append(ichain)
 

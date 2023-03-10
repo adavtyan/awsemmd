@@ -109,7 +109,7 @@ def computeQ(ca_atoms_pdb, ca_atoms_pdb2, pdb_chain_id, sigma_sq, splitq):
 				dr = r - rn
 				if splitq: index = pdb_chain_id[ia]
 				else: index = 1
-				if not Q.has_key(index):
+				if not index in Q:
 					Q[index] = 0.0
 					norm[index] = 0
 				Q[index] = Q[index] + exp(-dr*dr/(2*sigma_sq[ja-ia]))
@@ -153,7 +153,7 @@ def calcQ(pdb_file, pdb_file2, splitq=False):
 		for res in chain:
 			is_regular_res = res.has_id('CA') and res.has_id('O')
 			res_id = res.get_id()[0]
-	        	if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
+			if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
 				ca_atoms_pdb.append(res['CA'].get_coord())
 				pdb_chain_id.append(ichain)
 	#Same process for the second pdb file
@@ -162,13 +162,13 @@ def calcQ(pdb_file, pdb_file2, splitq=False):
 	#chain = chains[0]
 	ichain = 0
 	for chain in chains:
-        	ichain = ichain + 1
-        	for res in chain:
-        	        is_regular_res = res.has_id('CA') and res.has_id('O')
-                	res_id = res.get_id()[0]
-                	if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
-                        	ca_atoms_pdb2.append(res['CA'].get_coord())
-                        	pdb_chain_id2.append(ichain)
+		ichain = ichain + 1
+		for res in chain:
+			is_regular_res = res.has_id('CA') and res.has_id('O')
+			res_id = res.get_id()[0]
+			if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS' ) and is_regular_res:
+				ca_atoms_pdb2.append(res['CA'].get_coord())
+				pdb_chain_id2.append(ichain)
 
 	if len(ca_atoms_pdb) != len(ca_atoms_pdb2):
 		print ("Error: Pdb structures have different lengths!")

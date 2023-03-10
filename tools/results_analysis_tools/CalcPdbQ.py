@@ -152,7 +152,7 @@ def computeQ():
 				dr = r - rn
 				if splitq: index = pdb_chain_id[ia]
 				else: index = 1
-				if not Q.has_key(index):
+				if not index in Q:
 					Q[index] = 0.0
 					norm[index] = 0
 				Q[index] = Q[index] + exp(-dr*dr/(2*sigma_sq[ja-ia]))

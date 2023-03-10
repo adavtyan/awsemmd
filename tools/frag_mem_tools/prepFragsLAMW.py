@@ -44,18 +44,18 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 		if chain.get_id()==ch_name:
 			i = 0
 			for res in chain:
-		                res_index = res.get_id()[1]
-		                if (res_index < res_Start ):
-		                    continue
-		                if (res_index > res_End and i == 0 ):
-				   print ("Residue index shifted: ", res_index, "mismatch: ", res_Start)
-		                   return False
-		                if (res_index > res_End   ):
-		                    break
+				res_index = res.get_id()[1]
+				if (res_index < res_Start ):
+					continue
+				if (res_index > res_End and i == 0 ):
+					print ("Residue index shifted: ", res_index, "mismatch: ", res_Start)
+					return False
+				if (res_index > res_End):
+					break
 
-		                is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
+				is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 				res_id = res.get_id()[0]
-		                if not (res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L' or res_id=='H_CAS') or not is_regular_res :
+				if not (res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L' or res_id=='H_CAS') or not is_regular_res :
 					print ('Discard Fragment: Non-regular residue:', res.get_id()[0], 'at position', res_index,  'in pdb:', pdbID)
 					return False
 				res_name = res.get_resname()
@@ -76,21 +76,21 @@ def NoMissingAtoms(atom_list, residue_list, res_Start, pdbID, ch_name, pdbFile):
 					return False
 
 				i += 1
-			        
+
 				keys = {}
 				if res_name == 'GLY':  #GLY has no CB atoms  
 					keys['CB']=1
-			        for atom in res:
-			                atom_name = atom.get_name()
-			                for target_atom_name in atom_list:
-				               	if atom_name == target_atom_name:
-			                 	        keys[target_atom_name]=1
+				for atom in res:
+					atom_name = atom.get_name()
+					for target_atom_name in atom_list:
+						if atom_name == target_atom_name:
+							keys[target_atom_name]=1
 							#print ("matching:", atom_name)
 						if len(keys) == len(atom_list):
 							break;
-		                if len(keys) == len(atom_list):
+				if len(keys) == len(atom_list):
 				#	print ("matching res:", res_index)
-	        	        	keys_res[res_index] = 1 
+					keys_res[res_index] = 1 
 
 	if len(keys_res) == res_End - res_Start + 1:
 		return True

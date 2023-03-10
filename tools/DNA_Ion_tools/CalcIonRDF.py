@@ -101,7 +101,7 @@ def calc_rdfs():
 	N = len(atoms)
 	for i in range(N):
 		ity = atoms[i].type
-		if type_count.has_key(ity):
+		if ity in type_count:
 			type_count[ity] += 1
 		else:
 			type_count[ity] = 1
@@ -111,11 +111,11 @@ def calc_rdfs():
 			d = distance(i,j)
 			if d<=rmax:
 				bin = int(d/dr)
-				if not hist_map.has_key(ity):
+				if not ity in hist_map:
 					hist_map[ity] = {}
-				if not hist_map.has_key(jty):
+				if not jty in hist_map:
 					hist_map[jty] = {}
-				if not hist_map[ity].has_key(jty):
+				if not jty in hist_map[ity]:
 					hist_map[ity][jty] = nhist
 					hist_map[jty][ity] = nhist
 					hist_sums.append([0.0]*nbins)

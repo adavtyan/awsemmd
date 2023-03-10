@@ -86,7 +86,7 @@ for chain in chains:
 		for res in chain:
 			is_regular_res = res.has_id('N') and res.has_id('CA') and res.has_id('C')
 			res_id = res.get_id()[0]
-                        if (res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L' or res_id =='H_CAS') and is_regular_res:
+			if (res_id ==' ' or res_id =='H_MSE' or res_id =='H_M3L' or res_id =='H_CAS') and is_regular_res:
 				ires = ires + 1
 				res_name = res.get_resname()
 				residue_no = res.get_id()[1]

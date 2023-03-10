@@ -363,7 +363,7 @@ if snapshot<0:
 					buildAllAtoms()
 					convertToPDB()
 					n_atoms = len(atoms2)
-					print(_pdb(colorsnap))
+					print_pdb(colorsnap)
 				step = int(l)
 				atoms = []
 				atoms2 = []
@@ -394,9 +394,9 @@ if snapshot<0:
 		buildAllAtoms()
 		convertToPDB()
 		n_atoms = len(atoms2)
-		print(_pdb(colorsnap))
+		print_pdb(colorsnap)
 		buildBonds()
-		print(_psf())
+		print_psf()
 else:
 	for l in lfile:
 		l = l.strip()
@@ -432,11 +432,11 @@ else:
 		convertToPDB()
 		n_atoms = len(atoms2)
 		if numsnap == 1:
-			print(_pdb(0))
+			print_pdb(0)
 		else:
-			print(_pdb(snapshot))
+			print_pdb(snapshot)
 		buildBonds()
-		print(_psf())
+		print_psf()
 
 lfile.close()
 out.close()

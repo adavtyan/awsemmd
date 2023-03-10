@@ -509,7 +509,7 @@ if snapshot < 0:
                             dnaAtomList[i].z = ia.z
                         setDNAAtomIndex = True
 
-                    print(_pdb())
+                    print_pdb()
                 step = int(l)
                 atoms = []
                 atoms2 = []
@@ -567,8 +567,8 @@ if snapshot < 0:
                 dnaAtomList[i].z = ia.z
             setDNAAtomIndex = True
 
-        print(_pdb())
-        print(_psf())
+        print_pdb()
+        print_psf()
 
 #----------------------------------------------------------------------
 # snapshot selected: single snapshot
@@ -607,7 +607,7 @@ else:
                             dnaAtomList[i].z = ia.z
                         setDNAAtomIndex = True
 
-                    print(_pdb())
+                    print_pdb()
                 step = int(l)
             elif item == "NUMBER OF ATOMS":
                 n_atoms = int(l)
@@ -659,8 +659,8 @@ else:
                 dnaAtomList[i].z = ia.z
             setDNAAtomIndex = True
 
-        print(_pdb())
-        print(_psf())
+        print_pdb()
+        print_psf()
 
 lfile.close()
 out.close()

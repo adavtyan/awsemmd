@@ -315,7 +315,7 @@ if snapshot<0:
 					buildAllAtoms()
 					convertToPDB()
 					n_atoms = len(atoms2)
-					print(_pdb())
+					print_pdb()
 				step = int(l)
 				atoms = []
 				atoms2 = []
@@ -346,9 +346,9 @@ if snapshot<0:
 		buildAllAtoms()
 		convertToPDB()
 		n_atoms = len(atoms2)
-		print(_pdb())
+		print_pdb()
 		buildBonds()
-		print(_psf())
+		print_psf()
 else:
 	for l in lfile:
 		l = l.strip()
@@ -383,9 +383,9 @@ else:
 		buildAllAtoms()
 		convertToPDB()
 		n_atoms = len(atoms2)
-		print(_pdb())
+		print_pdb()
 		buildBonds()
-		print(_psf())
+		print_psf()
 
 lfile.close()
 out.write('END\n')

@@ -23,7 +23,7 @@ distancesCACA.columns = ['i', 'j', 'dist']
 distancesCBCB.columns = ['i', 'j', 'dist']
 
 #if you want to filter the contact prediction data, adjust the parameters below
-probability_column=5
+probability_column=6
 
 #make sure that there is a sequence file for the protein and the downloaded gremlin data in the proper directories
 f = open(sequence_file, "r")

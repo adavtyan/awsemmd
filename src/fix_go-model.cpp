@@ -48,18 +48,18 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
 	if (narg != 4) error->all(FLERR,"Illegal fix go-model command");
-	
+
 	efile = fopen("energyGO.log", "w");
-	
+
 	char eheader[] = "Step\tBond\tAngle\tDihedral\tContacts\tNative\tVTotal\n";
 	fprintf(efile, "%s", eheader);
-	
+
 	restart_global = 1;
 
 	char force_file_name[] = "forcesGO.dat";
 	fout = fopen(force_file_name,"w");
 	efout = fopen("epsilon.dat","w");
-	
+
 	scalar_flag = 1;
 	vector_flag = 1;
 	thermo_energy = 1;
@@ -71,7 +71,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	force_flag = 0;
 	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 	n = (int)(group->count(igroup)+1e-12);
-	
+
 	seed = time(NULL);
 //	seed = 1;
 
@@ -148,14 +148,14 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 			}
 		} else if (strcmp(varsection, "[Contacts]")==0) {
 			if (!lj_contacts_flag && !gaussian_contacts_flag) error->all(FLERR,"Conflict in definition of contact potential !!");
-		
+
 			//allocate_contact();
 			contacts_flag = 1;
 			print_log("Contacts flag on\n");
 			if(lj_contacts_flag){
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> isNative[i][j];
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) in >> sigma[i][j];
-				
+
 				for (i=0;i<n-4;++i) for (j=i;j<n-4;++j) sigma_sq[i][j] = sigma[i][j]*sigma[i][j];
 			} else { //gaussian_contacts_flag
 				for(k=0;k<n_basins;++k){
@@ -196,16 +196,16 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 		devA = w*sqrt(2*update->dt);
 		devB = xi*update->dt;
 		devC = (1 - xi*update->dt/2);
-	} else if (dev_type==DT_SIN) {	
+	} else if (dev_type==DT_SIN) {
 		devA = epsilon*sdivf/sqrt(0.5);
 		devB = 2*M_PI*update->dt/tcorr;
 		devC = M_PI*dev0;
-		
+
 		dev = devA*sin(devC);
 	} else if (dev_type==DT_CONST) {
 		dev = devA = epsilon*sdivf;
 	}
-	
+
 	x = atom->x;
 	f = atom->f;
 	image = atom->image;
@@ -214,7 +214,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	prd[2] = domain->zprd;
 	half_prd[0] = prd[0]/2;
 	half_prd[1] = prd[1]/2;
-	half_prd[2] = prd[2]/2; 
+	half_prd[2] = prd[2]/2;
 	periodicity = domain->periodicity;
 
 	Step = 0;
@@ -250,7 +250,7 @@ FixGoModel::~FixGoModel()
 
 		delete random;
 	}
-	
+
 	if (contacts_allocated) {
 		if(lj_contacts_flag){
 			for (int i=0;i<n-4;i++) {
@@ -314,7 +314,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 		for (int j = 0; j < nall; ++j) {
 			if (i==0 && res_tag[j]<=0)
 				error->all(FLERR,"Residue index must be positive in fix go-model");
-			
+
 			if ( (mask[j] & groupbit) && res_tag[j]>last ) {
 				if (res_tag[j]<min || min==-1) {
 					min = res_tag[j];
@@ -322,7 +322,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 				}
 			}
 		}
-		
+
 		if (min==-1) break;
 
 		alpha_carbons[nn] = jm;
@@ -340,7 +340,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 	// Checking sequance and marking residues
 	for (i = 0; i < nn; ++i) {
 		chain_no[i] = -1;
-	
+
 		if (lastResNo!=-1 && lastResNo!=res_no[i]-1) {
 			if (lastResType==LOCAL && res_no[i]!=n)
 				error->all(FLERR,"Missing neighbor atoms in fix go-model (code: 001)");
@@ -348,7 +348,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 				if (iLastLocal!=-1 && i-nMinNeighbours<=iLastLocal)
 					error->all(FLERR,"Missing neighbor atoms in fix go-model (code: 002)");
 			}
-			
+
 			iLastLocal = -1;
 			lastResNo = -1;
 			lastResType = NONE;
@@ -357,7 +357,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 
 		if (alpha_carbons[i]!=-1) {
 			chain_no[i] = mol_tag[alpha_carbons[i]];
-			
+
 			if (alpha_carbons[i]<nlocal) {
 				if ( lastResType==OFF || (lastResType==GHOST && nlastType<nMinNeighbours && nlastType!=res_no[i]-1) ) {
 					error->all(FLERR,"Missing neighbor atoms in fix go-model  (code: 003)");
@@ -399,13 +399,13 @@ void FixGoModel::allocate()
 	}
 
 	random = new RanPark(lmp,seed);
-	
+
 	allocated = true;
 }
 
 void FixGoModel::allocate_contact()
 {
-	if(lj_contacts_flag){	
+	if(lj_contacts_flag){
 		sigma = new double*[n-4];
 		sigma_sq = new double*[n-4];
 		isNative = new bool*[n-4];
@@ -487,7 +487,7 @@ inline double cross(double *a, double *b, int index)
 		case 2:
 			return a[0]*b[1] - a[1]*b[0];
 	}
-	
+
 	return 0;
 }
 
@@ -509,7 +509,7 @@ inline double FixGoModel::PeriodicityCorrection(double d, int i)
 	else return ( d > half_prd[i] ? d - prd[i] : (d < -half_prd[i] ? d + prd[i] : d) );
 }
 
-void FixGoModel::compute_bond(int i) 
+void FixGoModel::compute_bond(int i)
 {
 	int i_resno = res_no[i]-1;
 
@@ -523,7 +523,7 @@ void FixGoModel::compute_bond(int i)
 	r = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 	dr = r - r0[i_resno];
 	force = 2*epsilon*k_bonds*dr/r;
-	
+
 	energy[ET_BOND] += epsilon*k_bonds*dr*dr;
 
 	f[alpha_carbons[i+1]][0] -= dx[0]*force;
@@ -535,7 +535,7 @@ void FixGoModel::compute_bond(int i)
 	f[alpha_carbons[i]][2] -= -dx[2]*force;
 }
 
-void FixGoModel::compute_angle(int i) 
+void FixGoModel::compute_angle(int i)
 {
 	int i_resno = res_no[i]-1;
 
@@ -606,7 +606,7 @@ void FixGoModel::compute_dihedral(int i)
 	a[0] = xca[i+1][0] - xca[i][0];
 	a[1] = xca[i+1][1] - xca[i][1];
 	a[2] = xca[i+1][2] - xca[i][2];
-	
+
 	b[0] = xca[i+2][0] - xca[i+1][0];
 	b[1] = xca[i+2][1] - xca[i+1][1];
 	b[2] = xca[i+2][2] - xca[i+1][2];
@@ -620,25 +620,25 @@ void FixGoModel::compute_dihedral(int i)
 	adc = adotb(a, c);
 	b2 = adotb(b, b);
 	bm = sqrt(b2);
-	
+
 	bxa[0] = cross(b, a, 0);
 	bxa[1] = cross(b, a, 1);
 	bxa[2] = cross(b, a, 2);
-	
+
 	cxa[0] = cross(c, a, 0);
 	cxa[1] = cross(c, a, 1);
 	cxa[2] = cross(c, a, 2);
-	
+
 	cxb[0] = cross(c, b, 0);
 	cxb[1] = cross(c, b, 1);
 	cxb[2] = cross(c, b, 2);
-	
+
 	cdbxa = adotb(c, bxa);
-	
+
 	Y = -bm*cdbxa;
 	X = adb*bdc - b2*adc;
-	
-	phi = atan2(Y, X); 
+
+	phi = atan2(Y, X);
 
 	X2Y2 = (X*X + Y*Y);
 	dAngle_y = X/X2Y2;
@@ -649,7 +649,7 @@ void FixGoModel::compute_dihedral(int i)
 		y_slope[1][l] = dAngle_y*( b[l]*cdbxa/bm - bm*(cxb[l] + cxa[l]) );
 		y_slope[2][l] = dAngle_y*( -b[l]*cdbxa/bm + bm*(bxa[l] + cxa[l]) );
 		y_slope[3][l] = -dAngle_y*bm*bxa[l];
-	
+
 		h1 = b[l]*bdc - c[l]*b2;
 		h2 = a[l]*bdc - 2*b[l]*adc + c[l]*adb;
 		h3 = b[l]*adb - a[l]*b2;
@@ -657,8 +657,8 @@ void FixGoModel::compute_dihedral(int i)
 		x_slope[1][l] = dAngle_x*(h1 - h2);
 		x_slope[2][l] = dAngle_x*(h2 - h3);
 		x_slope[3][l] = dAngle_x*h3;
-	}	
-	for (j=0;j<2;j++) { 
+	}
+	for (j=0;j<2;j++) {
 		dphi = (2*j+1)*(phi - phi0[i_resno]);
 		V = epsilon*k_dihedrals[j]*(1-cos(dphi));
 
@@ -673,7 +673,7 @@ void FixGoModel::compute_dihedral(int i)
 			f[alpha_carbons[i+3]][l] -= force*(y_slope[3][l] + x_slope[3][l]);
 		}
 	}
-	
+
 }
 
 
@@ -686,7 +686,7 @@ void FixGoModel::compute_dihedral(int i)
 
     devA = w*sqrt(2*dt)
     devB = xi*dt
-    devC = (1 - xi*dt/2) 
+    devC = (1 - xi*dt/2)
 
     <dev(t)dev(t+dt)> = w^2/xi * Exp[-xi*dt]
 */
@@ -737,7 +737,7 @@ void FixGoModel::compute_contact(int i, int j)
 
 		V = contact_epsilon*(5*sgrinv12 - 6*sgrinv10);
 		force = -60*contact_epsilon*(sgrinv12 - sgrinv10)/rsq;
-		
+
 		energy[ET_NCONTS] += V;
 	} else {
 		V = epsilon2*sgrinv12;
@@ -745,7 +745,7 @@ void FixGoModel::compute_contact(int i, int j)
 	}
 
 	energy[ET_CONTACTS] += V;
-	
+
 	f[alpha_carbons[j]][0] -= force*dx[0];
 	f[alpha_carbons[j]][1] -= force*dx[1];
 	f[alpha_carbons[j]][2] -= force*dx[2];
@@ -777,7 +777,7 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 
 	//V == epsilon * {Product_k(1+V_k[k]) - 1}
 	R = pow( (rmin_cutoff/r) , 12); //rmin_cutoff = 4.0 A
-	
+
 	V = 1.0;
 	for(k=0; k<n_basins; ++k){
 		if(isNative_mb[k][i_resno][j_resno-4]){
@@ -813,12 +813,12 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 	}
 	force_tmp_sum *= 1.0 + R ;
 	force += force_tmp_sum ;
-	//fprintf(screen, "f_tmp_sum %f force %f eps %f r %f\n", force_tmp_sum, force, epsilon, r);	
+	//fprintf(screen, "f_tmp_sum %f force %f eps %f r %f\n", force_tmp_sum, force, epsilon, r);
 	force *= - epsilon / r ;
-	//fprintf(screen, "f_tmp_sum %f force %f\n", force_tmp_sum, force);	
-	
+	//fprintf(screen, "f_tmp_sum %f force %f\n", force_tmp_sum, force);
+
 	f[alpha_carbons[j]][0] -= force*dx[0];
-	//fprintf(screen, "f_tmp_sum %f force_final %f\n", force_tmp_sum, force*dx[0]);	
+	//fprintf(screen, "f_tmp_sum %f force_final %f\n", force_tmp_sum, force*dx[0]);
 	f[alpha_carbons[j]][1] -= force*dx[1];
 	f[alpha_carbons[j]][2] -= force*dx[2];
 
@@ -830,12 +830,12 @@ void FixGoModel::compute_contact_gaussian(int i, int j)
 void FixGoModel::out_xyz_and_force(int coord)
 {
 //	out.precision(12);
-	
+
 	fprintf(fout, "%d\n", Step);
 	fprintf(fout, "%d%d%d%d\n", bonds_flag, angles_flag, dihedrals_flag, contacts_flag);
 	fprintf(fout, "Number of atoms %d\n", n);
 
-	int index;	
+	int index;
 
 	if (coord==1) {
 		fprintf(fout, "rca = {");
@@ -848,7 +848,7 @@ void FixGoModel::out_xyz_and_force(int coord)
 		}
 		fprintf(fout, "};\n\n\n");
 	}
-	
+
 
 	fprintf(fout, "fca = {");
 	for (int i=0;i<nn;i++) {
@@ -869,7 +869,7 @@ void FixGoModel::compute_goModel()
 	Step++;
 
 	if(atom->nlocal==0) return;
-	
+
 //	int me,nprocs;
 //  	MPI_Comm_rank(world,&me);
 //  	MPI_Comm_size(world,&nprocs);
@@ -882,7 +882,7 @@ void FixGoModel::compute_goModel()
 
 	int i, j, xbox, ybox, zbox;
 	int i_resno, j_resno;
-	
+
 	for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
 	force_flag = 0;
 
@@ -904,9 +904,9 @@ void FixGoModel::compute_goModel()
 			} else xca[i][2] = x[alpha_carbons[i]][2];
 		}
 	}
-	
+
 //	seed = random->state();
-	
+
 /*	if (contacts_dev_flag)
 		compute_contact_deviation();
 
@@ -924,17 +924,17 @@ void FixGoModel::compute_goModel()
 
 		for (j=i+1;contacts_flag && j<nn;++j) {
 			if (res_info[j]!=LOCAL && res_info[j]!=GHOST) continue;
-			
+
 			if (contacts_flag) {
 				if (lj_contacts_flag && res_no[i]<res_no[j]-3)
 					compute_contact(i, j);
-					
+
 				if (gaussian_contacts_flag && res_no[i]<res_no[j]-3)
 					compute_contact_gaussian(i, j);
 			}
         	}
 	}*/
-	
+
 /*	double tmp, tmp2;
 	double tmp_time;
 	int me,nprocs;
@@ -944,7 +944,7 @@ void FixGoModel::compute_goModel()
 		fprintf(fout, "At Start %d:\n", nn);
 		out_xyz_and_force(1);
 	}
-	
+
 	if (contacts_dev_flag)
 		compute_contact_deviation();
 
@@ -983,7 +983,7 @@ void FixGoModel::compute_goModel()
 		fprintf(fout, "Dihedrals_Energy: %.12f\n", energy[ET_DIHEDRAL]-tmp);
 		out_xyz_and_force();
 	}
-	
+
 //	fprintf(efout, "%.15f\n", epsilon + dev);
 
 	tmp = energy[ET_CONTACTS];
@@ -994,7 +994,7 @@ void FixGoModel::compute_goModel()
 			if (res_info[i]==LOCAL && (res_info[j]==LOCAL || res_info[j]==GHOST) && res_no[i]<res_no[j]-3){
 				if (lj_contacts_flag)
 					compute_contact(i, j);
-				
+
 				if (gaussian_contacts_flag)
 					compute_contact_gaussian(i, j);
 			}
@@ -1015,18 +1015,18 @@ void FixGoModel::compute_goModel()
 		out_xyz_and_force(1);
 		fprintf(fout, "\n\n\n");
 	}
-	
+
 	*/
-		
-	
+
+
 	if (contacts_dev_flag)
 		compute_contact_deviation();
-		
+
 //	fprintf(efout, "%f\n", dev);
-	
+
 	for (i=0;i<nn;++i) {
 		if (res_info[i]!=LOCAL) continue;
-		
+
 		if (bonds_flag && res_no[i]<=n-1)
 			compute_bond(i);
 
@@ -1038,20 +1038,20 @@ void FixGoModel::compute_goModel()
 
 	    for (j=i+1;contacts_flag && j<nn;++j) {
 			if (res_info[j]!=LOCAL && res_info[j]!=GHOST) continue;
-			
+
 			if (res_no[i]<res_no[j]-3){
 				if (lj_contacts_flag)
 					compute_contact(i, j);
-				
+
 				if (gaussian_contacts_flag)
 					compute_contact_gaussian(i, j);
 			}
 		}
 	}
-	
+
 	// Last term is the energy of native contacts, already included in contacts energy
 	for (int i=1;i<nEnergyTerms-1;++i) energy[ET_TOTAL] += energy[i];
-	
+
 	if (ntimestep%output->thermo_every==0) {
 		fprintf(efile, "%d ", ntimestep);
 		for (int i=1;i<nEnergyTerms;++i) fprintf(efile, "\t%.6f", energy[i]);
@@ -1107,9 +1107,9 @@ double FixGoModel::compute_vector(int nv)
 		if (contacts_dev_flag) return epsilon + dev;
 		else return epsilon;
 	}
-	
+
 	// Energy output
-	
+
 	// only sum across procs one time
 	if (force_flag == 0) {
 		MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
@@ -1158,7 +1158,7 @@ void FixGoModel::write_restart(FILE *fp)
 ------------------------------------------------------------------------- */
 
 void FixGoModel::restart(char *buf)
-{	
+{
   int n = 0;
   double *list = (double *) buf;
   int r_dev_type = DT_NONE;
@@ -1166,7 +1166,7 @@ void FixGoModel::restart(char *buf)
 
   r_dev_type = static_cast<int> (list[n++]);
   seed = static_cast<int> (list[n++]);
-  
+
   if (r_dev_type==DT_CORR || r_dev_type==DT_SIN) {
     r_sdivf = static_cast<double> (list[n++]);
     r_tcorr = static_cast<double> (list[n++]);
@@ -1176,7 +1176,7 @@ void FixGoModel::restart(char *buf)
     r_sdivf = static_cast<double> (list[n++]);
     r_dev = static_cast<double> (list[n++]);
   }
-  
+
   if (contacts_dev_flag && r_dev_type==dev_type) {
   	if (r_dev_type==DT_CORR) {
     	dev = r_dev;
@@ -1186,7 +1186,7 @@ void FixGoModel::restart(char *buf)
   	} else if (r_dev_type==DT_CONST) {
   		// Nothing need to be done
   	}
-  	
+
   	random->reset(seed);
   }
 }

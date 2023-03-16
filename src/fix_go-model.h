@@ -58,7 +58,7 @@ private:
   double **x, **f;
   double **xca;
   double prd[3], half_prd[3];
-  double rand;  
+  double rand;
 
    //Gaussian contacts, for multi-basin
   int n_basins;
@@ -69,16 +69,16 @@ private:
 
   bool allocated, contacts_allocated;
   bool bonds_flag, angles_flag, dihedrals_flag, contacts_flag, contacts_dev_flag, lj_contacts_flag, gaussian_contacts_flag;
-  bool **isNative, ***isNative_mb; 
+  bool **isNative, ***isNative_mb;
   int dev_type;
 
   RanPark *random;
 
   enum ResInfo{NONE=0, LOCAL, GHOST, OFF};
-  
+
   double energy[5], energy_all[5];
   enum EnergyTerms{ET_TOTAL=0, ET_BOND, ET_ANGLE, ET_DIHEDRAL, ET_CONTACTS, ET_NCONTS, nEnergyTerms};
-  
+
   enum ContactsDevType{DT_NONE=0, DT_CORR, DT_SIN, DT_CONST};
 
 private:

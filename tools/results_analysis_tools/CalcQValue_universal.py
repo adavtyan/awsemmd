@@ -102,6 +102,8 @@ parser.add_argument('--cutoff', '-C', action='store', type=float,
 										help='set cutoff for monomer and complex Q calculations. By default no cutoff is used')
 parser.add_argument('--sigma_exp', '-E', action='store', type=float, default=0.15,
 										help='set sigma exponent for monomer and complex calculations')
+parser.add_argument('--min_sep', '-M', action='store', type=int, default=3,
+										help='minimal sequnce seperation for monomer and complex Q calculations')
 parser.add_argument('--interface_sigma', '-S', action='store', type=float, default=3.0,
 										help='set interchain sigma value')
 parser.add_argument('--interface_cutoff', '-IC', action='store', type=float, default=10.0,
@@ -118,6 +120,8 @@ output_file = args.output
 sigma_exp = args.sigma_exp
 sigma_interchain = args.interface_sigma
 sigma_sq_interchain = sigma_interchain*sigma_interchain
+
+min_sep = args.min_sep
 
 b_cutoff = False
 cutoff = 0.0
@@ -161,7 +165,10 @@ def computeQ():
 	norm = {'Complex' : 0.0}
 	N = len(ca_atoms)
 	for ia in range(0, N):
-		for ja in range(ia+3, N):
+		for ja in range(ia+1, N):
+			if pdb_chain_id[ia]==pdb_chain_id[ja] and ja-ia<min_sep:
+				continue
+
 			rn = vabs(vector(ca_atoms_pdb[ia], ca_atoms_pdb[ja]))
 			if b_max_cutoff and rn>max_cutoff:
 				continue

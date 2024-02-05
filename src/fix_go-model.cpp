@@ -63,6 +63,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	scalar_flag = 1;
 	vector_flag = 1;
 	thermo_energy = 1;
+	//energy_global_flag = 1;
 	size_vector = nEnergyTerms;
 	global_freq = 1;
 	extscalar = 1;
@@ -301,8 +302,8 @@ inline void FixGoModel::Construct_Computational_Arrays()
 	int *mask = atom->mask;
 	int nlocal = atom->nlocal;
 	int nall = atom->nlocal + atom->nghost;
-	int *mol_tag = atom->molecule;
-	int *res_tag = avec->residue;
+	tagint *mol_tag = atom->molecule;
+	tagint *res_tag = avec->residue;
 
 	int i, j, js;
 

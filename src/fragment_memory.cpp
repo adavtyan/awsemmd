@@ -35,7 +35,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
 {
   int i, j, nAtoms, ires, iatom, nca=0, ncb=0;
   double x, y, z, **xca, **xcb;
-  char buff[101], resty[4], atomty[5];
+  char buff[201], resty[6], atomty[6], ires_str[6], iatom_str[6];
 
   FILE * file;
 
@@ -70,41 +70,42 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
   nca = ncb = 0;
   file = fopen(fname,"r");
   if (!file) { error = ERR_FILE; return; }
-  fgets(buff, 100, file);
+  fgets(buff, 200, file);
   fscanf(file, "%d",&nAtoms);
+fgets(buff, 200, file);
 
-  // -------------------------------------------------------------------------
-  // Commented by HaoWu
-  // This will assign coordinates of wrong chain when reading multi-chain gro file
+    // This will assign coordinates of wrong chain when reading multi-chain gro file
   // Not applicable with AMH-Go model
 
-  // for (i=0;i<nAtoms;++i) {
-  //   fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
-  //   if (ires>fpos && ires<=fpos+len) {
-  //     ires -= fpos + 1;
-  //     x *= 10; y *= 10; z *= 10;
-  //     if (strcmp(atomty,"CA")==0) {
-  //       if (ires>=len || nca>=len) { error = ERR_ATOM_COUNT; return; }
-  //       se[ires] = ThreeLetterToOne(resty);
-  //       if (se[ires]=='-') { error = ERR_RES; return; }
-  //       xca[ires][0] = x;
-  //       xca[ires][1] = y;
-  //       xca[ires][2] = z;
-  //       nca++;
-  //     }
-  //     if (strcmp(atomty,"CB")==0) {
-  //       if (ires>=len || ncb>=len) { error = ERR_ATOM_COUNT; return; }
-  //       xcb[ires][0] = x;
-  //       xcb[ires][1] = y;
-  //       xcb[ires][2] = z;
-  //       ncb++;
-  //     }
-  //   }
-  // }
-  // -------------------------------------------------------------------------
+  for (i=0;i<nAtoms;++i) {
+     fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
+
+     if (ires>fpos+len) break;
+
+     if (ires>fpos && ires<=fpos+len) {
+  ires -= fpos + 1;
+  x *= 10; y *= 10; z *= 10;
+  if (strcmp(atomty,"CA")==0) {
+  if (ires>=len || nca>=len) { error = ERR_ATOM_COUNT; return; }
+  se[ires] = ThreeLetterToOne(resty);
+  if (se[ires]=='-') { error = ERR_RES; return; }
+  xca[ires][0] = x;
+  xca[ires][1] = y;
+  xca[ires][2] = z;
+  nca++;
+  }
+       if (strcmp(atomty,"CB")==0) {
+  if (ires>=len || ncb>=len) { error = ERR_ATOM_COUNT; return; }
+  xcb[ires][0] = x;
+         xcb[ires][1] = y;
+         xcb[ires][2] = z;
+         ncb++;
+       }
+     }
+   }
 
   // HaoWu copy from BinZhang's version, reads multi-chain gro file correctly
-  int count=-1;
+  /*  int count=-1;
   int old_ires=-9999;
   for (i=0;i<nAtoms;++i) {
     fscanf(file, "%d %s %s %d %lf %lf %lf",&ires,resty,atomty,&iatom,&x,&y,&z);
@@ -138,7 +139,7 @@ Fragment_Memory::Fragment_Memory(int p, int pf, int l, double w, char *fname, bo
         ncb++;
       }
     }
-  }
+  }*/
 
   fclose(file);
 

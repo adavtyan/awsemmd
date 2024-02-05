@@ -116,6 +116,7 @@ public:
   double **r_nativeCACA;
   double **r_nativeCBCB;
   double **r_nativeCACB;
+  double amh_go_pl_cutoff;
 
   // Fragment Memory parameters
   double k_frag_mem;
@@ -166,6 +167,13 @@ public:
   int tb_size, tb_nbrs;
   double tb_rmin, tb_rmax, tb_dr;
   int fm_use_table_flag, fm_read_table_flag;
+
+  // Contact Restraints parameters
+  double k_cont_rest, cr_sigma, cr_sigma_sq_inv;
+  double cr_glob_cutoff_sq, cr_dr_cutoff;
+  char cr_file[100];
+  int *cr_map_n;
+  ContactRestraintsPar **cr_map;
 
   // Vector Fragment Memory
   double k_vec_frag_mem;
@@ -262,8 +270,6 @@ public:
   double *loc_helix_ro;
   double *water_ro;
   double *helix_ro;
-//  double **loc_water_xi;
-//  double **water_xi;
   double *loc_water_xi;
   double *water_xi;
   double *water_sigma_h;
@@ -295,7 +301,7 @@ public:
   double prd[3], half_prd[3];
   int *periodicity;
   bool abc_flag, chain_flag, shake_flag, chi_flag, rama_flag, rama_p_flag, excluded_flag, p_excluded_flag, r6_excluded_flag;
-  bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag;
+  bool ssweight_flag, dssp_hdrgn_flag, p_ap_flag, water_flag, burial_flag, helix_flag, amh_go_flag, frag_mem_flag, ssb_flag, cont_rest_flag;
   bool phosph_flag;
   bool vec_frag_mem_flag;
   bool amylometer_flag;
@@ -312,6 +318,7 @@ public:
   bool shuffler_flag;
   bool mutate_sequence_flag;
   bool monte_carlo_seq_opt_flag;
+  double pair_list_cutoff;
 
   enum Atoms{CA0 = 0, CA1, CA2, O0, O1, nAtoms};
   enum Angles{PHI = 0, PSI, nAngles};
@@ -320,9 +327,9 @@ public:
   char *se; // Protein sequance
   int nch, ch_len[1000], ch_pos[1000];
 
-  double energy[17], energy_all[17];
+  double energy[18], energy_all[18];
   enum EnergyTerms{ET_TOTAL=0, ET_CHAIN, ET_SHAKE, ET_CHI, ET_RAMA, ET_VEXCLUDED, ET_DSSP, ET_PAP,
-		   ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_MEMB, ET_SSB, ET_DH, nEnergyTerms};
+		   ET_WATER, ET_BURIAL, ET_HELIX, ET_AMHGO, ET_FRAGMEM, ET_VFRAGMEM, ET_CONT_REST, ET_MEMB, ET_SSB, ET_DH, nEnergyTerms};
 
   double ctime[30], previous_time;
   enum ComputeTime{TIME_CHAIN=0, TIME_SHAKE, TIME_CHI, TIME_RAMA, TIME_VEXCLUDED, TIME_DSSP, TIME_PAP,
@@ -336,6 +343,8 @@ public:
   void compute_shake(int i);
   void compute_chi_potential(int i);
   void compute_rama_potential(int i);
+  void compute_rama_force(int i, double *force1);
+  void read_contact_restraints_file();
   void compute_excluded_volume();
   void compute_p_degree_excluded_volume();
   void compute_r6_excluded_volume();
@@ -362,6 +371,7 @@ public:
   void read_amylometer_sequences(char *amylometer_sequence_file, int amylometer_nmer_size, int amylometer_mode);
   void compute_membrane_potential(int i);
   void compute_DebyeHuckel_Interaction(int i, int j);
+  double compute_contact_restraints_potential(int ires, int jres, double rsq);
 
   // Tertiary Frustratometer Functions
   void compute_tert_frust();
@@ -433,6 +443,8 @@ public:
   inline double anti_one(int res);
   inline double get_water_gamma(int i_resno, int j_resno, int i_well, int ires_type, int jres_type, int local_dens);
   inline double get_burial_gamma(int i_resno, int irestype, int local_dens);
+  inline int cr_contact_search(int i1, int i2);
+  double calc_exp_helix_cutoff();
 
   inline void print_log(const char *line);
   void final_log_output();
@@ -442,6 +454,7 @@ public:
   char *rtrim(char *s);
   char *trim(char *s);
   inline bool file_exists (const char *name);
+static int cmp_cr_map_i2(const void *a, const void *b);
 
   inline void timerBegin();
   inline void timerEnd(int which);
@@ -450,9 +463,7 @@ public:
   cR<double, FixBackbone> *R;
   cWell<double, FixBackbone> *well;
   cWell<double, FixBackbone> *helix_well;
-  cWell<double, FixBackbone> *wellp;
-  cWell<double, FixBackbone> *helix_wellp;
-
+  
   WPV water_par;
   WPV helix_par;
 

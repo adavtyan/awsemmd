@@ -51,6 +51,32 @@ typedef struct TBV {
   }
 } _TBV;
 
+typedef struct RamaPar {
+  double w;
+  double phiw, psiw;
+  double phi0, psi0;
+  RamaPar() : w(0.0), phiw(0.0), psiw(0.0), phi0(0.0), psi0(0.0) {}
+  RamaPar(double ww, double phw, double ph0, double psw, double ps0): 
+  		 w(ww), phiw(phw), psiw(psw), phi0(ph0), psi0(ps0) {}
+  RamaPar &operator = (const RamaPar &x) {
+	w=x.w; phiw = x.phiw; psiw = x.psiw; phi0 = x.phi0; psi0 = x.psi0;
+	
+	return *this;
+  }
+};
+typedef struct ContactRestraintsPar {
+  int i1, i2;
+  double w, r0;
+  ContactRestraintsPar() : i1(-1), i2(-1), w(0.0), r0(0.0) {}
+  ContactRestraintsPar(int j1, int j2, double ww, double rr0): 
+  		 i1(j1), i2(j2), w(ww), r0(rr0) {}
+  ContactRestraintsPar &operator = (const ContactRestraintsPar &x) {
+	i1=x.i1; i2=x.i2; w=x.w; r0 = x.r0;
+	
+	return *this;
+  }
+};
+
 //=============================================================================================//
 
 template <typename T, typename U>

@@ -11,7 +11,7 @@ boundary s s s
 
 # neighbor skin and pair list update delay
 # Adjust depending on terms included and parameters
-neighbor	8 bin
+neighbor	2 bin
 neigh_modify	delay 5
 
 atom_modify sort 0 0.0

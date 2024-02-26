@@ -79,7 +79,7 @@ ComputeTotalcontacts::~ComputeTotalcontacts()
 
 void ComputeTotalcontacts::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+  avec = dynamic_cast<AtomVecAWSEM*>(atom->style_match("awsemmd"));
   if (!avec) error->all(FLERR,"Compute totalcontacts requires atom style awsemmd");
 
   // check to make sure tags are enabled
@@ -101,7 +101,7 @@ double ComputeTotalcontacts::compute_scalar()
   double **x = atom->x; // atom positions
   int *mask = atom->mask; // atom mask (?)
   int *tag = atom->tag; // atom index
-  int *residue = avec->residue; // atom's residue index
+  int *residue = atom->residue; // atom's residue index
   int nlocal = atom->nlocal; // number of atoms on this processor
   int nall = atom->nlocal + atom->nghost; // total number of atoms
   

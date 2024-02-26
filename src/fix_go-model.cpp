@@ -26,6 +26,7 @@ Last Update: 03/23/2011
 
 #include <fstream>
 #include <time.h>
+#include <cmath>
 
 using std::ifstream;
 
@@ -38,7 +39,7 @@ using namespace FixConst;
 // {"A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"};
 //int se_map[] = {0, 0, 4, 3, 6, 13, 7, 8, 9, 0, 11, 10, 12, 2, 0, 14, 5, 1, 15, 16, 0, 19, 17, 0, 18, 0};
 
-inline void FixGoModel::print_log(char *line)
+inline void FixGoModel::print_log(const char *line)
 {
   if (screen) fprintf(screen, line);
   if (logfile) fprintf(logfile, line);
@@ -224,7 +225,7 @@ FixGoModel::FixGoModel(LAMMPS *lmp, int narg, char **arg) :
 	in_rs >> sStep >> eStep;
 	in_rs.close();
 
-	avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+	avec = dynamic_cast<AtomVecAWSEM*>(atom->style_match("awsemmd"));
 	if (!avec) error->all(FLERR,"Fix gomodel requires atom style awsemmd");
 
 	Construct_Computational_Arrays();
@@ -303,7 +304,7 @@ inline void FixGoModel::Construct_Computational_Arrays()
 	int nlocal = atom->nlocal;
 	int nall = atom->nlocal + atom->nghost;
 	tagint *mol_tag = atom->molecule;
-	tagint *res_tag = avec->residue;
+	tagint *res_tag = atom->residue;
 
 	int i, j, js;
 
@@ -447,20 +448,20 @@ int FixGoModel::setmask()
 
 void FixGoModel::init()
 {
-	if (strstr(update->integrate_style,"respa"))
-		nlevels_respa = ((Respa *) update->integrate)->nlevels;
+	if (utils::strmatch(update->integrate_style,"^respa"))
+		nlevels_respa = (dynamic_cast<Respa *>( update->integrate))->nlevels;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixGoModel::setup(int vflag)
 {
-	if (strstr(update->integrate_style,"verlet"))
+	if (utils::strmatch(update->integrate_style,"^verlet"))
 		post_force(vflag);
 	else {
-		((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
+		(dynamic_cast<Respa *>( update->integrate))->copy_flevel_f(nlevels_respa-1);
 		post_force_respa(vflag,nlevels_respa-1,0);
-		((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
+		(dynamic_cast<Respa *>( update->integrate))->copy_f_flevel(nlevels_respa-1);
 	}
 }
 
@@ -492,17 +493,6 @@ inline double cross(double *a, double *b, int index)
 	return 0;
 }
 
-
-inline double atan2(double y, double x)
-{
-	if (x==0) {
-		if (y>0) return M_PI_2;
-		else if (y<0) return -M_PI_2;
-		else return NULL;
-	} else {
-		return atan(y/x) + (x>0 ? 0 : (y>=0 ? M_PI : -M_PI) );
-	}
-}
 
 inline double FixGoModel::PeriodicityCorrection(double d, int i)
 {

@@ -9,9 +9,9 @@ Last Update: 08/18/2011
 ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
-
+// clang-format off
 ComputeStyle(qonuchic,ComputeQOnuchic)
-
+// clang-format on
 #else
 
 #ifndef LMP_COMPUTE_QONUCHIC_H

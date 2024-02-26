@@ -33,6 +33,7 @@
 #include "timer.h"
 #include <fstream>
 #include <time.h>
+#include <cmath>
 
 using std::ifstream;
 
@@ -504,7 +505,7 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   k_dssp *= epsilon;
   k_global_P_AP *= epsilon;
   k_amh_go *= epsilon;
-k_cont_rest *= epsilon;
+  k_cont_rest *= epsilon;
 
   for (int j=0;j<n_rama_par;j++) w[j] *= k_rama;
   for (int j=0;j<n_rama_p_par;j++) w[j+i_rp] *= k_rama;
@@ -721,7 +722,7 @@ if (in_brg.eof()) error->all(FLERR,"Burial potential burial_gamma.dat file forma
           in_rnativeCBCB >> r_nativeCBCB[i][j];
           in_rnativeCACB >> r_nativeCACB[i][j];
         }
-if (in_rnativeCACA.eof() || in_rnativeCBCB.eof() || in_rnativeCACB.eof()) error->all(FLERR,"go_rnative*.dat file format error");
+    if (in_rnativeCACA.eof() || in_rnativeCBCB.eof() || in_rnativeCACB.eof()) error->all(FLERR,"go_rnative*.dat file format error");
       }
       in_rnativeCACA.close();
       in_rnativeCBCB.close();
@@ -1571,7 +1572,7 @@ inline void FixBackbone::Construct_Computational_Arrays()
   int nlocal = atom->nlocal;
   int nall = atom->nlocal + atom->nghost;
   tagint *mol_tag = atom->molecule;
-  tagint *res_tag = avec->residue;
+  tagint *res_tag = atom->residue;
 
   int i;
   for (i=0; i<n; ++i){
@@ -1774,30 +1775,20 @@ int FixBackbone::setmask()
 
 void FixBackbone::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+  avec = dynamic_cast<AtomVecAWSEM*>(atom->style_match("awsemmd"));
   if (!avec) error->all(FLERR,"Fix backbone requires atom style awsemmd");
 
-  if (strstr(update->integrate_style,"respa"))
-    nlevels_respa = ((Respa *) update->integrate)->nlevels;
+  if (utils::strmatch(update->integrate_style,"^respa"))
+    nlevels_respa = (dynamic_cast<Respa *>( update->integrate))->nlevels;
 
-  int irequest = neighbor->request((void *) this);
-  neighbor->requests[irequest]->id = 1;
-  neighbor->requests[irequest]->pair = 0;
-  neighbor->requests[irequest]->fix = 1;
-  neighbor->requests[irequest]->half = 1;
-  neighbor->requests[irequest]->full = 0;
-  neighbor->requests[irequest]->cut = 1;
-  neighbor->requests[irequest]->cutoff = pair_list_cutoff;
+  auto req = neighbor->add_request(this, NeighConst::REQ_DEFAULT);
+  req->set_id(1);
+  req->set_cutoff(pair_list_cutoff);
 
   if (amh_go_flag) {
-    int irequest_full = neighbor->request((void *) this);
-    neighbor->requests[irequest_full]->id = 2;
-    neighbor->requests[irequest_full]->pair = 0;
-    neighbor->requests[irequest_full]->fix = 1;
-    neighbor->requests[irequest_full]->half = 0;
-    neighbor->requests[irequest_full]->full = 1;
-    neighbor->requests[irequest_full]->cut = 1;
-    neighbor->requests[irequest_full]->cutoff = pair_list_cutoff;
+  auto reqfull = neighbor->add_request(this, NeighConst::REQ_FULL);
+  reqfull->set_id(2);
+  reqfull->set_cutoff(pair_list_cutoff);
   }
 
   double cutghost;            // as computed by Neighbor and Comm
@@ -1822,12 +1813,12 @@ void FixBackbone::init_list(int id, NeighList *ptr)
 
 void FixBackbone::setup(int vflag)
 {
-  if (strstr(update->integrate_style,"verlet"))
+  if (utils::strmatch(update->integrate_style,"^verlet"))
     pre_force(vflag);
   else {
-    ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
+    (dynamic_cast<Respa *>( update->integrate))->copy_flevel_f(nlevels_respa-1);
     pre_force_respa(vflag,nlevels_respa-1,0);
-    ((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
+    (dynamic_cast<Respa *>( update->integrate))->copy_f_flevel(nlevels_respa-1);
   }
 }
 
@@ -1900,17 +1891,6 @@ inline double cross(double *a, double *b, int index)
   }
 
   return 0;
-}
-
-inline double atan2(double y, double x)
-{
-  if (x==0) {
-    if (y>0) return M_PI_2;
-    else if (y<0) return -M_PI_2;
-    else return NULL;
-  } else {
-    return atan(y/x) + (x>0 ? 0 : (y>=0 ? M_PI : -M_PI) );
-  }
 }
 
 inline double FixBackbone::PeriodicityCorrection(double d, int i)
@@ -2062,7 +2042,7 @@ void FixBackbone::compute_chain_potential(int i)
   int im1_resno;
 
   // N(i) - Cb(i)
-  tagint *res_tag = avec->residue;
+  tagint *res_tag = atom->residue;
   if (!isFirst(i) && se[i_resno]!='G') {
     im1 = res_no_l[i_resno-1];
     im1_resno = res_no[im1]-1;
@@ -3869,7 +3849,7 @@ void FixBackbone::compute_amh_go_model()
   // loop over neighbors of my atoms
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-    ires = avec->residue[i];
+    ires = atom->residue[i];
     imol = atom->molecule[i];
     ires_type = se_map[se[ires-1]-'A'];
 
@@ -3893,7 +3873,7 @@ void FixBackbone::compute_amh_go_model()
       Ei = 0.0;
       for (jj = 0; jj < jnum; jj++) {
         j = jlist[jj];
-        jres = avec->residue[j];
+        jres = atom->residue[j];
         jmol = atom->molecule[j];
         jres_type = se_map[se[jres-1]-'A'];
 
@@ -5235,6 +5215,7 @@ double FixBackbone::compute_native_ixn(double rij, int i_resno, int j_resno, int
     }
     return water_energy+burial_energy_i+burial_energy_j+electrostatic_energy;
   }
+  return 0;
 }
 
 void FixBackbone::compute_decoy_ixns(int i_resno, int j_resno, double rij_orig, double rho_i_orig, double rho_j_orig)
@@ -7702,7 +7683,7 @@ void FixBackbone::compute_pair()
   int *mask = atom->mask;
   int *type = atom->type;
   tagint *molecule = atom->molecule;
-  tagint *residue = avec->residue;
+  tagint *residue = atom->residue;
 
   for (i = 0; i < n; i++) {
     loc_water_ro[i] = 0.0;
@@ -7965,8 +7946,8 @@ void FixBackbone::compute_pair()
   // Main loop
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-    ires = residue[i]-1;
-    imol = molecule[i];
+    ires = atom->residue[i]-1;
+    imol = atom->molecule[i];
     ires_type = se_map[se[ires]-'A'];
     il = res_no_l[ires];
 
@@ -7981,8 +7962,8 @@ void FixBackbone::compute_pair()
       for (jj = 0; jj < jnum; jj++) {
         j = jlist[jj];
         j &= NEIGHMASK;
-        jres = residue[j]-1;
-        jmol = molecule[j];
+        jres = atom->residue[j]-1;
+        jmol = atom->molecule[j];
         jres_type = se_map[se[jres]-'A'];
         jl = res_no_l[jres];
 
@@ -7992,7 +7973,7 @@ void FixBackbone::compute_pair()
           xj[1] = x[j][1];
           xj[2] = x[j][2];
 
-	  dx[0] = xi[0] - xj[0];
+          dx[0] = xi[0] - xj[0];
           dx[1] = xi[1] - xj[1];
           dx[2] = xi[2] - xj[2];
 

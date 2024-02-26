@@ -98,8 +98,8 @@ void PairExcludedVolume::compute(int eflag, int vflag)
       imol = atom->molecule[i];
       jmol = atom->molecule[j];
       
-      ires = avec->residue[i];
-      jres = avec->residue[j];
+      ires = atom->residue[i];
+      jres = atom->residue[j];
 
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
@@ -238,10 +238,10 @@ void PairExcludedVolume::coeff(int narg, char **arg)
 
 void PairExcludedVolume::init_style()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+  avec = dynamic_cast<AtomVecAWSEM *> (atom->style_match("awsemmd"));
   if (!avec) error->all(FLERR,"Pair excluded_volume requires atom style awsemmd");
 
-  neighbor->request(this,instance_me);
+  neighbor->add_request(this, NeighConst::REQ_DEFAULT);
 }
 
 /* ----------------------------------------------------------------------
@@ -356,8 +356,8 @@ double PairExcludedVolume::single(int i, int j, int itype, int jtype, double rsq
   imol = atom->molecule[i];
   jmol = atom->molecule[j];
   
-  ires = avec->residue[i];
-  jres = avec->residue[j];
+  ires = atom->residue[i];
+  jres = atom->residue[j];
 
   if (abs(ires-jres)<5 && imol==jmol) rcut = cut_short[itype][jtype];
   else rcut = cut_long[itype][jtype];

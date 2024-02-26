@@ -41,7 +41,7 @@ PairGoContacts::PairGoContacts(LAMMPS *lmp) : Pair(lmp)
 
 /* ---------------------------------------------------------------------- */
 
-inline void PairGoContacts::print_log(char *line)
+inline void PairGoContacts::print_log(const char *line)
 {
   if (screen) fprintf(screen, line);
   if (logfile) fprintf(logfile, line);
@@ -140,8 +140,8 @@ void PairGoContacts::compute(int eflag, int vflag)
       imol = atom->molecule[i]-1;
       jmol = atom->molecule[j]-1;
       
-      ires = avec->residue[i]-1;
-      jres = avec->residue[j]-1;
+      ires = atom->residue[i]-1;
+      jres = atom->residue[j]-1;
       
       if (abs(jres-ires)<=3) continue;
 
@@ -370,10 +370,10 @@ void PairGoContacts::coeff(int narg, char **arg)
 
 void PairGoContacts::init_style()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+  avec = dynamic_cast<AtomVecAWSEM*>(atom->style_match("awsemmd"));
   if (!avec) error->all(FLERR,"Pair go-contacts requires atom style awsemmd");
 
-  neighbor->request(this,instance_me);
+  neighbor->add_request(this, NeighConst::REQ_DEFAULT);
 }
 
 /* ----------------------------------------------------------------------
@@ -524,8 +524,8 @@ double PairGoContacts::single(int i, int j, int itype, int jtype, double rsq,
   imol = atom->molecule[i]-1;
   jmol = atom->molecule[j]-1;
   
-  ires = avec->residue[i]-1;
-  jres = avec->residue[j]-1;
+  ires = atom->residue[i]-1;
+  jres = atom->residue[j]-1;
   
 // || rsq>sigma_sq[ires][jres]*9
   if (abs(jres-ires)<=3 || rsq>=cutsq[itype][jtype] || rsq>sigma_sq[ires][jres]*9) return 0.0;

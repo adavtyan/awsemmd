@@ -24,6 +24,7 @@ Last Update: 12/01/2010
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <cmath>
 
 using std::ifstream;
 
@@ -32,7 +33,7 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-inline void FixQBias::print_log(char *line)
+inline void FixQBias::print_log(const char *line)
 {
   if (screen) fprintf(screen, line);
   if (logfile) fprintf(logfile, line);
@@ -198,7 +199,7 @@ inline void FixQBias::Construct_Computational_Arrays()
 	int nlocal = atom->nlocal;
 	int nall = atom->nlocal + atom->nghost;
 	int *mol_tag = atom->molecule;
-	int *res_tag = avec->residue;
+	int *res_tag = atom->residue;
 
 	int i, j, js;
 
@@ -318,23 +319,23 @@ int FixQBias::setmask()
 
 void FixQBias::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+  avec = dynamic_cast<AtomVecAWSEM*>(atom->style_match("awsemmd"));
   if (!avec) error->all(FLERR,"Fix qbias requires atom style awsemmd");
 
-	if (strstr(update->integrate_style,"respa"))
-		nlevels_respa = ((Respa *) update->integrate)->nlevels;
+	if (utils::strmatch(update->integrate_style,"^respa"))
+		nlevels_respa = (dynamic_cast<Respa *>( update->integrate))->nlevels;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void FixQBias::setup(int vflag)
 {
-	if (strstr(update->integrate_style,"verlet"))
+	if (utils::strmatch(update->integrate_style,"^verlet"))
 		post_force(vflag);
 	else {
-		((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
+		(dynamic_cast<Respa *>( update->integrate))->copy_flevel_f(nlevels_respa-1);
 		post_force_respa(vflag,nlevels_respa-1,0);
-		((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
+		(dynamic_cast<Respa *>( update->integrate))->copy_f_flevel(nlevels_respa-1);
 	}
 }
 
@@ -364,17 +365,6 @@ inline double cross(double *a, double *b, int index)
 	}
 	
 	return 0;
-}
-
-inline double atan2(double y, double x)
-{
-	if (x==0) {
-		if (y>0) return M_PI_2;
-		else if (y<0) return -M_PI_2;
-		else return NULL;
-	} else {
-		return atan(y/x) + (x>0 ? 0 : (y>=0 ? M_PI : -M_PI) );
-	}
 }
 
 inline double FixQBias::PeriodicityCorrection(double d, int i)

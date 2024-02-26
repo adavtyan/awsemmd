@@ -9,7 +9,9 @@ Gaussian Contacts Potential was contributed by Weihua Zheng
 Last Update: 03/23/2011
 ------------------------------------------------------------------------- */
 #ifdef FIX_CLASS
+// clang-format off
 FixStyle(gomodel, FixGoModel)
+// clang-format on
 #else
 
 #ifndef FIX_GOMODEL_H
@@ -98,7 +100,7 @@ private:
   inline double PeriodicityCorrection(double d, int i);
   inline bool isFirst(int index);
   inline bool isLast(int index);
-  inline void print_log(char *line);
+  inline void print_log(const char *line);
 
   int Step;
   int sStep, eStep;

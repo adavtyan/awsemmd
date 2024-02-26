@@ -7,9 +7,9 @@
    ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
-
+// clang-format off
 ComputeStyle(contactmap,ComputeContactmap)
-
+// clang-format on
 #else
 
 #ifndef LMP_COMPUTE_CONTACTMAP_H

@@ -28,9 +28,9 @@
  -------------------------------------------------------------------------*/
 
 #ifdef FIX_CLASS
-
+// clang-format off
 FixStyle(spring/rg/papoian,FixSpringRGPapoian)
-
+// clang-format on
 #else
 
 #ifndef LMP_FIX_SPRING_RG_PAPOIAN_H

@@ -7,9 +7,9 @@
    ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
-
+// clang-format off
 ComputeStyle(pairdistmat,ComputePairdistmat)
-
+// clang-format on
 #else
 
 #ifndef LMP_COMPUTE_PAIRDISTMAT_H

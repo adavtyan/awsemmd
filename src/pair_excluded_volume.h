@@ -8,9 +8,9 @@ Last Update: 12/01/2010
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
+// clang-format off
 PairStyle(vexcluded,PairExcludedVolume)
-
+// clang-format on
 #else
 
 #ifndef LMP_PAIR_EXCLUDED_VOLUME_H

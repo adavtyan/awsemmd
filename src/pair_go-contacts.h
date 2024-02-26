@@ -8,9 +8,9 @@ Last Update: 12/01/2010
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
+// clang-format off
 PairStyle(gocontacts,PairGoContacts)
-
+// clang-format on
 #else
 
 #ifndef LMP_PAIR_GO_CONTACTS_H
@@ -59,7 +59,7 @@ class PairGoContacts : public Pair {
   
   enum ContactsDevType{DT_NONE=0, DT_CORR, DT_SIN, DT_CONST};
   
-  inline void print_log(char *line);
+  inline void print_log(const char *line);
   void compute_contact_deviation();
 
   void allocate();

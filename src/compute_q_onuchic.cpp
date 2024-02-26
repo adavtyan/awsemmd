@@ -137,7 +137,7 @@ ComputeQOnuchic::~ComputeQOnuchic()
 
 void ComputeQOnuchic::init()
 {
-  avec = (AtomVecAWSEM *) atom->style_match("awsemmd");
+  avec = dynamic_cast<AtomVecAWSEM*>(atom->style_match("awsemmd"));
   if (!avec) error->all(FLERR,"Compute qonuchic requires atom style awsemmd");
 
   if (atom->tag_enable == 0)
@@ -235,7 +235,7 @@ double ComputeQOnuchic::compute_scalar()
   int *mask = atom->mask;
   int *type = atom->type;
   int *tag = atom->tag;
-  int *res = avec->residue;
+  int *res = atom->residue;
   int *image = atom->image;
   int nlocal = atom->nlocal;
   int nall = atom->nlocal + atom->nghost;

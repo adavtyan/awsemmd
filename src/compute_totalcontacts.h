@@ -7,9 +7,9 @@
    ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
-
+// clang-format off
 ComputeStyle(totalcontacts,ComputeTotalcontacts)
-
+// clang-format on
 #else
 
 #ifndef LMP_COMPUTE_TOTALCONTACTS_H

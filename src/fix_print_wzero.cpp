@@ -61,10 +61,8 @@ FixPrintWithZero::FixPrintWithZero(LAMMPS *lmp, int narg, char **arg) :
       if (me == 0) {
         if (strcmp(arg[iarg],"file") == 0) fp = fopen(arg[iarg+1],"w");
         else fp = fopen(arg[iarg+1],"a");
-        if (fp == NULL) {
-          char str[128];
-          sprintf(str,"Cannot open fix print/wzero file %s",arg[iarg+1]);
-          error->one(FLERR,str);
+        if (fp == nullptr) {
+          error->one(FLERR, "Cannot open fix print/wzero file {}: {}", arg[iarg+1], utils::getsyserror());
         }
       }
       iarg += 2;

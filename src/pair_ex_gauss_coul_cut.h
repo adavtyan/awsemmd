@@ -10,9 +10,9 @@ Last Update: 05/01/2012
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
+// clang-format off
 PairStyle(ex/gauss/coul/cut,PairExGaussCoulCut)
-
+// clang-format on
 #else
 
 #ifndef LMP_PAIR_EX_GAUSS_COUL_CUT_H

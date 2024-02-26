@@ -12,9 +12,9 @@ Last Update: 12/20/2017
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
-
+// clang-format off
 FixStyle(backbone,FixBackbone)
-
+// clang-format on
 #else
 
 #ifndef LMP_FIX_BACKBONE_H

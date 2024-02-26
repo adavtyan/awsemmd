@@ -16,9 +16,9 @@
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
-
+// clang-format off
 FixStyle(print/wzero,FixPrintWithZero)
-
+// clang-format on
 #else
 
 #ifndef LMP_FIX_PRINT_WZERO_H

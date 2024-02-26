@@ -7,9 +7,9 @@
    ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
-
+// clang-format off
 ComputeStyle(qwolynes,ComputeQWolynes)
-
+// clang-format on
 #else
 
 #ifndef LMP_COMPUTE_QWOLYNES_H

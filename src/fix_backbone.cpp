@@ -88,9 +88,6 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
 {
   if (narg != 7) error->all(FLERR,"Illegal fix backbone command");
 
-  efile = fopen("energy.log", "w");
-  tfile = fopen("timer.log", "w");
-
 #ifdef DEBUGFORCES
   char buff[5];
   char forcefile[20]="";
@@ -101,8 +98,12 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
   dout = fopen(forcefile, "w");
 #endif
 
-  char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tContact_Restraints  \tMembrane\tSSB     \tElectro.\tVTotal\n";
-  fprintf(efile, "%s", eheader);
+  if (comm->me==0) {
+    efile = fopen("energy.log", "w");
+    tfile = fopen("timer.log", "w");
+    char eheader[] = "Step   \tChain   \tShake   \tChi     \tRama    \tExcluded\tDSSP    \tP_AP    \tWater   \tBurial  \tHelix   \tAMH-Go  \tFrag_Mem\tVec_FM  \tContact_Restraints  \tMembrane\tSSB     \tElectro.\tVTotal\n";
+    fprintf(efile, "%s", eheader);
+  }
 
   scalar_flag = 1;
   vector_flag = 1;
@@ -468,7 +469,8 @@ FixBackbone::FixBackbone(LAMMPS *lmp, int narg, char **arg) :
       in >> k_PlusPlus >> k_MinusMinus >> k_PlusMinus;
       in >> k_screening;
       in >> screening_length;
-      fprintf(screen, "Debye-Huckel Screening Length = %8.6f Angstroms\n", screening_length);
+      if (screen) fprintf(screen, "Debye-Huckel Screening Length = %8.6f Angstroms\n", screening_length);
+      if (logfile) fprintf(logfile, "Debye-Huckel Screening Length = %8.6f Angstroms\n", screening_length);
       in >> debye_huckel_min_sep;
     } else if (strcmp(varsection, "[DebyeHuckel_Optimization]")==0) {
       debyehuckel_optimization_flag = 1;
@@ -1022,8 +1024,8 @@ if (in_brg.eof()) error->all(FLERR,"Burial potential burial_gamma.dat file forma
     if (!input_charge) error->all(FLERR,"File charge_on_residues.dat doesn't exist");
     input_charge >> total_residues;
 
-    //fprintf(screen, "check charge data \n");
-    fprintf(screen, "Number of Charge input = %5d \n", total_residues);
+    if (screen) fprintf(screen, "Number of Charge input = %5d \n", total_residues);
+    if (logfile) fprintf(logfile, "Number of Charge input = %5d \n", total_residues);
     for(int ires = 0; ires<total_residues; ires++)
       {
 	input_charge >> residue_number >> charge_value;
@@ -1034,7 +1036,8 @@ if (in_brg.eof()) error->all(FLERR,"Burial potential burial_gamma.dat file forma
 	//fprintf(screen, "residue=%5d, charge on residue =%8.6f\n", res_min_one, charge_on_residue[res_min_one]);
       }
     input_charge.close();
-    fprintf(screen, "Total Charge on the System = %8.4f\n", total_charge );
+    if (screen) fprintf(screen, "Total Charge on the System = %8.4f\n", total_charge );
+    if (logfile) fprintf(logfile, "Total Charge on the System = %8.4f\n", total_charge );
   }
 
 // Determine pair list cutoff
@@ -1057,8 +1060,10 @@ if (in_brg.eof()) error->all(FLERR,"Burial potential burial_gamma.dat file forma
     pair_list_cutoff = MAX(pair_list_cutoff, cut);
   }
 //  pair_list_cutoff += neighbor->skin;
-  fprintf(screen, "Fix backbone Pair List cutoff %.4f\n", pair_list_cutoff);
-  fprintf(logfile, "Fix backbone Pair List cutoff %.4f\n", pair_list_cutoff);
+  if (comm->me==0) {
+    if (screen) fprintf(screen, "Fix backbone Pair List cutoff %.4f\n", pair_list_cutoff);
+    if (logfile) fprintf(logfile, "Fix backbone Pair List cutoff %.4f\n", pair_list_cutoff);
+  }
 }
 
 double FixBackbone::calc_exp_helix_cutoff()
@@ -1136,8 +1141,8 @@ void FixBackbone::read_contact_restraints_file()
   // this equivalent to having exp[-drsq/2*sigma_sq]=10^-4
   cr_dr_cutoff = cr_sigma*4.29;
   cr_glob_cutoff_sq = pow(r0_max + cr_dr_cutoff, 2);
-  fprintf(screen, "Contact Restraints potential global cutoff %.4f\n", r0_max + cr_dr_cutoff);
-  fprintf(logfile, "Contact Restraints potential global cutoff %.4f\n", r0_max + cr_dr_cutoff);
+  if (screen) fprintf(screen, "Contact Restraints potential global cutoff %.4f\n", r0_max + cr_dr_cutoff);
+  if (logfile) fprintf(logfile, "Contact Restraints potential global cutoff %.4f\n", r0_max + cr_dr_cutoff);
 
   for (i=0;i<n;++i) {
     n_t[i] = 0;
@@ -1382,8 +1387,10 @@ FixBackbone::~FixBackbone()
     delete[] charge_on_residue;
   }
 
-  fclose(efile);
-  fclose(tfile);
+  if (comm->me==0) {
+    fclose(efile);
+    fclose(tfile);
+  }
 
   if (allocated) {
 
@@ -3822,8 +3829,8 @@ void FixBackbone::compute_amhgo_normalization()
   }
   amh_go_norm[0] /= 8*iresn;     // BinZhang
   if (comm->me==0) {
-    fprintf(screen, "amhgo: %d, %12.6f,\n", iresn, amh_go_norm[0]);
-    fprintf(logfile, "amhgo: %d, %12.6f,\n", iresn, amh_go_norm[0]);
+    if (screen) fprintf(screen, "amhgo: %d, %12.6f,\n", iresn, amh_go_norm[0]);
+    if (logfile) fprintf(logfile, "amhgo: %d, %12.6f,\n", iresn, amh_go_norm[0]);
   }
 }
 
@@ -4394,8 +4401,8 @@ void FixBackbone::table_fragment_memory(int i, int j)
       f[jatom[k]][2] += -ff*dx[2];
     } else {
       error->all(FLERR,"Table Fragment Memory: r is out of computed range.");
-      fprintf(screen, "r=%f\n", r);
-      fprintf(logfile, "r=%f\n", r);
+      if (screen) fprintf(screen, "r=%f\n", r);
+      if (logfile) fprintf(logfile, "r=%f\n", r);
     }
   }
 }
@@ -6472,10 +6479,8 @@ void FixBackbone::read_amylometer_sequences(char *amylometer_sequence_file, int 
     if (line[0]=='#') continue;
     for (int i=0; i<number_of_aminoacids-amylometer_nmer_size+1; i++) {
       for (int j=0; j<amylometer_nmer_size; j++) {
-	//fprintf(output_file, "%c", line[i+j]);
       }
       number_of_nmers++;
-      //fprintf(output_file, "\n");
     }
   }
   fclose(file);
@@ -7025,17 +7030,6 @@ void FixBackbone::compute_backbone()
 
   //if(atom->nlocal==0) return;
   force_flag = 0;
-/*  if(atom->nlocal==0){
-        for (int i=0;i<nEnergyTerms;++i) energy[i] = 0.0;
-//        for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
-        if (ntimestep%output->thermo_every==0) {
-           if (force_flag == 0) {
-              MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-              force_flag = 1;
-           }
-        }
-        return;
-  }*/
 
 /*  if (comm->nprocs>1 || ntimestep==0 || firsttimestep) {
     firsttimestep = false;

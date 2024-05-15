@@ -92,7 +92,7 @@ ComputeQOnuchic::ComputeQOnuchic(LAMMPS *lmp, int narg, char **arg) :
   sigmaexp = 0.15;
   
   createContactArrays();
-  
+  delete [] ctype;
 //  fout = fopen(filename, "w");
 }
 
@@ -129,6 +129,8 @@ ComputeQOnuchic::~ComputeQOnuchic()
 		delete [] rsq_native;
 		delete [] is_native;
 	}
+
+	delete [] datafile;
 	
 //	fclose(fout);
 }

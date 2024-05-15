@@ -278,6 +278,10 @@ FixGoModel::~FixGoModel()
 			delete [] isNative_mb;
 		}
 	}
+
+	fclose(efile);
+	fclose(fout);
+	fclose(efout);
 }
 
 /* ---------------------------------------------------------------------- */

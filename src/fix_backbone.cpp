@@ -1392,6 +1392,13 @@ FixBackbone::~FixBackbone()
     fclose(tfile);
   }
 
+  if (amylometer_flag) {
+    for (int i = 0; i < number_of_nmers; i++) {
+      free(nmer_array[i]);
+    }
+    free(nmer_array);
+  }
+
   if (allocated) {
 
     delete [] loc_water_ro;
@@ -6643,6 +6650,7 @@ void FixBackbone::compute_amylometer()
   }
 
   fclose(amylometer_energy_file);
+  fclose(nmer_output_file);
   return;
 }
 

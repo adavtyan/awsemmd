@@ -178,8 +178,8 @@ fgets(buff, 200, file);
 Fragment_Memory::~Fragment_Memory()
 {
   for (int i=0;i<len;++i) {
-    delete rf[0][i];
-    delete rf[1][i];
+    delete [] rf[0][i];
+    delete [] rf[1][i];
   }
 
   delete [] rf[0];

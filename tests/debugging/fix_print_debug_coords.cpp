@@ -40,7 +40,7 @@ FixPrintDebugCoords::FixPrintDebugCoords(LAMMPS *lmp, int narg, char **arg) :
   if (group->count(igroup) == 0) error->all(FLERR,"Fix print_debug_coords group has no atoms");
 
   if (narg < 5) error->all(FLERR,"Illegal fix print command");
-  nstep = force->inumeric(FLERR,arg[3]);
+  nstep = utils::inumeric(FLERR, arg[3], false, lmp);
   if (nstep < 0) error->all(FLERR,"Illegal fix print command");
 
   MPI_Comm_rank(world,&me);

@@ -441,7 +441,7 @@ cWell<T, U>::~cWell()
 
 	for (int i=0;i<n;++i) {
 		delete [] v_sigma[i];
-		delete [] gRo[i];
+		delete [] gSigma[i];
 	}
 
 	delete [] v_theta;
@@ -454,6 +454,10 @@ cWell<T, U>::~cWell()
 	delete [] gSigma;
 	delete [] gH;
 	delete [] gRo;
+	delete [] rmin_theta;
+	delete [] rmax_theta;
+	delete [] rmin_theta_sq;
+	delete [] rmax_theta_sq;
 }
 
 template <typename T, typename U>

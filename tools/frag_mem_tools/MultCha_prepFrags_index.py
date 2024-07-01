@@ -36,7 +36,7 @@ fasta =sys.argv[2]
 N_mem = int(sys.argv[3])
 brain_damage = int(sys.argv[4])
 
-fragmentLength = 9
+fragmentLength = 10
 if len(sys.argv)==6:
 	fragmentLength = int(sys.argv[5])
 

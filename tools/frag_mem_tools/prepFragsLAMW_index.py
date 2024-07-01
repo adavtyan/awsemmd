@@ -131,7 +131,7 @@ if not os.path.isfile(fasta_database):
   exit()
 seq_records = SeqIO.index(fasta_database, "fasta")
 
-fragmentLength=9 #needs to be an odd number
+fragmentLength=10 #needs to be an odd number
 memoriesPerPosition=N_mem  #can be any integer > 0
 EvalueThreshold=10000 #needs to be large enough that PSI-BLAST returns at least memoriesPerPosition
 

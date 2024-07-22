@@ -9,8 +9,8 @@ def three2one(prot):
             "ARG" : "R", "LYS" : "K", "MET" : "M", "CYS" : "C",
             "TYR" : "Y", "THR" : "T", "PRO" : "P", "SER" : "S",
             "TRP" : "W", "ASP" : "D", "GLU" : "E", "ASN" : "N",
-	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V",
-	    "M3L" : "K", "MSE" : "M", "CAS" : "C" }
+            "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V",
+            "M3L" : "K", "MSE" : "M", "CAS" : "C" }
     
     newprot = ""
     for a in prot:
@@ -41,8 +41,8 @@ chains = s[0].get_list()
 for ch in chains:
     sequance = []
     for res in ch:
-	is_regular_res = res.has_id('CA') and res.has_id('O')
-	res_id = res.get_id()[0]
+        is_regular_res = res.has_id('CA') and res.has_id('O')
+        res_id = res.get_id()[0]
         if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
             sequance.append(res.get_resname())
             xyz_CA.append(res['CA'].get_coord())
@@ -50,9 +50,9 @@ for ch in chains:
 out.write( str(len(xyz_CA)) )
 out.write('\n')
 for ixyz in xyz_CA:
-	out.write( str(round(ixyz[0], 5)) )
-	out.write('\t')
-	out.write( str(round(ixyz[1], 5)) )
-	out.write('\t')
-	out.write( str(round(ixyz[2], 5)) )
-	out.write('\n')
+        out.write( str(round(ixyz[0], 10)) )
+        out.write('\t')
+        out.write( str(round(ixyz[1], 10)) )
+        out.write('\t')
+        out.write( str(round(ixyz[2], 10)) )
+        out.write('\n')

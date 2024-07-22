@@ -54,7 +54,7 @@ fasta_database = database+".fasta"
 # Index database fasta file
 if not os.path.isfile(fasta_database):
 	print ("Can't find database fasta file")
-        exit()
+	exit()
 seq_records = SeqIO.index(fasta_database, "fasta")
 
 #from Bio import SeqIO

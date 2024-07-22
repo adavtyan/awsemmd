@@ -12,8 +12,9 @@
 import os
 from VectorAlgebra import *
 import argparse
+import gzip
 
-#from Bio.PDB.PDBParser import PDBParser
+from Bio.PDB.PDBParser import PDBParser
 
 atom_type = {'1' : 'C', '2' : 'N', '3' : 'O', '4' : 'C', '5' : 'H', '6' : 'C'}
 atom_desc = {'1' : 'C-Alpha', '2' : 'N', '3' : 'O', '4' : 'C-Beta', '5' : 'H-Beta', '6' : 'C-Prime'}
@@ -101,13 +102,15 @@ parser.add_argument('--output', '-O', action='store', required=True,
 parser.add_argument('--cutoff', '-C', action='store', type=float,
 										help='set cutoff for monomer and complex Q calculations. By default no cutoff is used')
 parser.add_argument('--sigma_exp', '-E', action='store', type=float, default=0.15,
-										help='set sigma exponent for monomer and complex calculations')
+		help='set sigma exponent for monomer and complex calculations (default: 0.15)')
 parser.add_argument('--min_sep', '-M', action='store', type=int, default=3,
-										help='minimal sequnce seperation for monomer and complex Q calculations')
+		help='minimal sequnce seperation for monomer and complex Q calculations (default: 3)')
 parser.add_argument('--interface_sigma', '-S', action='store', type=float, default=3.0,
-										help='set interchain sigma value')
+		help='set interchain sigma value (default: 3.0)')
 parser.add_argument('--interface_cutoff', '-IC', action='store', type=float, default=10.0,
-										help='set cutoff for interface Q calculations, with values of zero or less interpreted as no cutoff required')
+		help='set cutoff for interface Q calculations, with values of zero or less interpreted as no cutoff required (default: 10.0)')
+parser.add_argument('--chains', '-CH', action='store', type=str, nargs="+", default="ALL",
+		help='specify chains to be used in the order needed (default:)')
 
 args = parser.parse_args()
 
@@ -138,6 +141,8 @@ if args.interface_cutoff is not None and args.interface_cutoff>0.0:
 b_max_cutoff = b_cutoff and b_interface_cutoff
 max_cutoff = max(cutoff, interface_cutoff)
 
+use_chains = args.chains
+
 n_atoms = 0
 i_atom = 0
 item = ''
@@ -151,8 +156,6 @@ sigma = []
 sigma_sq = []
 
 out = open(output_file, 'w')
-
-from Bio.PDB.PDBParser import PDBParser
 
 p = PDBParser(PERMISSIVE=1)
 
@@ -203,9 +206,18 @@ def computeQ():
 	return Q
 
 s = p.get_structure(struct_id, pdb_file)
-chains = s[0].get_list()
-#chain = chains[0]
-ichain = 'A'
+model = s[0]
+if use_chains=='' or use_chains=='ALL' or use_chains=='all':
+	chains = model.get_list()
+else:
+	chains = []
+	for chain in use_chains:
+		if chain in model: 
+			chains.append(model[chain])
+		else:
+			print ("Error. the specified chain is not found")
+			exit ()
+
 for chain in chains:
 	ichain = chain.get_id()
 	for res in chain:
@@ -220,8 +232,13 @@ for i in range(0, len(ca_atoms_pdb)+1):
 	sigma_sq.append(sigma[-1]*sigma[-1])
 
 b_first = True
-lfile = open(lammps_file)
+binary_file = lammps_file.endswith('.gz')
+if binary_file:
+	lfile = gzip.open(lammps_file, 'rb')
+else:
+	lfile = open(lammps_file)
 for l in lfile:
+	if binary_file: l = l.decode()
 	l = l.strip()
 	if l[:5]=="ITEM:":
 		item = l[6:]

@@ -44,7 +44,7 @@ def compute_qis():
 		print ("Error: length mismatch!")
 		print ("Pdb: ", len(native_distances), "trj: ", len(cb_atoms))
 		exit()	
-   	N = len(cb_atoms)
+	N = len(cb_atoms)
 	qis = numpy.zeros([len(cb_atoms)])
 
 	for i in range(0, N):
@@ -63,7 +63,7 @@ def compute_qis():
 for chain in chains:
 	dis = []
 	all_res = []
-   	for res in chain:
+	for res in chain:
 		is_regular_res = res.has_id('CA') and res.has_id('O')
 		res_id = res.get_id()[0]
 		if (res.get_resname()=='GLY'):

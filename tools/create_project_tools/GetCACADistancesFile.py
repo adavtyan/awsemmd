@@ -14,8 +14,8 @@ def three2one(prot):
             "ARG" : "R", "LYS" : "K", "MET" : "M", "CYS" : "C",
             "TYR" : "Y", "THR" : "T", "PRO" : "P", "SER" : "S",
             "TRP" : "W", "ASP" : "D", "GLU" : "E", "ASN" : "N",
-	    "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V",
-	    "M3L" : "K", "MSE" : "M", "CAS" : "C" }
+            "GLN" : "Q", "PHE" : "F", "HIS" : "H", "VAL" : "V",
+            "M3L" : "K", "MSE" : "M", "CAS" : "C" }
     
     newprot = ""
     for a in prot:
@@ -76,52 +76,52 @@ for ch in chains:
     sequance = []
     dis = []
     if output_fn!="":
-	pass
+        pass
     else:
         print ("Chain:", ch.get_id())
     four_res = [None, None, None, None]
     all_res = []
     for res in ch:
-	is_regular_res = res.has_id('CA') and res.has_id('O')
-	res_id = res.get_id()[0]
+        is_regular_res = res.has_id('CA') and res.has_id('O')
+        res_id = res.get_id()[0]
         if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
             all_res.append(res)
             sequance.append(res.get_resname())
 
     for i in range( 0, len(all_res) ):
-	dis.append([]);
-	ires = all_res[i]
-	xyz_CAi = ires['CA'].get_coord()
-	for j in range( 0, len(all_res) ):
-		jres = all_res[j]
-		xyz_CAj = jres['CA'].get_coord()
-		r = calc_dis(xyz_CAi, xyz_CAj)
-		dis[i].append(r);
+        dis.append([]);
+        ires = all_res[i]
+        xyz_CAi = ires['CA'].get_coord()
+        for j in range( 0, len(all_res) ):
+                jres = all_res[j]
+                xyz_CAj = jres['CA'].get_coord()
+                r = calc_dis(xyz_CAi, xyz_CAj)
+                dis[i].append(r);
 
     if output_fn!="":
         if splite and len(sequance)==0: continue
         if splite:
-	    if len(chains)==1:
-		file_name = output_fn+".dat"
-	    else:
-		file_name = output_fn+"_"+ch.get_id()+".dat"
+            if len(chains)==1:
+                file_name = output_fn+".dat"
+            else:
+                file_name = output_fn+"_"+ch.get_id()+".dat"
             out = open( file_name, 'w' )
-	
-	for ri in dis:
-		for rij in ri:
-			out.write( str(round(rij, 6)) )
-			out.write( ' ' )
-		out.write( '\n' )	
+        
+        for ri in dis:
+                for rij in ri:
+                        out.write( str(round(rij, 6)) )
+                        out.write( ' ' )
+                out.write( '\n' )        
         if not splite:
             out.write('\n')
         if splite:
             out.close()
     else:
         print (three2one(sequance))
-	for ri in dis:
-		for rij in ri:
-			print (str(round(rij, 2)), ' ', end="")
-		print()
+        for ri in dis:
+                for rij in ri:
+                        print (str(round(rij, 2)), ' ', end="")
+                print()
         print ('\n')
 
 if output_fn!="" and not splite:

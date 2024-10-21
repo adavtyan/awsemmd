@@ -15,6 +15,7 @@ import argparse
 import gzip
 
 from Bio.PDB.PDBParser import PDBParser
+from Bio.PDB.MMCIFParser import MMCIFParser
 
 atom_type = {'1' : 'C', '2' : 'N', '3' : 'O', '4' : 'C', '5' : 'H', '6' : 'C'}
 atom_desc = {'1' : 'C-Alpha', '2' : 'N', '3' : 'O', '4' : 'C-Beta', '5' : 'H-Beta', '6' : 'C-Prime'}
@@ -115,7 +116,10 @@ parser.add_argument('--chains', '-CH', action='store', type=str, nargs="+", defa
 args = parser.parse_args()
 
 pdb_file = args.reference
-struct_id = os.path.splitext(os.path.basename(pdb_file))[0]
+pdb_file_name = os.path.basename(pdb_file)
+struct_id = os.path.splitext(pdb_file_name)[0]
+file_extension = os.path.splitext(pdb_file_name)[1]
+file_extension = file_extension.lower()
 
 lammps_file = args.input
 output_file = args.output
@@ -157,7 +161,13 @@ sigma_sq = []
 
 out = open(output_file, 'w')
 
-p = PDBParser(PERMISSIVE=1)
+if file_extension==".pdb":
+	p = PDBParser(PERMISSIVE=1)
+elif file_extension==".cif":
+	p = MMCIFParser()
+else:
+	print ("Wrong reference structure file format")
+	exit()
 
 def computeQ():
 	if len(ca_atoms)!=len(ca_atoms_pdb):
@@ -202,7 +212,8 @@ def computeQ():
 				norm[index] += 1.0
 
 	for key in Q:
-		Q[key] = Q[key]/norm[key]
+		if norm[key]>0.0:
+			Q[key] = Q[key]/norm[key]
 	return Q
 
 s = p.get_structure(struct_id, pdb_file)

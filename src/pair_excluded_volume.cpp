@@ -55,8 +55,7 @@ void PairExcludedVolume::compute(int eflag, int vflag)
   int *ilist,*jlist,*numneigh,**firstneigh;
 
   evdwl = 0.0;
-  if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = vflag_fdotr = 0;
+  ev_init(eflag, vflag);
 
   int ntypes = atom->ntypes;
   sign = (p%2==0 ? 1 : -1);

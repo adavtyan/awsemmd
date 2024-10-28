@@ -10,6 +10,7 @@
 # ----------------------------------------------------------------------
 
 import sys
+import gzip
 from math import sqrt, sin, cos
 
 #from Bio.PDB.PDBParser import PDBParser
@@ -180,6 +181,7 @@ atoms3 = []
 bonds = []
 box = []
 A = []
+imodel = 1
 
 out = open(output_file, 'w')
 
@@ -416,9 +418,12 @@ def print_atom_array():
 		ia.write_(out)
 
 def print_pdb():
+	global imodel
+	out.write(f"MODEL {imodel:8}\n")
 	for ia in atoms3:
 		ia.write_(out)
-	out.write("END\n");
+	out.write("ENDMDL\n")
+	imodel += 1
 
 def print_psf():
 	space8 = "        "
@@ -443,9 +448,14 @@ def print_psf():
 
 nFrame = 0
 found = False
-lfile = open(lammps_file)
+binary_file = lammps_file.endswith('.gz')
+if binary_file:
+	lfile = gzip.open(lammps_file, 'rb')
+else:
+	lfile = open(lammps_file)
 if snapshot<0:
 	for l in lfile:
+		if binary_file: l = l.decode()
 		l = l.strip()
 		if l[:5]=="ITEM:":
 			item = l[6:]
@@ -490,6 +500,7 @@ if snapshot<0:
 		print_psf()
 else:
 	for l in lfile:
+		if binary_file: l = l.decode()
 		l = l.strip()
 		if l[:5]=="ITEM:":
 			item = l[6:]

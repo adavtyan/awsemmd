@@ -14,7 +14,9 @@
 # Last Update: 08/13/2018
 # ----------------------------------------------------------------------
 
+import gzip
 import sys
+import os
 
 ##
 import numpy
@@ -99,11 +101,13 @@ if len(sys.argv)!=4:
 	exit()
 
 struct_id = sys.argv[1]
-if struct_id[-4:].lower()==".pdb":
+if struct_id[-4:].lower()==".pdb" or struct_id[-4:].lower()==".cif":
 	pdb_file = struct_id
 	struct_id = struct_id[:-4]
 else:
 	pdb_file = struct_id + ".pdb"
+file_extension = os.path.splitext(pdb_file)[1]
+file_extension = file_extension.lower()
 
 lammps_file = sys.argv[2]
 
@@ -121,12 +125,19 @@ A = []
 out = open(output_file, 'w')
 
 from Bio.PDB.PDBParser import PDBParser
+from Bio.PDB.MMCIFParser import MMCIFParser
 
 ##
 from Bio.SVDSuperimposer import SVDSuperimposer
 ##
 
-p = PDBParser(PERMISSIVE=1)
+if file_extension==".pdb":
+	p = PDBParser(PERMISSIVE=1)
+elif file_extension==".cif":
+	p = MMCIFParser()
+else:
+	print ("Wrong reference structure file format")
+	exit()
 
 ##
 def computeRMSD():
@@ -156,8 +167,13 @@ for chain in chains:
 		if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L') and is_regular_res:
 			ca_atoms_pdb.append(res['CA'].get_coord())
 
-lfile = open(lammps_file)
+binary_file = lammps_file.endswith('.gz')
+if binary_file:
+	lfile = gzip.open(lammps_file, 'rb')
+else:
+	lfile = open(lammps_file)
 for l in lfile:
+	if binary_file: l = l.decode()
 	l = l.strip()
 	if l[:5]=="ITEM:":
 		item = l[6:]

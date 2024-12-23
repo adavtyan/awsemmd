@@ -96,8 +96,8 @@ class Atom:
 		f.write(self.desc)
 		f.write('\n')
 
-if len(sys.argv)!=4:
-	print ("\nCalcRMSD.py PDB_Id Input_file(lammpstrj) Output_file(rmsd)\n")
+if len(sys.argv)<4:
+	print ("\nCalcRMSD.py PDB_Id Input_file(lammpstrj) Output_file(rmsd) [chain1 chain2 chain3 ...]\n")
 	exit()
 
 struct_id = sys.argv[1]
@@ -112,6 +112,12 @@ file_extension = file_extension.lower()
 lammps_file = sys.argv[2]
 
 output_file = sys.argv[3]
+
+chain_list = []
+if len(sys.argv)>4:
+    for ch in sys.argv[4:]:
+        chain_list.append(ch)
+print(chain_list)
 
 n_atoms = 0
 i_atom = 0
@@ -159,7 +165,18 @@ def computeRMSD():
 	return rms
 
 s = p.get_structure(struct_id, pdb_file)
-chains = s[0].get_list()
+model = s[0]
+if len(chain_list)==0:
+    chains = model.get_list()
+else:
+    chains = []
+    for chain in chain_list:
+        if chain in model:
+            chains.append(model[chain])
+        else:
+            print ("Error. the specified chain is not found")
+            exit ()
+
 for chain in chains:
 	for res in chain:
 		is_regular_res = res.has_id('CA') and res.has_id('O')

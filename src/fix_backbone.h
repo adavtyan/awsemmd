@@ -454,7 +454,7 @@ public:
   char *rtrim(char *s);
   char *trim(char *s);
   inline bool file_exists (const char *name);
-static int cmp_cr_map_i2(const void *a, const void *b);
+  static int cmp_cr_map_i2(const void *a, const void *b);
 
   inline void timerBegin();
   inline void timerEnd(int which);
@@ -463,7 +463,7 @@ static int cmp_cr_map_i2(const void *a, const void *b);
   cR<double, FixBackbone> *R;
   cWell<double, FixBackbone> *well;
   cWell<double, FixBackbone> *helix_well;
-  
+
   WPV water_par;
   WPV helix_par;
 

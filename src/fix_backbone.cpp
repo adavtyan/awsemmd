@@ -8095,11 +8095,12 @@ void FixBackbone::compute_pair()
 
           if ( mask[i]&groupbit && mask[j]&groupbit) {
 
-              if (p_ap_flag && rsq < pap_cutoff_sq)
-                if (rsq < pap_cutoff_sq) {
+              if (p_ap_flag && rsq < pap_cutoff_sq) {
+                if (ires<jres)
                   compute_P_AP_potential(il, jl);
+                else
                   compute_P_AP_potential(jl, il);
-                }
+              }
 
               /*if ( frag_mem_tb_flag && imol==jmol && abs(jres-ires)>=fm_gamma->minSep() && (fm_gamma->maxSep()==-1 || abs(jres-ires)<=fm_gamma->maxSep()))
                 if (jres>ires) table_fragment_memory(il, jl);

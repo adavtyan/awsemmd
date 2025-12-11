@@ -351,7 +351,7 @@ def buildAllAtoms(build_terminal_atoms=True, build_bonds=False):
 		if not i in O_atom_map:
 			print ("Error! missing O atom in residue!\n" % i)
 			sys.exit()
-		if not i in Cb_atom_map:
+		if not i in Cb_atom_map and seqs_all[i-1]!='G':
 			print ("Error! missing Cb or Hb atom in residue!\n" % i)
 			sys.exit()
 		if not i in N_atom_map:
@@ -368,7 +368,7 @@ def buildAllAtoms(build_terminal_atoms=True, build_bonds=False):
 		add_atoms.append(Ca_atom_map[i])
 		if i in Cp_atom_map: add_atoms.append(Cp_atom_map[i])
 		add_atoms.append(O_atom_map[i])
-		add_atoms.append(Cb_atom_map[i])
+		if i in Cb_atom_map: add_atoms.append(Cb_atom_map[i])
 
 		for j in range(len(add_atoms)):
 			ja = add_atoms[j]
@@ -387,7 +387,6 @@ def buildAllAtoms(build_terminal_atoms=True, build_bonds=False):
 			N1_index = -1
 
 			Ca_index = Ca_atom_map[i].No
-			Cb_index = Cb_atom_map[i].No
 			O_index = O_atom_map[i].No
 			if i in N_atom_map: N_index = N_atom_map[i].No
 			if i in Cp_atom_map: Cp_index = Cp_atom_map[i].No
@@ -398,7 +397,9 @@ def buildAllAtoms(build_terminal_atoms=True, build_bonds=False):
 			if Cp_index!=-1:
 				bonds.append([Ca_index, Cp_index])
 				bonds.append([Cp_index, O_index])
-			bonds.append([Ca_index, Cb_index])
+			if seqs_all[i-1]!='G':
+				Cb_index = Cb_atom_map[i].No
+				bonds.append([Ca_index, Cb_index])
 			if Cp_index!=-1 and N1_index!=-1:
 				bonds.append([Cp_index, N1_index])
 

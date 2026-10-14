@@ -1263,6 +1263,14 @@ FixBackbone::~FixBackbone()
     delete [] mcso_se;
     delete [] z_res;
 
+    if (water_flag) {
+      delete well;
+    }
+    
+    if (helix_flag) {
+      delete helix_well;
+    }
+
     if (p_ap_flag) {
       delete p_ap;
     }
@@ -7658,7 +7666,7 @@ void FixBackbone::compute_backbone()
 
   for (int i=1;i<nEnergyTerms;++i) energy[ET_TOTAL] += energy[i];
 
-  if (ntimestep%output->thermo_every==0) {
+  if (output->thermo_every!=0 && ntimestep%output->thermo_every==0) {
     if (force_flag == 0) {
       MPI_Allreduce(energy,energy_all,nEnergyTerms,MPI_DOUBLE,MPI_SUM,world);
       force_flag = 1;
